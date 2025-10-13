@@ -95,12 +95,12 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
 
       <main className="container mx-auto px-4 py-8 pt-24">
         {/* League Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div className="flex-1">
-            <h1 className="text-5xl font-bold text-neon-blue">{league.name}</h1>
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-neon-blue break-words">{league.name}</h1>
           </div>
-          <Link href={`/leagues/${id}/history`}>
-            <Button variant="outline" className="glass border-primary/30">
+          <Link href={`/leagues/${id}/history`} className="shrink-0">
+            <Button variant="outline" className="glass border-primary/30 w-full sm:w-auto">
               <History className="h-4 w-4 mr-2" />
               View History
             </Button>
@@ -112,28 +112,28 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
           <>
           <Card className="glass-intense border-primary/30 neon-glow-blue mb-6">
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-3xl">Week {currentWeek.week_number}</CardTitle>
-                  <CardDescription className="mt-2 flex items-center gap-3 text-base">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                <div className="flex-1">
+                  <CardTitle className="text-2xl sm:text-3xl">Week {currentWeek.week_number}</CardTitle>
+                  <CardDescription className="mt-2 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 text-sm sm:text-base">
                     {deadline && (
-                      <>
+                      <span className="flex items-center gap-2">
                         <Clock className="h-4 w-4" />
                         <span>
                           Deadline: {deadline.toLocaleDateString()} at{' '}
                           {deadline.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
-                      </>
+                      </span>
                     )}
                     {isPastDeadline && (
-                      <Badge variant="outline" className="text-destructive border-destructive/30">
+                      <Badge variant="outline" className="text-destructive border-destructive/30 w-fit">
                         Deadline Passed
                       </Badge>
                     )}
                   </CardDescription>
                 </div>
-                <Link href={`/leagues/${id}/weeks/${currentWeek.id}`}>
-                  <Button className="neon-glow-blue">
+                <Link href={`/leagues/${id}/weeks/${currentWeek.id}`} className="shrink-0 w-full sm:w-auto">
+                  <Button className="neon-glow-blue w-full sm:w-auto">
                     View Details
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
@@ -142,7 +142,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
             </CardHeader>
             <CardContent>
               {/* This Week's Stats */}
-              <div className="grid gap-4 md:grid-cols-4 mb-6">
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-4 mb-6">
                 <Card className="glass-card hover:glass-intense transition-all">
                   <CardContent className="pt-4 pb-4">
                     <div className="flex items-center justify-between">

@@ -39,7 +39,7 @@ export async function Header() {
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
         {/* Logo */}
         <Link href={user ? "/dashboard" : "/"} className="group">
-          <h1 className="text-2xl font-bold flex items-center">
+          <h1 className="text-lg sm:text-2xl font-bold flex flex-col sm:flex-row sm:items-center leading-tight sm:leading-normal">
             <span className="text-neon-blue group-hover:text-primary transition-colors">
               DEGENERATES
             </span>
