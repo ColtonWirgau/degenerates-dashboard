@@ -325,46 +325,46 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                             className="block"
                           >
                             <div
-                              className={`glass-card hover:glass-intense transition-all p-4 cursor-pointer ${
+                              className={`glass-card hover:glass-intense transition-all p-3 cursor-pointer ${
                                 isCurrentUser ? 'border-primary/50 neon-glow-blue' : ''
                               }`}
                             >
-                              <div className="flex items-center gap-4">
-                              <div className={`text-2xl font-bold ${rankClass} w-12 text-center`}>
-                                {rankIcon}
-                              </div>
+                              <div className="flex items-center gap-3">
+                                <div className={`text-xl sm:text-2xl font-bold ${rankClass} w-10 sm:w-12 text-center flex-shrink-0`}>
+                                  {rankIcon}
+                                </div>
 
-                              <Avatar className="h-10 w-10 flex-shrink-0">
-                                <AvatarImage src={member.avatarUrl || undefined} alt={member.fullName || member.email} />
-                                <AvatarFallback className="bg-primary/20 text-primary font-bold">
-                                  {getInitials(member.fullName, member.email)}
-                                </AvatarFallback>
-                              </Avatar>
+                                <Avatar className="h-10 w-10 flex-shrink-0">
+                                  <AvatarImage src={member.avatarUrl || undefined} alt={member.fullName || member.email} />
+                                  <AvatarFallback className="bg-primary/20 text-primary font-bold">
+                                    {getInitials(member.fullName, member.email)}
+                                  </AvatarFallback>
+                                </Avatar>
 
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-foreground truncate">
-                                  {member.fullName || member.email}
-                                  {isCurrentUser && (
-                                    <Badge variant="outline" className="ml-2 text-xs border-primary/30">
-                                      You
-                                    </Badge>
-                                  )}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {member.wins}W - {member.losses}L
-                                  {member.pushes > 0 && ` - ${member.pushes}P`}
-                                </p>
-                              </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-foreground text-sm break-words">
+                                    {member.fullName || member.email}
+                                    {isCurrentUser && (
+                                      <Badge variant="outline" className="ml-2 text-xs border-primary/30">
+                                        You
+                                      </Badge>
+                                    )}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {member.wins}W - {member.losses}L
+                                    {member.pushes > 0 && ` - ${member.pushes}P`}
+                                  </p>
+                                </div>
 
-                              <div className="text-right flex-shrink-0">
-                                <p className="text-2xl font-bold text-neon-blue">
-                                  {member.winRate.toFixed(1)}%
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {member.total} total
-                                </p>
+                                <div className="text-right flex-shrink-0">
+                                  <p className="text-xl sm:text-2xl font-bold text-neon-blue whitespace-nowrap">
+                                    {member.winRate.toFixed(1)}%
+                                  </p>
+                                  <p className="text-xs text-muted-foreground whitespace-nowrap">
+                                    {member.total} total
+                                  </p>
+                                </div>
                               </div>
-                            </div>
                             </div>
                           </Link>
                         )
