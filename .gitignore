@@ -39,3 +39,32 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# migration scripts and temp files
+*-migration*.sql
+*-migration*.ts
+seed-*.ts
+fix-*.ts
+fix-*.sql
+check-*.ts
+check-*.sql
+update-*.ts
+update-*.sql
+create-*.sql
+migrate-*.ts
+migrate-*.sql
+recreate-*.ts
+recreate-*.sql
+list-*.ts
+add-*.ts
+verify-*.sql
+debug-*.sql
+reseed-*.ts
+run-*.ts
+find-*.sql
+complete-*.ts
+complete-*.sql
+cleanup-*.ts
+APPLY_*.sql
+*_INSTRUCTIONS.md
+CLAUDE.md

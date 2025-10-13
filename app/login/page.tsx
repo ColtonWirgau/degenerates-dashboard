@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { login } from '@/app/actions/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,6 +12,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get('redirectTo')
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -41,6 +44,9 @@ export default function LoginPage() {
               <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">
                 {error}
               </div>
+            )}
+            {redirectTo && (
+              <input type="hidden" name="redirectTo" value={redirectTo} />
             )}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>

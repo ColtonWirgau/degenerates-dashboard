@@ -32,15 +32,29 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Protect dashboard routes
-  if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {
+  // Protected routes that require authentication
+  const protectedPaths = ['/dashboard', '/leagues', '/profile']
+  const isProtectedPath = protectedPaths.some(path =>
+    request.nextUrl.pathname.startsWith(path)
+  )
+
+  // Public routes that should redirect to dashboard if logged in
+  const publicPaths = ['/login', '/signup']
+  const isPublicPath = publicPaths.some(path =>
+    request.nextUrl.pathname.startsWith(path)
+  )
+
+  // If trying to access protected route without auth, redirect to login
+  if (isProtectedPath && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
+    // Store the original URL to redirect back after login
+    url.searchParams.set('redirectTo', request.nextUrl.pathname)
     return NextResponse.redirect(url)
   }
 
-  // Redirect logged-in users away from auth pages
-  if (user && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/signup')) {
+  // If logged in and trying to access public route, redirect to dashboard
+  if (isPublicPath && user) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)

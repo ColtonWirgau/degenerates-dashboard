@@ -19,6 +19,13 @@ export async function login(formData: FormData) {
   }
 
   revalidatePath('/', 'layout')
+
+  // Check if there's a redirect URL
+  const redirectTo = formData.get('redirectTo') as string
+  if (redirectTo && redirectTo.startsWith('/')) {
+    redirect(redirectTo)
+  }
+
   redirect('/dashboard')
 }
 

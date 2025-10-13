@@ -1,0 +1,42 @@
+<svg width="512" height="512" viewBox="0 0 700 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Glow filters -->
+  <defs>
+    <filter id="glow-blue" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="15" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="glow-pink" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="15" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Second D (pink) - behind -->
+  <text
+    x="350"
+    y="450"
+    font-family="Anton, sans-serif"
+    font-size="420"
+    font-weight="900"
+    fill="#FF69B4"
+    filter="url(#glow-pink)"
+  >D</text>
+
+  <!-- First D (blue) - front -->
+  <text
+    x="150"
+    y="450"
+    font-family="Anton, sans-serif"
+    font-size="420"
+    font-weight="900"
+    fill="#00D9FF"
+    filter="url(#glow-blue)"
+  >D</text>
+</svg>

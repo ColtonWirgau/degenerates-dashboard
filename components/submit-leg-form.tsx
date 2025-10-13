@@ -1,0 +1,148 @@
+'use client'
+
+import { useState } from 'react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Zap, AlertCircle } from 'lucide-react'
+import { submitLeg } from '@/app/actions/legs'
+import confetti from 'canvas-confetti'
+
+interface SubmitLegFormProps {
+  weekId: string
+  leagueId: string
+  existingLeg?: { description: string; odds: string }
+}
+
+export function SubmitLegForm({ weekId, leagueId, existingLeg }: SubmitLegFormProps) {
+  const [description, setDescription] = useState(existingLeg?.description || '')
+  const [odds, setOdds] = useState(existingLeg?.odds || '')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setSuccess(false)
+    setSubmitting(true)
+
+    // Ensure values are strings before calling trim
+    const descStr = String(description || '').trim()
+    const oddsStr = String(odds || '').trim()
+
+    if (!descStr || !oddsStr) {
+      setError('Please fill in all fields')
+      setSubmitting(false)
+      return
+    }
+
+    const result = await submitLeg(weekId, leagueId, {
+      description: descStr,
+      odds: oddsStr,
+    })
+
+    if (result.error) {
+      setError(result.error)
+      setSubmitting(false)
+    } else {
+      setSuccess(true)
+      setSubmitting(false)
+
+      // Celebrate with confetti!
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#00D9FF', '#FF69B4', '#39FF14', '#FFD700'],
+      })
+
+      // Reset success after showing message
+      setTimeout(() => setSuccess(false), 3000)
+    }
+  }
+
+  return (
+    <Card className="glass-intense border-primary/30">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Zap className="h-5 w-5 text-gold" />
+          Submit Your Leg
+        </CardTitle>
+        <CardDescription>
+          Submit ONE leg for this week's parlay. The owner will combine everyone's legs.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="glass border-destructive/50 p-3 rounded-xl text-sm text-destructive animate-in fade-in slide-in-from-top-2 flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {success && (
+            <div className="glass border-neon-green/50 p-3 rounded-xl text-sm text-neon-green animate-in fade-in slide-in-from-top-2">
+              🎉 Your leg is locked in! Check out what others picked below.
+            </div>
+          )}
+
+          <div className="glass-card p-4 space-y-4">
+            <div>
+              <Label htmlFor="description" className="text-sm font-medium">
+                Bet Description
+              </Label>
+              <Textarea
+                id="description"
+                placeholder="e.g., Lakers ML vs Celtics, Chiefs -3.5, Over 225.5 points"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="glass border-primary/30 mt-1 resize-none"
+                rows={3}
+                required
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Be specific! Include teams, spread/ML, and any important details.
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="odds" className="text-sm font-medium">
+                Odds
+              </Label>
+              <Input
+                id="odds"
+                placeholder="e.g., -110, +150, -200"
+                value={odds}
+                onChange={(e) => setOdds(e.target.value)}
+                className="glass border-primary/30 mt-1"
+                required
+              />
+            </div>
+          </div>
+
+          <Button
+            type="submit"
+            disabled={submitting}
+            className="w-full neon-glow-blue pulse-neon text-lg py-6"
+          >
+            {submitting
+              ? 'Submitting...'
+              : existingLeg
+              ? '🔄 Update Your Leg'
+              : '🎲 Lock It In!'}
+          </Button>
+
+          {existingLeg && (
+            <p className="text-xs text-center text-muted-foreground">
+              You can update your leg anytime before the deadline
+            </p>
+          )}
+        </form>
+      </CardContent>
+    </Card>
+  )
+}
