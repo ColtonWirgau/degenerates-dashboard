@@ -120,21 +120,21 @@ export default async function UserStatsPage({
         {/* User Profile Card */}
         <Card className="glass-intense border-primary/30 neon-glow-blue mb-6">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-6">
-              <Avatar className="h-24 w-24">
+            <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+              <Avatar className="h-20 w-20 sm:h-24 sm:w-24">
                 <AvatarImage src={avatarUrl} alt={fullName} />
-                <AvatarFallback className="bg-primary/20 text-primary font-bold text-2xl">
+                <AvatarFallback className="bg-primary/20 text-primary font-bold text-xl sm:text-2xl">
                   {getInitials(fullName)}
                 </AvatarFallback>
               </Avatar>
 
-              <div className="flex-1">
-                <h1 className="text-4xl font-bold text-neon-blue mb-2">{fullName}</h1>
-                <p className="text-muted-foreground text-lg">{league.name} • {currentSeason.displayName}</p>
+              <div className="flex-1 text-center sm:text-left">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-neon-blue mb-2 break-words">{fullName}</h1>
+                <p className="text-muted-foreground text-sm sm:text-base md:text-lg">{league.name} • {currentSeason.displayName}</p>
               </div>
 
-              <div className="text-right">
-                <div className="text-5xl font-bold text-neon-blue mb-1">
+              <div className="text-center sm:text-right">
+                <div className="text-4xl sm:text-5xl font-bold text-neon-blue mb-1">
                   {winRate.toFixed(1)}%
                 </div>
                 <p className="text-sm text-muted-foreground">Win Rate</p>
@@ -144,7 +144,7 @@ export default async function UserStatsPage({
         </Card>
 
         {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-4 mb-6">
+        <div className="grid gap-4 grid-cols-2 md:grid-cols-4 mb-6">
           <Card className="glass-card hover:glass-intense transition-all hover:neon-glow-green">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
@@ -223,21 +223,21 @@ export default async function UserStatsPage({
                   return (
                     <div
                       key={leg.id}
-                      className={`glass-card hover:glass-intense transition-all p-4 border ${resultColor}`}
+                      className={`glass-card hover:glass-intense transition-all p-3 sm:p-4 border ${resultColor}`}
                     >
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-4 flex-1">
-                          <div className="text-center min-w-[80px]">
+                      <div className="flex items-start sm:items-center justify-between gap-3 sm:gap-4">
+                        <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                          <div className="text-center flex-shrink-0 min-w-[60px] sm:min-w-[80px]">
                             <p className="text-xs text-muted-foreground mb-1">Week</p>
-                            <p className="text-2xl font-bold text-primary">{week.week_number}</p>
+                            <p className="text-xl sm:text-2xl font-bold text-primary">{week.week_number}</p>
                           </div>
 
-                          <div className="flex-1">
-                            <p className="font-medium text-foreground text-lg mb-1">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-foreground text-sm sm:text-base md:text-lg mb-1 break-words">
                               {leg.description}
                             </p>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-xs">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                              <Badge variant="outline" className="text-xs w-fit">
                                 {leg.odds}
                               </Badge>
                               <span className="text-xs text-muted-foreground">
@@ -247,28 +247,28 @@ export default async function UserStatsPage({
                           </div>
                         </div>
 
-                        <div className="text-right min-w-[100px]">
+                        <div className="text-right flex-shrink-0">
                           {leg.result === 'win' && (
                             <div>
-                              <p className="text-2xl font-bold text-neon-green">WIN</p>
+                              <p className="text-xl sm:text-2xl font-bold text-neon-green">WIN</p>
                               <p className="text-xs text-neon-green">✓</p>
                             </div>
                           )}
                           {leg.result === 'loss' && (
                             <div>
-                              <p className="text-2xl font-bold text-destructive">LOSS</p>
+                              <p className="text-xl sm:text-2xl font-bold text-destructive">LOSS</p>
                               <p className="text-xs text-destructive">✗</p>
                             </div>
                           )}
                           {leg.result === 'push' && (
                             <div>
-                              <p className="text-2xl font-bold text-gold">PUSH</p>
+                              <p className="text-xl sm:text-2xl font-bold text-gold">PUSH</p>
                               <p className="text-xs text-gold">—</p>
                             </div>
                           )}
                           {!leg.result && (
                             <div>
-                              <p className="text-xl font-bold text-muted-foreground">Pending</p>
+                              <p className="text-lg sm:text-xl font-bold text-muted-foreground">Pending</p>
                               <p className="text-xs text-muted-foreground">⏳</p>
                             </div>
                           )}
