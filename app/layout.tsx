@@ -17,16 +17,6 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Degenerates Dashboard",
   description: "Track your parlay leagues and weekly bets",
-  icons: {
-    icon: [
-      { url: "/favicon/favicon-16x16.png", sizes: "16x16", type: "image/png" },
-      { url: "/favicon/favicon-32x32.png", sizes: "32x32", type: "image/png" },
-      { url: "/favicon/favicon.ico", sizes: "any" },
-    ],
-    apple: [
-      { url: "/favicon/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
-    ],
-  },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
