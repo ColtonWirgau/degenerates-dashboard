@@ -30,59 +30,87 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Welcome Back</CardTitle>
-          <CardDescription className="text-center">
-            Sign in to your Degenerates Dashboard
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            {error && (
-              <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">
-                {error}
+    <div className="min-h-screen ambient-glow flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {/* Fun Header */}
+        <div className="text-center mb-8 space-y-4">
+          <div className="inline-block">
+            <h1 className="text-5xl sm:text-6xl font-bold mb-2">
+              <span className="text-neon-blue block">DEGENERATES</span>
+              <span className="text-neon-pink block">DASHBOARD</span>
+            </h1>
+          </div>
+          <div className="text-4xl animate-bounce">🎰</div>
+          <p className="text-xl text-neon-blue font-semibold">
+            Time to make some questionable decisions
+          </p>
+        </div>
+
+        {/* Login Card */}
+        <Card className="glass-intense border-primary/30 neon-glow-blue">
+          <CardHeader className="space-y-2 text-center">
+            <CardTitle className="text-3xl font-bold text-neon-blue">Welcome Back</CardTitle>
+            <CardDescription className="text-base">
+              Let&apos;s see those picks 👀
+            </CardDescription>
+          </CardHeader>
+          <form onSubmit={handleSubmit}>
+            <CardContent className="space-y-6">
+              {error && (
+                <div className="bg-destructive/15 border border-destructive/30 text-destructive text-sm p-3 rounded-md">
+                  {error}
+                </div>
+              )}
+              {redirectTo && (
+                <input type="hidden" name="redirectTo" value={redirectTo} />
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-foreground">Email</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  required
+                  disabled={loading}
+                  className="glass border-primary/30"
+                />
               </div>
-            )}
-            {redirectTo && (
-              <input type="hidden" name="redirectTo" value={redirectTo} />
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="you@example.com"
-                required
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-foreground">Password</Label>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  required
+                  disabled={loading}
+                  className="glass border-primary/30"
+                />
+              </div>
+            </CardContent>
+            <CardFooter className="flex flex-col space-y-4 pt-2">
+              <Button
+                type="submit"
+                className="w-full neon-glow-blue text-lg py-6"
                 disabled={loading}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                required
-                disabled={loading}
-              />
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Signing in...' : 'Sign In'}
-            </Button>
-            <p className="text-sm text-muted-foreground text-center">
-              Don&apos;t have an account?{' '}
-              <Link href="/signup" className="text-primary hover:underline">
-                Sign up
-              </Link>
-            </p>
-          </CardFooter>
-        </form>
-      </Card>
+              >
+                {loading ? '🎲 Loading...' : '🚀 Let\'s Gamble'}
+              </Button>
+              <p className="text-sm text-muted-foreground text-center">
+                Don&apos;t have an account?{' '}
+                <Link href="/signup" className="text-neon-blue hover:text-neon-pink transition-colors font-semibold">
+                  Sign up
+                </Link>
+              </p>
+            </CardFooter>
+          </form>
+        </Card>
+
+        {/* Fun Footer Message */}
+        <p className="text-center text-sm text-muted-foreground mt-6">
+          Remember: Bet with your head, not over it 🧠
+        </p>
+      </div>
     </div>
   )
 }
@@ -90,15 +118,26 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold text-center">Welcome Back</CardTitle>
-            <CardDescription className="text-center">
-              Loading...
-            </CardDescription>
-          </CardHeader>
-        </Card>
+      <div className="min-h-screen ambient-glow flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8 space-y-4">
+            <div className="inline-block">
+              <h1 className="text-5xl sm:text-6xl font-bold mb-2">
+                <span className="text-neon-blue block">DEGENERATES</span>
+                <span className="text-neon-pink block">DASHBOARD</span>
+              </h1>
+            </div>
+            <div className="text-4xl animate-bounce">🎰</div>
+          </div>
+          <Card className="glass-intense border-primary/30 neon-glow-blue">
+            <CardHeader className="space-y-2 text-center">
+              <CardTitle className="text-3xl font-bold text-neon-blue">Welcome Back</CardTitle>
+              <CardDescription className="text-base">
+                Loading...
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
       </div>
     }>
       <LoginForm />
