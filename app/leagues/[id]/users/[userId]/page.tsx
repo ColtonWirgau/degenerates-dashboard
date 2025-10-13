@@ -119,25 +119,30 @@ export default async function UserStatsPage({
 
         {/* User Profile Card */}
         <Card className="glass-intense border-primary/30 neon-glow-blue mb-6">
-          <CardContent className="pt-6">
-            <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
-              <Avatar className="h-20 w-20 sm:h-24 sm:w-24">
-                <AvatarImage src={avatarUrl} alt={fullName} />
-                <AvatarFallback className="bg-primary/20 text-primary font-bold text-xl sm:text-2xl">
-                  {getInitials(fullName)}
-                </AvatarFallback>
-              </Avatar>
-
-              <div className="flex-1 text-center sm:text-left">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-neon-blue mb-2 break-words">{fullName}</h1>
-                <p className="text-muted-foreground text-sm sm:text-base md:text-lg">{league.name} • {currentSeason.displayName}</p>
-              </div>
-
-              <div className="text-center sm:text-right">
-                <div className="text-4xl sm:text-5xl font-bold text-neon-blue mb-1">
+          <CardContent className="pt-6 pb-6">
+            <div className="flex flex-col items-center gap-6">
+              {/* Win Rate - Featured at top on mobile */}
+              <div className="text-center w-full">
+                <div className="text-6xl font-bold text-neon-blue mb-2">
                   {winRate.toFixed(1)}%
                 </div>
-                <p className="text-sm text-muted-foreground">Win Rate</p>
+                <p className="text-base text-muted-foreground">Win Rate</p>
+              </div>
+
+              {/* Avatar and User Info */}
+              <div className="flex flex-col items-center gap-3 w-full">
+                <Avatar className="h-20 w-20">
+                  <AvatarImage src={avatarUrl} alt={fullName} />
+                  <AvatarFallback className="bg-primary/20 text-primary font-bold text-2xl">
+                    {getInitials(fullName)}
+                  </AvatarFallback>
+                </Avatar>
+
+                <div className="text-center w-full px-2">
+                  <h1 className="text-2xl font-bold text-neon-blue mb-2 break-words">{fullName}</h1>
+                  <p className="text-sm text-muted-foreground">{league.name}</p>
+                  <p className="text-sm text-muted-foreground">{currentSeason.displayName}</p>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -183,16 +188,12 @@ export default async function UserStatsPage({
 
           <Card className="glass-card hover:glass-intense transition-all">
             <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Record</p>
-                  <p className="text-2xl font-bold text-foreground">
-                    {stats.wins}W - {stats.losses}L
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-muted-foreground">{stats.total} total</p>
-                </div>
+              <div className="flex flex-col gap-2">
+                <p className="text-sm text-muted-foreground">Record</p>
+                <p className="text-2xl font-bold text-foreground whitespace-nowrap">
+                  {stats.wins}W - {stats.losses}L
+                </p>
+                <p className="text-xs text-muted-foreground">{stats.total} total</p>
               </div>
             </CardContent>
           </Card>
