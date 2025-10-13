@@ -428,15 +428,17 @@ export async function getLeaderboard(leagueId: string) {
   }>()
 
   allLegs.forEach(leg => {
-    if (!leg.user) return
+    // Type guard: Supabase returns user as an array but we know it's always a single object due to the foreign key
+    const user = Array.isArray(leg.user) ? leg.user[0] : leg.user
+    if (!user) return
 
     const userId = leg.user_id
     if (!userStats.has(userId)) {
       userStats.set(userId, {
         userId,
-        email: leg.user.email,
-        fullName: leg.user.raw_user_meta_data?.full_name || null,
-        avatarUrl: leg.user.raw_user_meta_data?.avatar_url || null,
+        email: user.email,
+        fullName: user.raw_user_meta_data?.full_name || null,
+        avatarUrl: user.raw_user_meta_data?.avatar_url || null,
         wins: 0,
         losses: 0,
         pushes: 0,

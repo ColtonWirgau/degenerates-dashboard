@@ -80,7 +80,7 @@ export function EditLegDialog({
       </DialogTrigger>
       <DialogContent className="glass-intense border-primary/30">
         <DialogHeader>
-          <DialogTitle>Edit {userName}'s Leg</DialogTitle>
+          <DialogTitle>Edit {userName}&apos;s Leg</DialogTitle>
           <DialogDescription>
             Update this leg as an admin/owner
           </DialogDescription>

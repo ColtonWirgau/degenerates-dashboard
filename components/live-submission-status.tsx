@@ -6,24 +6,30 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Users } from 'lucide-react'
 
+interface Leg {
+  id: string
+  description: string
+  odds: string
+  result: string | null
+}
+
 interface Parlay {
   id: string
   user_id: string
   created_at: string
-  legs: any[]
-}
-
-interface User {
-  id: string
-  email: string
-  raw_user_meta_data: {
-    full_name?: string
+  legs: Leg[]
+  user?: {
+    id: string
+    email: string
+    raw_user_meta_data: {
+      full_name?: string
+    }
   }
 }
 
 interface LiveSubmissionStatusProps {
   weekId: string
-  initialParlays: any[]
+  initialParlays: Parlay[]
 }
 
 export function LiveSubmissionStatus({ weekId, initialParlays }: LiveSubmissionStatusProps) {
@@ -112,7 +118,7 @@ export function LiveSubmissionStatus({ weekId, initialParlays }: LiveSubmissionS
             <span className="text-xs text-neon-green font-normal">LIVE</span>
           </div>
         </CardTitle>
-        <CardDescription>Who's locked in?</CardDescription>
+        <CardDescription>Who&apos;s locked in?</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-2">

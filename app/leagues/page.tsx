@@ -1,11 +1,11 @@
 import { getLeagues } from '@/app/actions/leagues'
 import { Header } from '@/components/header'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { Plus, Users, Calendar } from 'lucide-react'
+import { Plus, Users } from 'lucide-react'
 
 export default async function LeaguesPage() {
   const supabase = await createClient()
@@ -85,10 +85,6 @@ export default async function LeaguesPage() {
                           <CardTitle className="text-xl group-hover:text-neon-blue transition-colors">
                             {league.name}
                           </CardTitle>
-                          <CardDescription className="flex items-center gap-2 mt-2">
-                            <Calendar className="h-3 w-3" />
-                            {league.season}
-                          </CardDescription>
                         </div>
                         <div
                           className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wide ${roleColor}`}

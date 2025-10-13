@@ -28,7 +28,15 @@ export default async function HistoryPage({ params }: { params: Promise<{ id: st
   const nextWeekNumber = weeks.length > 0 ? Math.max(...weeks.map(w => w.week_number)) + 1 : 1
 
   // Group weeks by season
-  const weeksBySeason: Record<string, typeof weeks> = {}
+  interface Week {
+    id: string
+    week_number: number
+    status: 'open' | 'locked' | 'closed'
+    deadline: string
+    season: string
+    created_at: string
+  }
+  const weeksBySeason: Record<string, Week[]> = {}
   weeks.forEach(week => {
     const season = week.season || '2025-2026' // Default for weeks without season
     if (!weeksBySeason[season]) {

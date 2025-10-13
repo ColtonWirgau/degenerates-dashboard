@@ -38,7 +38,7 @@ export default async function DashboardPage() {
             <span className="text-neon-blue">{user.user_metadata?.full_name || 'Degenerate'}</span>
           </h2>
           <p className="text-muted-foreground text-lg">
-            Ready to place some bets? Let's make it rain.
+            Ready to place some bets? Let&apos;s make it rain.
           </p>
         </div>
 

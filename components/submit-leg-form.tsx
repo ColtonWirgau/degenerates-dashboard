@@ -72,7 +72,7 @@ export function SubmitLegForm({ weekId, leagueId, existingLeg }: SubmitLegFormPr
           Submit Your Leg
         </CardTitle>
         <CardDescription>
-          Submit ONE leg for this week's parlay. The owner will combine everyone's legs.
+          Submit ONE leg for this week&apos;s parlay. The owner will combine everyone&apos;s legs.
         </CardDescription>
       </CardHeader>
       <CardContent>

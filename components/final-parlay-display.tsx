@@ -175,7 +175,7 @@ export function FinalParlayDisplay({ parlay, legs, weekId, leagueId, canManage }
                 <div className="flex items-center gap-2">
                   <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center font-bold text-primary text-xs">
                     {getInitials(
-                      leg.user?.raw_user_meta_data?.full_name,
+                      leg.user?.raw_user_meta_data?.full_name || null,
                       leg.user?.email || ''
                     )}
                   </div>

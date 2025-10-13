@@ -5,9 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ValidateLegsButton } from '@/components/validate-legs-button'
 import { EditLegDialog } from '@/components/edit-leg-dialog'
-import { List, AlertTriangle, CheckCircle, Clock, Trash2 } from 'lucide-react'
+import { List, Trash2 } from 'lucide-react'
 import { deleteLeg } from '@/app/actions/legs'
 
 interface Leg {
@@ -33,7 +32,6 @@ interface AllLegsDisplayProps {
   initialLegs: Leg[]
   currentUserId: string
   canManage: boolean
-  weekStatus: string
 }
 
 export function AllLegsDisplay({
@@ -42,7 +40,6 @@ export function AllLegsDisplay({
   initialLegs,
   currentUserId,
   canManage,
-  weekStatus,
 }: AllLegsDisplayProps) {
   const [legs, setLegs] = useState(initialLegs)
   const [newLegId, setNewLegId] = useState<string | null>(null)
@@ -117,33 +114,6 @@ export function AllLegsDisplay({
     return email.slice(0, 2).toUpperCase()
   }
 
-  const getValidationBadge = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return (
-          <Badge variant="outline" className="text-neon-green border-neon-green/30">
-            <CheckCircle className="h-3 w-3 mr-1" />
-            Valid
-          </Badge>
-        )
-      case 'conflicting':
-        return (
-          <Badge variant="outline" className="text-destructive border-destructive/30">
-            <AlertTriangle className="h-3 w-3 mr-1" />
-            Conflict
-          </Badge>
-        )
-      case 'pending':
-      default:
-        return (
-          <Badge variant="outline" className="text-muted-foreground border-white/10">
-            <Clock className="h-3 w-3 mr-1" />
-            Pending
-          </Badge>
-        )
-    }
-  }
-
   const handleDelete = async (legId: string) => {
     if (!confirm('Are you sure you want to delete this leg?')) return
     await deleteLeg(weekId, legId, leagueId)
@@ -186,7 +156,7 @@ export function AllLegsDisplay({
                 <div className="flex items-center gap-2">
                   <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center font-bold text-primary text-xs">
                     {getInitials(
-                      leg.user?.raw_user_meta_data?.full_name,
+                      leg.user?.raw_user_meta_data?.full_name || null,
                       leg.user?.email || ''
                     )}
                   </div>

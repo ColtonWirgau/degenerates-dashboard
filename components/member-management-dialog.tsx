@@ -13,13 +13,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { UserPlus, MoreVertical, Crown, Shield, User, Trash2 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -205,7 +198,7 @@ export function MemberManagementDialog({
               >
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10">
-                    <AvatarImage src={member.avatar_url} alt={member.full_name || member.email} />
+                    <AvatarImage src={member.avatar_url || undefined} alt={member.full_name || member.email} />
                     <AvatarFallback className="bg-primary/20 text-primary font-bold text-sm">
                       {getInitials(member.full_name, member.email)}
                     </AvatarFallback>

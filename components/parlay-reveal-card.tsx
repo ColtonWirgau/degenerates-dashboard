@@ -19,8 +19,6 @@ interface ParlayRevealCardProps {
   legs: ParlayLeg[]
   isRevealed: boolean
   revealDelay?: number
-  canManage?: boolean
-  onUpdateResult?: (legId: string, result: 'win' | 'loss' | 'push') => void
 }
 
 export function ParlayRevealCard({
@@ -29,8 +27,6 @@ export function ParlayRevealCard({
   legs,
   isRevealed,
   revealDelay = 0,
-  canManage = false,
-  onUpdateResult,
 }: ParlayRevealCardProps) {
   const [isFlipped, setIsFlipped] = useState(false)
   const [visibleLegs, setVisibleLegs] = useState<number[]>([])

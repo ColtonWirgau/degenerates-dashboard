@@ -14,7 +14,7 @@ export function BottomNav({ leagueId }: { leagueId?: string }) {
     const isInStandaloneMode = () => {
       return (
         window.matchMedia('(display-mode: standalone)').matches ||
-        (window.navigator as any).standalone ||
+        (window.navigator as Navigator & { standalone?: boolean }).standalone ||
         document.referrer.includes('android-app://')
       )
     }

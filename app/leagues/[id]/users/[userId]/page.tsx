@@ -73,9 +73,12 @@ export default async function UserStatsPage({
     .eq('user_id', userId)
 
   // Sort by week deadline in descending order (most recent first)
-  const sortedLegs = userLegs?.sort((a: any, b: any) => {
-    const dateA = new Date(a.week.deadline).getTime()
-    const dateB = new Date(b.week.deadline).getTime()
+  const sortedLegs = userLegs?.sort((a, b) => {
+    // Type guard: Supabase returns week as an array but we know it's always a single object due to the foreign key
+    const weekA = Array.isArray(a.week) ? a.week[0] : a.week
+    const weekB = Array.isArray(b.week) ? b.week[0] : b.week
+    const dateA = new Date(weekA.deadline).getTime()
+    const dateB = new Date(weekB.deadline).getTime()
     return dateB - dateA
   })
 
@@ -208,8 +211,9 @@ export default async function UserStatsPage({
               </div>
             ) : (
               <div className="space-y-3">
-                {sortedLegs.map((leg: any) => {
-                  const week = leg.week
+                {sortedLegs.map((leg) => {
+                  // Type guard: Supabase returns week as an array but we know it's always a single object due to the foreign key
+                  const week = Array.isArray(leg.week) ? leg.week[0] : leg.week
                   const resultColor =
                     leg.result === 'win' ? 'text-neon-green border-neon-green/30 bg-neon-green/5' :
                     leg.result === 'loss' ? 'text-destructive border-destructive/30 bg-destructive/5' :

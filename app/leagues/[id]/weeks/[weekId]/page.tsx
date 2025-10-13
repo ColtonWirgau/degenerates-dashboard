@@ -7,7 +7,6 @@ import { Header } from '@/components/header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { SubmitLegForm } from '@/components/submit-leg-form'
-import { AllLegsDisplay } from '@/components/all-legs-display'
 import { LiveWeekStatus } from '@/components/live-week-status'
 import { EditDeadlineDialog } from '@/components/edit-deadline-dialog'
 import { AddLegForUserDialog } from '@/components/add-leg-for-user-dialog'
@@ -15,7 +14,7 @@ import { TheLay } from '@/components/the-lay'
 import { ParlayResultAnimation } from '@/components/parlay-result-animation'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Clock, Lock, CheckCircle2, Users } from 'lucide-react'
+import { ArrowLeft, Clock, Lock, CheckCircle2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 
 export default async function WeekDetailPage({
@@ -34,7 +33,7 @@ export default async function WeekDetailPage({
   const { parlay: finalParlay, legs: finalParlayLegs } = await getFinalParlay(weekId)
 
   // Get all league members for the Add Leg dialog
-  const { data: leagueMembers } = await supabase
+  const { data: leagueMembersRaw } = await supabase
     .from('league_members')
     .select(`
       user_id,
@@ -46,6 +45,15 @@ export default async function WeekDetailPage({
     `)
     .eq('league_id', leagueId)
 
+  // Transform the data to handle Supabase's array return type for foreign keys
+  const leagueMembers = leagueMembersRaw?.map(member => {
+    const user = Array.isArray(member.user) ? member.user[0] : member.user
+    return {
+      user_id: member.user_id,
+      user: user
+    }
+  }) || []
+
   if (!week) {
     notFound()
   }
@@ -54,17 +62,6 @@ export default async function WeekDetailPage({
   const deadline = new Date(week.deadline)
   const isPastDeadline = deadline < new Date()
   const isLocked = week.status === 'locked' || week.status === 'closed'
-
-  const getInitials = (name: string | null, email: string) => {
-    if (name) {
-      const parts = name.split(' ')
-      if (parts.length >= 2) {
-        return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
-      }
-      return name.slice(0, 2).toUpperCase()
-    }
-    return email.slice(0, 2).toUpperCase()
-  }
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -200,7 +197,7 @@ export default async function WeekDetailPage({
             <AddLegForUserDialog
               weekId={weekId}
               leagueId={leagueId}
-              members={leagueMembers || []}
+              members={leagueMembers}
               existingLegUserIds={allLegs.map(leg => leg.user_id)}
             />
           </div>
@@ -212,7 +209,7 @@ export default async function WeekDetailPage({
           leagueId={leagueId}
           weekNumber={week.week_number}
           initialLegs={isLocked ? finalParlayLegs : allLegs}
-          members={leagueMembers || []}
+          members={leagueMembers}
           currentUserId={user?.id || ''}
           canManage={canManage}
           isLocked={isLocked}

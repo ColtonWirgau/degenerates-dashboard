@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { updateProfile } from '@/app/actions/profile'
-import { User as UserIcon, Upload } from 'lucide-react'
+import { Upload } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 
 interface ProfileFormProps {

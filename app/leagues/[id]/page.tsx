@@ -1,18 +1,11 @@
 import { getLeague, getLeagueMembers, getCurrentUserRole } from '@/app/actions/leagues'
 import { getCurrentWeek } from '@/app/actions/weeks'
-import { getUserLeg, getAllLegsForWeek } from '@/app/actions/legs'
 import { getCurrentSeasonUserStats, getCurrentSeasonLeaderboard } from '@/app/actions/legs-current-season'
-import { getFinalParlay } from '@/app/actions/parlays'
 import { createClient } from '@/lib/supabase/server'
 import { Header } from '@/components/header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { SubmitLegForm } from '@/components/submit-leg-form'
-import { AllLegsDisplay } from '@/components/all-legs-display'
-import { FinalParlayDisplay } from '@/components/final-parlay-display'
-import { CreateParlayDialog } from '@/components/create-parlay-dialog'
-import { AddLegForUserDialog } from '@/components/add-leg-for-user-dialog'
 import { ParlayResultAnimation } from '@/components/parlay-result-animation'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -25,29 +18,21 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
   const { data: { user } } = await supabase.auth.getUser()
 
   const { league, error: leagueError } = await getLeague(id)
-  const { members, error: membersError } = await getLeagueMembers(id)
+  const { members } = await getLeagueMembers(id)
   const { role: currentUserRole } = await getCurrentUserRole(id)
   const { week: currentWeek } = await getCurrentWeek(id)
 
   // If there's a current week, get its data
-  let userLeg = null
-  let allLegs: any[] = []
-  let finalParlay = null
-  let finalParlayLegs: any[] = []
   let submissionCount = 0
-  let leagueMembers: any[] = []
-  let userLegWithResult = null
+  let userLegWithResult: {
+    id: string
+    user_id: string
+    result: string | null
+    odds?: string
+  } | null = null
   let weekStats = { wins: 0, losses: 0, pushes: 0, pending: 0 }
 
   if (currentWeek) {
-    const { leg } = await getUserLeg(currentWeek.id)
-    const { legs } = await getAllLegsForWeek(currentWeek.id)
-    const { parlay, legs: parlayLegs } = await getFinalParlay(currentWeek.id)
-
-    userLeg = leg
-    allLegs = legs
-    finalParlay = parlay
-    finalParlayLegs = parlayLegs
 
     // Get ALL legs for this week (for stats calculation)
     const { data: allWeekLegs } = await supabase
@@ -64,21 +49,6 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
 
     const weekLegs = allWeekLegs || []
     submissionCount = new Set(weekLegs.map(l => l.user_id)).size
-
-    // Get league members for Add Leg dialog
-    const { data: membersData } = await supabase
-      .from('league_members')
-      .select(`
-        user_id,
-        user:user_profiles!user_id (
-          id,
-          email,
-          raw_user_meta_data
-        )
-      `)
-      .eq('league_id', id)
-
-    leagueMembers = membersData || []
 
     // Get user's leg with result for animation
     userLegWithResult = weekLegs.find(leg => leg.user_id === user?.id) || null
@@ -128,7 +98,6 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
         <div className="flex items-center justify-between mb-8">
           <div className="flex-1">
             <h1 className="text-5xl font-bold text-neon-blue">{league.name}</h1>
-            <p className="text-muted-foreground mt-1 text-lg">{league.season}</p>
           </div>
           <Link href={`/leagues/${id}/history`}>
             <Button variant="outline" className="glass border-primary/30">
@@ -366,7 +335,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                               </div>
 
                               <Avatar className="h-10 w-10 flex-shrink-0">
-                                <AvatarImage src={member.avatarUrl} alt={member.fullName || member.email} />
+                                <AvatarImage src={member.avatarUrl || undefined} alt={member.fullName || member.email} />
                                 <AvatarFallback className="bg-primary/20 text-primary font-bold">
                                   {getInitials(member.fullName, member.email)}
                                 </AvatarFallback>

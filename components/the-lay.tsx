@@ -343,7 +343,7 @@ export function TheLay({
                     <AvatarImage src={leg.user?.raw_user_meta_data?.avatar_url} alt={leg.user?.raw_user_meta_data?.full_name || leg.user?.email} />
                     <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
                       {getInitials(
-                        leg.user?.raw_user_meta_data?.full_name,
+                        leg.user?.raw_user_meta_data?.full_name || null,
                         leg.user?.email || ''
                       )}
                     </AvatarFallback>
