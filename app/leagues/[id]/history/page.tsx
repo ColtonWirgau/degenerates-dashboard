@@ -3,14 +3,12 @@ import { getWeeks, getWeekSubmissionCounts } from '@/app/actions/weeks'
 import { Header } from '@/components/header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { CreateWeekDialog } from '@/components/create-week-dialog'
 import { WeekCard } from '@/components/week-card'
-import { MemberManagementDialog } from '@/components/member-management-dialog'
 import { formatSeason } from '@/lib/seasons'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Users } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 
 export default async function HistoryPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -65,13 +63,6 @@ export default async function HistoryPage({ params }: { params: Promise<{ id: st
               Week History
             </p>
           </div>
-          {canManageWeeks && (
-            <MemberManagementDialog
-              leagueId={id}
-              members={members}
-              currentUserRole={currentUserRole}
-            />
-          )}
         </div>
 
         {/* Weekly Parlays - Grouped by Season */}
