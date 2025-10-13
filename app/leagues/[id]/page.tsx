@@ -82,7 +82,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
   console.log('[LeaguePage] Leaderboard length:', leaderboard.length)
 
   return (
-    <div className="min-h-screen ambient-glow">
+    <div className="min-h-[100dvh] ambient-glow">
       {/* Win/Loss Animation */}
       {isLocked && userLegWithResult && (
         <ParlayResultAnimation
@@ -93,7 +93,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
 
       <Header />
 
-      <main className="container mx-auto px-4 py-8 pt-24">
+      <main className="container mx-auto px-4 py-8 pt-24 pb-24">
         {/* League Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div className="flex-1">
