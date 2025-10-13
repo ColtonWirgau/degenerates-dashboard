@@ -65,81 +65,14 @@ export default async function HistoryPage({ params }: { params: Promise<{ id: st
               Week History
             </p>
           </div>
+          {canManageWeeks && (
+            <MemberManagementDialog
+              leagueId={id}
+              members={members}
+              currentUserRole={currentUserRole}
+            />
+          )}
         </div>
-
-        {/* League Members */}
-        <Card className="glass-intense border-primary/30 neon-glow-blue mb-6">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-primary" />
-                  League Members
-                </CardTitle>
-                <CardDescription className="mt-1">
-                  {members.length} {members.length === 1 ? 'member' : 'members'} in your crew
-                </CardDescription>
-              </div>
-              <MemberManagementDialog
-                leagueId={id}
-                members={members}
-                currentUserRole={currentUserRole}
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {membersError && (
-              <div className="text-sm text-destructive glass border-destructive/50 p-3 rounded-xl">
-                {membersError}
-              </div>
-            )}
-
-            {!membersError && members.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                No members yet
-              </p>
-            )}
-
-            {!membersError && members.length > 0 && (
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                {members.map((member) => {
-                  const getInitials = (name: string | null, email: string) => {
-                    if (name) {
-                      const parts = name.split(' ')
-                      if (parts.length >= 2) {
-                        return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
-                      }
-                      return name.slice(0, 2).toUpperCase()
-                    }
-                    return email.slice(0, 2).toUpperCase()
-                  }
-
-                  return (
-                    <div
-                      key={member.id}
-                      className="glass-card hover:glass-intense transition-all flex items-center gap-3 p-4"
-                    >
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={member.avatar_url} alt={member.full_name || member.email} />
-                        <AvatarFallback className="bg-primary/20 text-primary font-bold">
-                          {getInitials(member.full_name, member.email)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-foreground truncate">
-                          {member.full_name || member.email}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {member.role}
-                        </p>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         {/* Weekly Parlays - Grouped by Season */}
         {weeks.length === 0 ? (
