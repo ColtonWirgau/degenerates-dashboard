@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { UserPlus, MoreVertical, Crown, Shield, User, Trash2, Copy, Share2, Link2, RefreshCw, Check } from 'lucide-react'
+import { UserPlus, MoreVertical, Crown, Shield, User, Trash2, Copy, Share2, RefreshCw, Check } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,

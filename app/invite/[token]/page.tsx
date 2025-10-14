@@ -3,7 +3,6 @@ import { createClient } from '@/lib/supabase/server'
 import { Header } from '@/components/header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Mail, UserPlus, AlertCircle } from 'lucide-react'
 
@@ -69,7 +68,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  You're currently logged in as {user.email}. Please log out and sign in with the invited email address.
+                  You&apos;re currently logged in as {user.email}. Please log out and sign in with the invited email address.
                 </p>
                 <form action="/api/auth/logout" method="post">
                   <Button type="submit" variant="outline" className="w-full glass border-primary/30">
@@ -99,7 +98,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
                 <UserPlus className="h-8 w-8 text-neon-blue" />
                 <div>
                   <CardTitle>Join League</CardTitle>
-                  <CardDescription>You've been invited!</CardDescription>
+                  <CardDescription>You&apos;ve been invited!</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -137,7 +136,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
             <div className="flex items-center gap-3">
               <UserPlus className="h-8 w-8 text-neon-blue" />
               <div>
-                <CardTitle>You're Invited!</CardTitle>
+                <CardTitle>You&apos;re Invited!</CardTitle>
                 <CardDescription>Join the league</CardDescription>
               </div>
             </div>

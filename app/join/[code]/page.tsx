@@ -61,7 +61,7 @@ export default async function JoinLeaguePage({ params }: { params: Promise<{ cod
                 <Trophy className="h-8 w-8 text-gold" />
                 <div>
                   <CardTitle>Join League</CardTitle>
-                  <CardDescription>You've been invited to join!</CardDescription>
+                  <CardDescription>You&apos;ve been invited to join!</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -105,7 +105,7 @@ export default async function JoinLeaguePage({ params }: { params: Promise<{ cod
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">You've been invited to:</p>
+              <p className="text-sm text-muted-foreground">You&apos;ve been invited to:</p>
               <p className="text-3xl font-bold text-neon-blue">{league.name}</p>
             </div>
             <div className="glass-card p-4 space-y-2">
