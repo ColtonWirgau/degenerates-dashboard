@@ -13,7 +13,7 @@ import { WeekStatsChart } from '@/components/week-stats-chart'
 import { WeekResults } from '@/components/week-results'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { Trophy, TrendingUp, Users, Clock, ArrowRight, Plus, History } from 'lucide-react'
+import { Trophy, Users, Clock, ArrowRight, Plus, History } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 
 export default async function LeaguePage({ params }: { params: Promise<{ id: string }> }) {
@@ -132,14 +132,17 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
     .order('created_at', { ascending: false })
     .limit(10)
 
-  const recentLegs = recentLegsData?.map(leg => ({
-    id: leg.id,
-    description: leg.description || '',
-    odds: leg.odds || '',
-    result: leg.result as 'win' | 'loss' | 'push' | null,
-    week_number: (leg.weeks as any)?.week_number || 0,
-    week_id: leg.week_id,
-  })) || []
+  const recentLegs = recentLegsData?.map(leg => {
+    const weeks = leg.weeks as { id: string; week_number: number; league_id: string } | null
+    return {
+      id: leg.id,
+      description: leg.description || '',
+      odds: leg.odds || '',
+      result: leg.result as 'win' | 'loss' | 'push' | null,
+      week_number: weeks?.week_number || 0,
+      week_id: leg.week_id,
+    }
+  }) || []
 
   // Debug logging
   console.log('[LeaguePage] Week status:', currentWeek?.status)
@@ -185,7 +188,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                     {isLocked ? (
                       // Show fun message based on outcome when locked
                       weekStats.wins > weekStats.losses ? (
-                        <span className="text-neon-blue font-medium">🔥 The boys are eatin' tonight!</span>
+                        <span className="text-neon-blue font-medium">🔥 The boys are eatin&apos; tonight!</span>
                       ) : weekStats.losses > weekStats.wins ? (
                         <span className="text-neon-pink font-medium">💀 The parlay is cooked boys</span>
                       ) : weekStats.wins === weekStats.losses && weekStats.wins > 0 ? (
@@ -270,7 +273,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                         <div className="flex-1 min-w-0">
                           <p className="text-xs text-muted-foreground mb-2">Your Leg</p>
                           <p className="text-base md:text-lg font-bold text-muted-foreground">Not Set</p>
-                          <p className="text-xs text-muted-foreground mt-1">Click "View Details" to submit your leg</p>
+                          <p className="text-xs text-muted-foreground mt-1">Click &quot;View Details&quot; to submit your leg</p>
                         </div>
                         <Plus className="h-8 w-8 md:h-10 md:w-10 text-primary flex-shrink-0" />
                       </div>

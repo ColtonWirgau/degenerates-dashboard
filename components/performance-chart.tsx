@@ -1,6 +1,5 @@
 'use client'
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { PieChart, Pie, Cell, Label } from 'recharts'
 import { TrendingUp, TrendingDown } from 'lucide-react'
@@ -33,8 +32,6 @@ export function PerformanceChart({ wins, losses, pushes, winRate }: PerformanceC
       color: '#FFD700',
     },
   }
-
-  const total = wins + losses + pushes
 
   // Determine win rate color based on performance
   // 70%+ = gold (excellent), 55-69% = blue (good), 40-54% = cyan (okay), <40% = pink (poor)

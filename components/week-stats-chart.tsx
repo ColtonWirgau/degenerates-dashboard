@@ -38,7 +38,6 @@ export function WeekStatsChart({ wins, losses, pushes, pending }: WeekStatsChart
     },
   }
 
-  const total = wins + losses + pushes + pending
   const completedLegs = wins + losses + pushes
   const winPercentage = completedLegs > 0 ? (wins / completedLegs) * 100 : 0
 

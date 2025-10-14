@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { PerformanceChart } from '@/components/performance-chart'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, TrendingUp, Trophy, Calendar } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { getCurrentSeason } from '@/lib/seasons'
 
 export default async function UserStatsPage({

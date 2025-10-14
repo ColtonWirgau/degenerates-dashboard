@@ -13,7 +13,7 @@ import { ArrowLeft } from 'lucide-react'
 export default async function HistoryPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const { league, error: leagueError } = await getLeague(id)
-  const { members, error: membersError } = await getLeagueMembers(id)
+  const { members } = await getLeagueMembers(id)
   const { role: currentUserRole } = await getCurrentUserRole(id)
   const { weeks } = await getWeeks(id)
   const submissionCounts = await getWeekSubmissionCounts(weeks.map(w => w.id))
