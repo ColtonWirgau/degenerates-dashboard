@@ -109,6 +109,7 @@ export async function getWeeks(leagueId: string) {
     status: p.status,
     league_id: p.league_id,
     global_week_id: p.global_week_id,
+    created_at: p.created_at,
   })) || []
 
   return { weeks, error: null }
