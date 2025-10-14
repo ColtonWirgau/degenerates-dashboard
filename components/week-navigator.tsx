@@ -241,7 +241,7 @@ export function WeekNavigator({
           // When locked: complex grid layout
           <div className="grid gap-4 grid-cols-1 lg:grid-cols-3 lg:grid-rows-2">
             {/* Chart - spans 2 rows on large screens */}
-            <div className="lg:row-span-2">
+            <div className="lg:row-span-2 h-full">
               <WeekStatsChart
                 wins={weekStats.wins}
                 losses={weekStats.losses}

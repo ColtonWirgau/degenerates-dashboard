@@ -14,6 +14,8 @@ function LoginForm() {
   const [loading, setLoading] = useState(false)
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirectTo')
+  const invite = searchParams.get('invite')
+  const join = searchParams.get('join')
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -63,6 +65,12 @@ function LoginForm() {
               )}
               {redirectTo && (
                 <input type="hidden" name="redirectTo" value={redirectTo} />
+              )}
+              {invite && (
+                <input type="hidden" name="invite" value={invite} />
+              )}
+              {join && (
+                <input type="hidden" name="join" value={join} />
               )}
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-foreground">Email</Label>

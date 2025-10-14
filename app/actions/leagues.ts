@@ -99,6 +99,7 @@ export async function getLeague(leagueId: string) {
       `
       id,
       name,
+      invite_code,
       created_at,
       league_members (
         id,
@@ -205,45 +206,95 @@ export async function inviteMember(leagueId: string, email: string) {
     return { success: false, error: 'Only owners and admins can invite members' }
   }
 
-  // Find user by email
-  const { data: invitedUser, error: userError } = await supabase
-    .from('users')
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(email)) {
+    return { success: false, error: 'Invalid email address' }
+  }
+
+  // Check if user exists in auth.users (via user_profiles view)
+  const { data: existingUsers } = await supabase
+    .from('user_profiles')
     .select('id')
     .eq('email', email)
-    .single()
+    .limit(1)
 
-  if (userError || !invitedUser) {
-    return { success: false, error: 'User not found. They must sign up first.' }
+  const invitedUser = existingUsers?.[0]
+
+  // If user exists, check if already a member
+  if (invitedUser) {
+    const { data: existingMember } = await supabase
+      .from('league_members')
+      .select('id')
+      .eq('league_id', leagueId)
+      .eq('user_id', invitedUser.id)
+      .single()
+
+    if (existingMember) {
+      return { success: false, error: 'User is already a member' }
+    }
+
+    // Add existing user directly to league
+    const { error: insertError } = await supabase
+      .from('league_members')
+      .insert({
+        league_id: leagueId,
+        user_id: invitedUser.id,
+        role: 'member',
+      })
+
+    if (insertError) {
+      console.error('Error adding member:', insertError)
+      return { success: false, error: 'Failed to add member' }
+    }
+
+    revalidatePath(`/leagues/${leagueId}`)
+    return { success: true, error: null, message: 'Member added successfully!' }
   }
 
-  // Check if already a member
-  const { data: existingMember } = await supabase
-    .from('league_members')
-    .select('id')
+  // User doesn't exist - create an invitation
+  // Check for existing pending invitation
+  const { data: existingInvitation } = await supabase
+    .from('league_invitations')
+    .select('id, status')
     .eq('league_id', leagueId)
-    .eq('user_id', invitedUser.id)
+    .eq('email', email)
+    .eq('status', 'pending')
     .single()
 
-  if (existingMember) {
-    return { success: false, error: 'User is already a member' }
+  if (existingInvitation) {
+    return { success: false, error: 'An invitation is already pending for this email' }
   }
 
-  // Add member
-  const { error: insertError } = await supabase
-    .from('league_members')
+  // Generate unique invitation token
+  const token = crypto.randomUUID()
+
+  // Create invitation
+  const { error: inviteError } = await supabase
+    .from('league_invitations')
     .insert({
       league_id: leagueId,
-      user_id: invitedUser.id,
-      role: 'member',
+      email: email.toLowerCase(),
+      invited_by: user.id,
+      token,
     })
 
-  if (insertError) {
-    console.error('Error inviting member:', insertError)
-    return { success: false, error: 'Failed to invite member' }
+  if (inviteError) {
+    console.error('Error creating invitation:', inviteError)
+    return { success: false, error: 'Failed to create invitation' }
   }
 
+  // TODO: Send invitation email here
+  // For now, we'll just return success with a message containing the invite link
+  const inviteUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/invite/${token}`
+
   revalidatePath(`/leagues/${leagueId}`)
-  return { success: true, error: null }
+  return {
+    success: true,
+    error: null,
+    message: 'Invitation created! Share this link:',
+    inviteUrl
+  }
 }
 
 export async function updateMemberRole(
@@ -321,7 +372,34 @@ export async function removeMember(leagueId: string, memberId: string) {
     return { success: false, error: "You can't remove yourself from the league" }
   }
 
-  // Remove member
+  if (!targetMember) {
+    return { success: false, error: 'Member not found' }
+  }
+
+  // First, delete all parlay legs for this user in this league
+  // Get all parlays for this league
+  const { data: leagueParlays } = await supabase
+    .from('parlays')
+    .select('id')
+    .eq('league_id', leagueId)
+
+  if (leagueParlays && leagueParlays.length > 0) {
+    const parlayIds = leagueParlays.map(p => p.id)
+
+    // Delete all parlay legs for this user in these parlays
+    const { error: legsDeleteError } = await supabase
+      .from('parlay_legs')
+      .delete()
+      .in('parlay_id', parlayIds)
+      .eq('user_id', targetMember.user_id)
+
+    if (legsDeleteError) {
+      console.error('Error deleting parlay legs:', legsDeleteError)
+      return { success: false, error: 'Failed to remove user data' }
+    }
+  }
+
+  // Now remove the member from the league
   const { error: deleteError } = await supabase
     .from('league_members')
     .delete()
@@ -334,4 +412,112 @@ export async function removeMember(leagueId: string, memberId: string) {
 
   revalidatePath(`/leagues/${leagueId}`)
   return { success: true, error: null }
+}
+
+export async function getLeagueByInviteCode(inviteCode: string) {
+  const supabase = await createClient()
+
+  const { data: league, error } = await supabase
+    .from('leagues')
+    .select('id, name, invite_code, created_at')
+    .eq('invite_code', inviteCode)
+    .single()
+
+  if (error || !league) {
+    return { league: null, error: 'League not found' }
+  }
+
+  return { league, error: null }
+}
+
+export async function joinLeagueByInviteCode(inviteCode: string) {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, error: 'Please sign up or log in first', requiresAuth: true }
+  }
+
+  // Get league by invite code
+  const { league, error: leagueError } = await getLeagueByInviteCode(inviteCode)
+
+  if (leagueError || !league) {
+    return { success: false, error: leagueError || 'League not found' }
+  }
+
+  // Check if already a member
+  const { data: existingMember } = await supabase
+    .from('league_members')
+    .select('id')
+    .eq('league_id', league.id)
+    .eq('user_id', user.id)
+    .single()
+
+  if (existingMember) {
+    // Already a member, just redirect
+    revalidatePath(`/leagues/${league.id}`)
+    redirect(`/leagues/${league.id}`)
+  }
+
+  // Add user to league
+  const { error: memberError } = await supabase
+    .from('league_members')
+    .insert({
+      league_id: league.id,
+      user_id: user.id,
+      role: 'member',
+    })
+
+  if (memberError) {
+    console.error('Error joining league:', memberError)
+    return { success: false, error: 'Failed to join league. Please try again.' }
+  }
+
+  revalidatePath(`/leagues/${league.id}`)
+  redirect(`/leagues/${league.id}`)
+}
+
+export async function regenerateInviteCode(leagueId: string) {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, error: 'Unauthorized' }
+  }
+
+  // Check if current user is owner or admin
+  const { role, error: roleError } = await getCurrentUserRole(leagueId)
+  if (roleError || (role !== 'owner' && role !== 'admin')) {
+    return { success: false, error: 'Only owners and admins can regenerate invite codes' }
+  }
+
+  // Generate new code via database function
+  const { data, error } = await supabase.rpc('generate_league_invite_code')
+
+  if (error) {
+    console.error('Error generating invite code:', error)
+    return { success: false, error: 'Failed to generate new code' }
+  }
+
+  const newCode = data as string
+
+  // Update league
+  const { error: updateError } = await supabase
+    .from('leagues')
+    .update({ invite_code: newCode })
+    .eq('id', leagueId)
+
+  if (updateError) {
+    console.error('Error updating invite code:', updateError)
+    return { success: false, error: 'Failed to update invite code' }
+  }
+
+  revalidatePath(`/leagues/${leagueId}`)
+  return { success: true, inviteCode: newCode, error: null }
 }

@@ -20,6 +20,18 @@ export async function login(formData: FormData) {
 
   revalidatePath('/', 'layout')
 
+  // Check for invite token
+  const inviteToken = formData.get('invite') as string
+  if (inviteToken) {
+    redirect(`/invite/${inviteToken}`)
+  }
+
+  // Check for league join code
+  const joinCode = formData.get('join') as string
+  if (joinCode) {
+    redirect(`/join/${joinCode}`)
+  }
+
   // Check if there's a redirect URL
   const redirectTo = formData.get('redirectTo') as string
   if (redirectTo && redirectTo.startsWith('/')) {
@@ -49,6 +61,19 @@ export async function signup(formData: FormData) {
   }
 
   revalidatePath('/', 'layout')
+
+  // Check for invite token
+  const inviteToken = formData.get('invite') as string
+  if (inviteToken) {
+    redirect(`/invite/${inviteToken}`)
+  }
+
+  // Check for league join code
+  const joinCode = formData.get('join') as string
+  if (joinCode) {
+    redirect(`/join/${joinCode}`)
+  }
+
   redirect('/dashboard')
 }
 

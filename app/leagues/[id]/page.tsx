@@ -11,6 +11,7 @@ import { ParlayResultAnimation } from '@/components/parlay-result-animation'
 import { PerformanceChart } from '@/components/performance-chart'
 import { RecentLegs } from '@/components/recent-legs'
 import { WeekNavigator } from '@/components/week-navigator'
+import { MemberManagementDialog } from '@/components/member-management-dialog'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Trophy, Plus, History } from 'lucide-react'
@@ -212,12 +213,31 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
           <div className="flex-1">
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-neon-blue break-words">{league.name}</h1>
           </div>
-          <Link href={`/leagues/${id}/history`} className="shrink-0">
-            <Button variant="outline" className="glass border-primary/30 w-full sm:w-auto">
-              <History className="h-4 w-4 mr-2" />
-              View History
-            </Button>
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-2 shrink-0 w-full sm:w-auto">
+            {canManage && (
+              <MemberManagementDialog
+                leagueId={id}
+                leagueName={league.name}
+                inviteCode={league.invite_code}
+                members={members.map(m => ({
+                  id: m.id,
+                  user_id: m.user_id,
+                  full_name: m.full_name,
+                  email: m.email,
+                  avatar_url: m.avatar_url,
+                  role: m.role as 'owner' | 'admin' | 'member',
+                  joined_at: m.joined_at,
+                }))}
+                currentUserRole={currentUserRole}
+              />
+            )}
+            <Link href={`/leagues/${id}/history`} className="w-full sm:w-auto">
+              <Button variant="outline" className="glass border-primary/30 w-full">
+                <History className="h-4 w-4 mr-2" />
+                View History
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Week Navigator */}
@@ -240,7 +260,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                 <CardDescription>2025-2026 season statistics</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-6 md:grid-cols-2">
+                <div className="grid gap-6 md:grid-cols-2 md:h-full">
                   <RecentLegs legs={recentLegs} leagueId={id} maxDisplay={3} />
                   <PerformanceChart
                     wins={userStats.wins}
