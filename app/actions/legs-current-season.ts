@@ -7,20 +7,20 @@ export async function getCurrentSeasonLeaderboard(leagueId: string) {
   const supabase = await createClient()
   const currentSeason = getCurrentSeason()
 
-  // Get all weeks for current season only
-  const { data: weeks } = await supabase
-    .from('weeks')
-    .select('id')
+  // Get all parlays for current season only
+  const { data: parlays } = await supabase
+    .from('parlays_with_weeks')
+    .select('parlay_id')
     .eq('league_id', leagueId)
     .eq('season', currentSeason.id)
 
-  if (!weeks || weeks.length === 0) {
+  if (!parlays || parlays.length === 0) {
     return { leaderboard: [], error: null }
   }
 
-  const weekIds = weeks.map(w => w.id)
+  const parlayIds = parlays.map(p => p.parlay_id)
 
-  // Get all legs for current season weeks
+  // Get all legs for current season parlays
   const { data: allLegs } = await supabase
     .from('parlay_legs')
     .select(`
@@ -32,7 +32,7 @@ export async function getCurrentSeasonLeaderboard(leagueId: string) {
         raw_user_meta_data
       )
     `)
-    .in('week_id', weekIds)
+    .in('parlay_id', parlayIds)
 
   if (!allLegs) {
     return { leaderboard: [], error: 'Failed to fetch leaderboard data' }
@@ -108,14 +108,14 @@ export async function getCurrentSeasonUserStats(leagueId: string) {
     return { stats: null, error: 'Unauthorized' }
   }
 
-  // Get all weeks for current season only
-  const { data: weeks } = await supabase
-    .from('weeks')
-    .select('id')
+  // Get all parlays for current season only
+  const { data: parlays } = await supabase
+    .from('parlays_with_weeks')
+    .select('parlay_id')
     .eq('league_id', leagueId)
     .eq('season', currentSeason.id)
 
-  if (!weeks || weeks.length === 0) {
+  if (!parlays || parlays.length === 0) {
     return {
       stats: {
         wins: 0,
@@ -129,13 +129,13 @@ export async function getCurrentSeasonUserStats(leagueId: string) {
     }
   }
 
-  const weekIds = weeks.map(w => w.id)
+  const parlayIds = parlays.map(p => p.parlay_id)
 
-  // Get all user's legs for current season weeks
+  // Get all user's legs for current season parlays
   const { data: userLegs } = await supabase
     .from('parlay_legs')
     .select('result')
-    .in('week_id', weekIds)
+    .in('parlay_id', parlayIds)
     .eq('user_id', user.id)
 
   if (!userLegs) {

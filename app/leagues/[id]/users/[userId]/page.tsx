@@ -40,17 +40,25 @@ export default async function UserStatsPage({
   const fullName = userProfile.raw_user_meta_data?.full_name || userProfile.email
   const avatarUrl = userProfile.raw_user_meta_data?.avatar_url
 
-  // Get all weeks for current season
-  const { data: weeks } = await supabase
-    .from('weeks')
-    .select('id, week_number, status, deadline')
+  // Get all parlays for current season (using the new architecture)
+  const { data: parlaysData } = await supabase
+    .from('parlays_with_weeks')
+    .select('parlay_id, week_number, status, deadline')
     .eq('league_id', leagueId)
     .eq('season', currentSeason.id)
     .order('week_number', { ascending: false })
 
-  if (!weeks) {
+  if (!parlaysData) {
     notFound()
   }
+
+  // Map to match expected interface
+  const weeks = parlaysData.map(p => ({
+    id: p.parlay_id,
+    week_number: p.week_number,
+    status: p.status,
+    deadline: p.deadline,
+  }))
 
   const weekIds = weeks.map(w => w.id)
 

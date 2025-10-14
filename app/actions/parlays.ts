@@ -18,23 +18,24 @@ export async function submitParlay(
     return { success: false, error: 'Unauthorized' }
   }
 
-  // Check if week is open
-  const { data: week } = await supabase
-    .from('weeks')
+  // Check if parlay/week is open
+  // Note: after migration, weekId refers to a parlay ID
+  const { data: parlay } = await supabase
+    .from('parlays')
     .select('status, deadline')
     .eq('id', weekId)
     .single()
 
-  if (!week) {
+  if (!parlay) {
     return { success: false, error: 'Week not found' }
   }
 
-  if (week.status !== 'open') {
+  if (parlay.status !== 'open') {
     return { success: false, error: 'Week is closed for submissions' }
   }
 
   // Check if past deadline
-  if (new Date(week.deadline) < new Date()) {
+  if (new Date(parlay.deadline) < new Date()) {
     return { success: false, error: 'Submission deadline has passed' }
   }
 
@@ -60,7 +61,7 @@ export async function submitParlay(
   }
 
   // Create new parlay
-  const { data: parlay, error: parlayError } = await supabase
+  const { data: newParlay, error: newParlayError } = await supabase
     .from('parlays')
     .insert({
       week_id: weekId,
@@ -70,14 +71,14 @@ export async function submitParlay(
     .select()
     .single()
 
-  if (parlayError || !parlay) {
-    console.error('Error creating parlay:', parlayError)
+  if (newParlayError || !newParlay) {
+    console.error('Error creating parlay:', newParlayError)
     return { success: false, error: 'Failed to submit parlay' }
   }
 
   // Create legs
   const legsData = legs.map((leg, index) => ({
-    parlay_id: parlay.id,
+    parlay_id: newParlay.id,
     leg_number: index + 1,
     description: leg.description,
     odds: leg.odds,
@@ -91,7 +92,7 @@ export async function submitParlay(
   if (legsError) {
     console.error('Error creating legs:', legsError)
     // Rollback parlay
-    await supabase.from('parlays').delete().eq('id', parlay.id)
+    await supabase.from('parlays').delete().eq('id', newParlay.id)
     return { success: false, error: 'Failed to submit parlay legs' }
   }
 
@@ -261,22 +262,23 @@ export async function createFinalParlay(
     return { success: false, error: 'Only owners and admins can create final parlays' }
   }
 
-  // Check if week is still open
-  const { data: week } = await supabase
-    .from('weeks')
+  // Check if parlay/week is still open
+  // Note: after migration, weekId refers to a parlay ID
+  const { data: parlay } = await supabase
+    .from('parlays')
     .select('status')
     .eq('id', weekId)
     .single()
 
-  console.log('[createFinalParlay] Week:', week)
+  console.log('[createFinalParlay] Parlay:', parlay)
 
-  if (!week) {
-    console.log('[createFinalParlay] Week not found')
+  if (!parlay) {
+    console.log('[createFinalParlay] Parlay not found')
     return { success: false, error: 'Week not found' }
   }
 
-  if (week.status !== 'open') {
-    console.log('[createFinalParlay] Week is not open:', week.status)
+  if (parlay.status !== 'open') {
+    console.log('[createFinalParlay] Parlay is not open:', parlay.status)
     return { success: false, error: 'Week is not open' }
   }
 
@@ -287,25 +289,25 @@ export async function createFinalParlay(
 
   // Get the existing parlay for this week (should always exist now)
   console.log('[createFinalParlay] Fetching existing parlay...')
-  const { data: parlay, error: parlayError } = await supabase
+  const { data: existingParlay, error: existingParlayError } = await supabase
     .from('parlays')
     .select('id')
-    .eq('week_id', weekId)
+    .eq('id', weekId)
     .single()
 
-  if (parlayError || !parlay) {
-    console.error('[createFinalParlay] Error fetching parlay:', parlayError)
+  if (existingParlayError || !existingParlay) {
+    console.error('[createFinalParlay] Error fetching parlay:', existingParlayError)
     return { success: false, error: 'Week parlay not found' }
   }
 
-  console.log('[createFinalParlay] Parlay found:', parlay.id)
+  console.log('[createFinalParlay] Parlay found:', existingParlay.id)
 
   // Update parlay with combined odds
   console.log('[createFinalParlay] Updating parlay odds...')
   const { error: updateParlayError } = await supabase
     .from('parlays')
     .update({ total_odds: combinedOdds })
-    .eq('id', parlay.id)
+    .eq('id', existingParlay.id)
 
   if (updateParlayError) {
     console.error('[createFinalParlay] Error updating parlay:', updateParlayError)
@@ -330,10 +332,10 @@ export async function createFinalParlay(
 
   console.log('[createFinalParlay] Legs updated successfully')
 
-  // Lock the week - await it properly
+  // Lock the parlay/week - await it properly
   console.log('[createFinalParlay] Locking week...')
   const { error: lockError } = await supabase
-    .from('weeks')
+    .from('parlays')
     .update({ status: 'locked' })
     .eq('id', weekId)
 
@@ -463,19 +465,19 @@ export async function unlockWeekAndDeleteParlay(
     return { success: false, error: `Failed to clear parlay odds: ${updateParlayError.message}` }
   }
 
-  // Unlock the week
+  // Unlock the parlay/week
   console.log('[unlockWeekAndDeleteParlay] Unlocking week...')
-  const { data: updatedWeek, error: unlockWeekError } = await supabase
-    .from('weeks')
+  const { data: updatedParlay, error: unlockError } = await supabase
+    .from('parlays')
     .update({ status: 'open' })
     .eq('id', weekId)
     .select()
 
-  console.log('[unlockWeekAndDeleteParlay] Unlock week result:', { updatedWeek, unlockWeekError })
+  console.log('[unlockWeekAndDeleteParlay] Unlock result:', { updatedParlay, unlockError })
 
-  if (unlockWeekError) {
-    console.error('[unlockWeekAndDeleteParlay] Error unlocking week:', unlockWeekError)
-    return { success: false, error: `Failed to unlock week: ${unlockWeekError.message}` }
+  if (unlockError) {
+    console.error('[unlockWeekAndDeleteParlay] Error unlocking week:', unlockError)
+    return { success: false, error: `Failed to unlock week: ${unlockError.message}` }
   }
 
   console.log('[unlockWeekAndDeleteParlay] Success! Revalidating paths...')

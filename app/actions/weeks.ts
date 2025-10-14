@@ -5,6 +5,10 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUserRole } from './leagues'
 import { getCurrentSeason } from '@/lib/seasons'
 
+/**
+ * Create a parlay for a specific week in a league
+ * Note: Global weeks should already exist, this just creates the league-specific parlay
+ */
 export async function createWeek(
   leagueId: string,
   formData: FormData
@@ -32,85 +36,185 @@ export async function createWeek(
     return { success: false, error: 'All fields are required' }
   }
 
-  // Check if week already exists
-  const { data: existingWeek } = await supabase
-    .from('weeks')
+  const currentSeason = getCurrentSeason().id
+
+  // Get the global week
+  const { data: globalWeek, error: globalWeekError } = await supabase
+    .from('global_weeks')
     .select('id')
-    .eq('league_id', leagueId)
+    .eq('season', currentSeason)
     .eq('week_number', weekNumber)
     .single()
 
-  if (existingWeek) {
-    return { success: false, error: `Week ${weekNumber} already exists` }
+  if (globalWeekError || !globalWeek) {
+    return { success: false, error: `Week ${weekNumber} does not exist for season ${currentSeason}` }
   }
 
-  // Create week
-  const { data: week, error: insertError } = await supabase
-    .from('weeks')
+  // Check if parlay already exists for this league and week
+  const { data: existingParlay } = await supabase
+    .from('parlays')
+    .select('id')
+    .eq('league_id', leagueId)
+    .eq('global_week_id', globalWeek.id)
+    .single()
+
+  if (existingParlay) {
+    return { success: false, error: `Week ${weekNumber} already exists for this league` }
+  }
+
+  // Create parlay for this league and week
+  const { data: parlay, error: insertError } = await supabase
+    .from('parlays')
     .insert({
       league_id: leagueId,
-      week_number: weekNumber,
+      global_week_id: globalWeek.id,
       deadline: new Date(deadline).toISOString(),
       status: 'open',
-      season: getCurrentSeason().id, // Automatically set current season
     })
     .select()
     .single()
 
-  if (insertError || !week) {
-    console.error('Error creating week:', insertError)
+  if (insertError || !parlay) {
+    console.error('Error creating parlay:', insertError)
     return { success: false, error: 'Failed to create week' }
-  }
-
-  // Automatically create an empty parlay for this week
-  const { error: parlayError } = await supabase
-    .from('parlays')
-    .insert({
-      week_id: week.id,
-      status: 'pending',
-      total_odds: null,
-      user_id: null, // No owner for team parlays
-    })
-
-  if (parlayError) {
-    console.error('Error creating parlay:', parlayError)
-    // Rollback: delete the week we just created
-    await supabase.from('weeks').delete().eq('id', week.id)
-    return { success: false, error: 'Failed to create parlay for week' }
   }
 
   revalidatePath(`/leagues/${leagueId}`)
   return { success: true, error: null }
 }
 
+/**
+ * Get all parlays (weeks) for a league
+ */
 export async function getWeeks(leagueId: string) {
   const supabase = await createClient()
 
-  const { data: weeks, error } = await supabase
-    .from('weeks')
+  const { data: parlays, error } = await supabase
+    .from('parlays_with_weeks')
     .select('*')
     .eq('league_id', leagueId)
-    .order('week_number', { ascending: false })
+    .order('week_number', { ascending: true })
 
   if (error) {
     console.error('Error fetching weeks:', error)
     return { weeks: [], error: 'Failed to load weeks' }
   }
 
+  // Map to match old week structure
+  const weeks = parlays?.map(p => ({
+    id: p.parlay_id,
+    week_number: p.week_number,
+    season: p.season,
+    deadline: p.deadline,
+    status: p.status,
+    league_id: p.league_id,
+    global_week_id: p.global_week_id,
+  })) || []
+
   return { weeks, error: null }
 }
 
+/**
+ * Get the current active week (parlay) for a league based on date
+ */
 export async function getCurrentWeek(leagueId: string) {
   const supabase = await createClient()
+  const currentSeason = getCurrentSeason()
 
-  // Get the most recent week that's either open or locked (not closed)
-  const { data: week, error } = await supabase
-    .from('weeks')
+  // Get the current global week based on dates
+  // We want: start_date <= NOW <= end_date
+  const now = new Date().toISOString()
+  const { data: globalWeeks, error: globalWeekError } = await supabase
+    .from('global_weeks')
     .select('*')
-    .eq('league_id', leagueId)
-    .in('status', ['open', 'locked'])
+    .eq('season', currentSeason.id)
+    .lte('start_date', now)  // start_date <= now
+    .gte('end_date', now)    // end_date >= now
     .order('week_number', { ascending: false })
     .limit(1)
+
+  console.log('[getCurrentWeek] Now:', now)
+  console.log('[getCurrentWeek] Global weeks found:', globalWeeks)
+  console.log('[getCurrentWeek] Error:', globalWeekError)
+
+  const currentGlobalWeek = globalWeeks?.[0]
+
+  // If no current week by date, fall back to next upcoming week, or most recent open/locked week
+  if (!currentGlobalWeek) {
+    console.log('[getCurrentWeek] No current week by date, checking for upcoming week...')
+
+    // First try to get the next upcoming week (starts in the future)
+    const { data: upcomingWeeks } = await supabase
+      .from('global_weeks')
+      .select('*')
+      .eq('season', currentSeason.id)
+      .gte('start_date', now)  // start_date >= now (future weeks)
+      .order('week_number', { ascending: true })
+      .limit(1)
+
+    const nextGlobalWeek = upcomingWeeks?.[0]
+
+    console.log('[getCurrentWeek] Next upcoming week:', nextGlobalWeek)
+
+    if (nextGlobalWeek) {
+      // Get the parlay for this upcoming week
+      const { data: parlay } = await supabase
+        .from('parlays_with_weeks')
+        .select('*')
+        .eq('league_id', leagueId)
+        .eq('global_week_id', nextGlobalWeek.id)
+        .maybeSingle()
+
+      if (parlay) {
+        return {
+          week: {
+            id: parlay.parlay_id,
+            week_number: parlay.week_number,
+            season: parlay.season,
+            deadline: parlay.deadline,
+            status: parlay.status,
+            league_id: parlay.league_id,
+            global_week_id: parlay.global_week_id,
+          },
+          error: null
+        }
+      }
+    }
+
+    // Last resort: get most recent open/locked week
+    const { data: parlay } = await supabase
+      .from('parlays_with_weeks')
+      .select('*')
+      .eq('league_id', leagueId)
+      .in('status', ['open', 'locked'])
+      .order('week_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (!parlay) {
+      return { week: null, error: null }
+    }
+
+    return {
+      week: {
+        id: parlay.parlay_id,
+        week_number: parlay.week_number,
+        season: parlay.season,
+        deadline: parlay.deadline,
+        status: parlay.status,
+        league_id: parlay.league_id,
+        global_week_id: parlay.global_week_id,
+      },
+      error: null
+    }
+  }
+
+  // Get the parlay for this global week and league
+  const { data: parlay, error } = await supabase
+    .from('parlays_with_weeks')
+    .select('*')
+    .eq('league_id', leagueId)
+    .eq('global_week_id', currentGlobalWeek.id)
     .maybeSingle()
 
   if (error) {
@@ -118,16 +222,34 @@ export async function getCurrentWeek(leagueId: string) {
     return { week: null, error: 'Failed to load current week' }
   }
 
+  if (!parlay) {
+    return { week: null, error: null }
+  }
+
+  // Map to match old week structure
+  const week = {
+    id: parlay.parlay_id,
+    week_number: parlay.week_number,
+    season: parlay.season,
+    deadline: parlay.deadline,
+    status: parlay.status,
+    league_id: parlay.league_id,
+    global_week_id: parlay.global_week_id,
+  }
+
   return { week, error: null }
 }
 
+/**
+ * Get a specific week (parlay) by ID
+ */
 export async function getWeek(weekId: string) {
   const supabase = await createClient()
 
-  const { data: week, error } = await supabase
-    .from('weeks')
+  const { data: parlay, error } = await supabase
+    .from('parlays_with_weeks')
     .select('*')
-    .eq('id', weekId)
+    .eq('parlay_id', weekId)
     .single()
 
   if (error) {
@@ -135,9 +257,23 @@ export async function getWeek(weekId: string) {
     return { week: null, error: 'Week not found' }
   }
 
+  // Map to match old week structure
+  const week = {
+    id: parlay.parlay_id,
+    week_number: parlay.week_number,
+    season: parlay.season,
+    deadline: parlay.deadline,
+    status: parlay.status,
+    league_id: parlay.league_id,
+    global_week_id: parlay.global_week_id,
+  }
+
   return { week, error: null }
 }
 
+/**
+ * Update parlay status
+ */
 export async function updateWeekStatus(
   leagueId: string,
   weekId: string,
@@ -160,7 +296,7 @@ export async function updateWeekStatus(
   }
 
   const { error: updateError } = await supabase
-    .from('weeks')
+    .from('parlays')
     .update({ status })
     .eq('id', weekId)
 
@@ -173,6 +309,9 @@ export async function updateWeekStatus(
   return { success: true, error: null }
 }
 
+/**
+ * Update parlay deadline
+ */
 export async function updateWeekDeadline(
   leagueId: string,
   weekId: string,
@@ -195,7 +334,7 @@ export async function updateWeekDeadline(
   }
 
   const { error: updateError } = await supabase
-    .from('weeks')
+    .from('parlays')
     .update({ deadline: new Date(deadline).toISOString() })
     .eq('id', weekId)
 
@@ -208,6 +347,9 @@ export async function updateWeekDeadline(
   return { success: true, error: null }
 }
 
+/**
+ * Delete a parlay (week)
+ */
 export async function deleteWeek(leagueId: string, weekId: string) {
   const supabase = await createClient()
 
@@ -226,7 +368,7 @@ export async function deleteWeek(leagueId: string, weekId: string) {
   }
 
   const { error: deleteError } = await supabase
-    .from('weeks')
+    .from('parlays')
     .delete()
     .eq('id', weekId)
 
@@ -239,6 +381,97 @@ export async function deleteWeek(leagueId: string, weekId: string) {
   return { success: true, error: null }
 }
 
+/**
+ * Close current week and create next week's parlay
+ */
+export async function closeWeekAndCreateNext(leagueId: string, weekId: string) {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, error: 'Unauthorized' }
+  }
+
+  // Check if user is owner or admin
+  const { role } = await getCurrentUserRole(leagueId)
+  if (role !== 'owner' && role !== 'admin') {
+    return { success: false, error: 'Only owners and admins can close weeks' }
+  }
+
+  // Get the current parlay with week info
+  const { data: currentParlay } = await supabase
+    .from('parlays_with_weeks')
+    .select('*')
+    .eq('parlay_id', weekId)
+    .single()
+
+  if (!currentParlay) {
+    return { success: false, error: 'Week not found' }
+  }
+
+  // Close the current parlay
+  const { error: closeError } = await supabase
+    .from('parlays')
+    .update({ status: 'closed' })
+    .eq('id', weekId)
+
+  if (closeError) {
+    console.error('Error closing week:', closeError)
+    return { success: false, error: 'Failed to close week' }
+  }
+
+  // Check if next global week exists
+  const nextWeekNumber = currentParlay.week_number + 1
+  const { data: nextGlobalWeek } = await supabase
+    .from('global_weeks')
+    .select('id')
+    .eq('season', currentParlay.season)
+    .eq('week_number', nextWeekNumber)
+    .single()
+
+  if (nextGlobalWeek) {
+    // Check if parlay already exists for next week
+    const { data: existingNextParlay } = await supabase
+      .from('parlays')
+      .select('id')
+      .eq('league_id', leagueId)
+      .eq('global_week_id', nextGlobalWeek.id)
+      .single()
+
+    if (!existingNextParlay) {
+      // Create next week's parlay with deadline on next Sunday at 9:15 AM
+      const now = new Date()
+      const nextSunday = new Date(now)
+      const daysUntilSunday = (7 - now.getDay()) % 7 || 7
+      nextSunday.setDate(now.getDate() + daysUntilSunday)
+      nextSunday.setHours(9, 15, 0, 0)
+
+      const { error: createError } = await supabase
+        .from('parlays')
+        .insert({
+          league_id: leagueId,
+          global_week_id: nextGlobalWeek.id,
+          deadline: nextSunday.toISOString(),
+          status: 'open',
+        })
+
+      if (createError) {
+        console.error('Error creating next week:', createError)
+        // Don't fail the close operation if week creation fails
+      }
+    }
+  }
+
+  revalidatePath(`/leagues/${leagueId}`)
+  return { success: true, error: null }
+}
+
+/**
+ * Get submission counts for multiple weeks (parlays)
+ */
 export async function getWeekSubmissionCounts(weekIds: string[]) {
   const supabase = await createClient()
 
@@ -246,52 +479,43 @@ export async function getWeekSubmissionCounts(weekIds: string[]) {
     return {}
   }
 
-  // Get all legs for these weeks
+  // Get all legs for these parlays
+  // Note: parlay_legs now have parlay_id instead of week_id
   const { data: legs, error } = await supabase
     .from('parlay_legs')
-    .select('week_id, user_id')
-    .in('week_id', weekIds)
+    .select('parlay_id, user_id')
+    .in('parlay_id', weekIds)
 
   if (error) {
     console.error('Error fetching submission counts:', error)
     return {}
   }
 
-  // Count unique users per week
+  // Count unique users per parlay
   const counts: Record<string, number> = {}
   weekIds.forEach(weekId => {
-    const weekLegs = legs?.filter(leg => leg.week_id === weekId) || []
-    const uniqueUsers = new Set(weekLegs.map(leg => leg.user_id))
+    const parlayLegs = legs?.filter(leg => leg.parlay_id === weekId) || []
+    const uniqueUsers = new Set(parlayLegs.map(leg => leg.user_id))
     counts[weekId] = uniqueUsers.size
   })
 
   return counts
 }
 
+/**
+ * Get league stats across all parlays
+ */
 export async function getLeagueStats(leagueId: string) {
   const supabase = await createClient()
 
-  // Get all weeks for this league
-  const { data: weeks } = await supabase
-    .from('weeks')
+  // Get all parlays for this league
+  const { data: parlays } = await supabase
+    .from('parlays')
     .select('id, status')
     .eq('league_id', leagueId)
 
-  if (!weeks || weeks.length === 0) {
-    return { totalWeeks: 0, wins: 0, losses: 0, pushes: 0, pending: 0 }
-  }
-
-  const weekIds = weeks.map(w => w.id)
-
-  // Get all parlays for these weeks
-  const { data: parlays } = await supabase
-    .from('parlays')
-    .select('id, week_id')
-    .in('week_id', weekIds)
-    .not('user_id', 'is', null) // Only user parlays, not final parlays
-
   if (!parlays || parlays.length === 0) {
-    return { totalWeeks: weeks.length, wins: 0, losses: 0, pushes: 0, pending: weeks.filter(w => w.status === 'open').length }
+    return { totalWeeks: 0, wins: 0, losses: 0, pushes: 0, pending: 0 }
   }
 
   const parlayIds = parlays.map(p => p.id)
@@ -303,7 +527,7 @@ export async function getLeagueStats(leagueId: string) {
     .in('parlay_id', parlayIds)
 
   if (!legs) {
-    return { totalWeeks: weeks.length, wins: 0, losses: 0, pushes: 0, pending: weeks.filter(w => w.status === 'open').length }
+    return { totalWeeks: parlays.length, wins: 0, losses: 0, pushes: 0, pending: parlays.filter(p => p.status === 'open').length }
   }
 
   // Group legs by parlay and determine result
@@ -338,10 +562,10 @@ export async function getLeagueStats(leagueId: string) {
   const results = Object.values(parlayResults)
 
   return {
-    totalWeeks: weeks.length,
+    totalWeeks: parlays.length,
     wins: results.filter(r => r === 'win').length,
     losses: results.filter(r => r === 'loss').length,
     pushes: results.filter(r => r === 'push').length,
-    pending: results.filter(r => r === 'pending').length + weeks.filter(w => w.status === 'open').length
+    pending: results.filter(r => r === 'pending').length + parlays.filter(p => p.status === 'open').length
   }
 }

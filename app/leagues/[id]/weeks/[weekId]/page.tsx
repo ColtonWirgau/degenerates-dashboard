@@ -10,6 +10,7 @@ import { SubmitLegForm } from '@/components/submit-leg-form'
 import { LiveWeekStatus } from '@/components/live-week-status'
 import { EditDeadlineDialog } from '@/components/edit-deadline-dialog'
 import { AddLegForUserDialog } from '@/components/add-leg-for-user-dialog'
+import { CloseWeekButton } from '@/components/close-week-button'
 import { TheLay } from '@/components/the-lay'
 import { ParlayResultAnimation } from '@/components/parlay-result-animation'
 import Link from 'next/link'
@@ -107,7 +108,7 @@ export default async function WeekDetailPage({
 
       <main className="container mx-auto px-4 py-8 pt-24">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-8">
           <Link href={`/leagues/${leagueId}`}>
             <Button variant="outline" size="icon" className="glass border-primary/30">
               <ArrowLeft className="h-4 w-4" />
@@ -136,6 +137,13 @@ export default async function WeekDetailPage({
               )}
             </div>
           </div>
+          {canManage && week.status === 'locked' && (
+            <CloseWeekButton
+              leagueId={leagueId}
+              weekId={weekId}
+              weekNumber={week.week_number}
+            />
+          )}
         </div>
 
         {/* User's Leg - Show when submitted */}

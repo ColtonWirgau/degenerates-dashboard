@@ -47,19 +47,29 @@ export async function getDashboardStats() {
 
   const leagueIds = leagues.map((l) => l.id)
 
-  // Get all weeks for user's leagues
-  const { data: weeks } = await supabase
-    .from('weeks')
-    .select('id, week_number, status, deadline, league_id, created_at')
+  // Get all parlays for user's leagues (using the new architecture)
+  const { data: parlaysData } = await supabase
+    .from('parlays_with_weeks')
+    .select('parlay_id, week_number, status, deadline, league_id, created_at')
     .in('league_id', leagueIds)
     .order('created_at', { ascending: false })
 
+  // Map to match expected interface
+  const weeks = parlaysData?.map(p => ({
+    id: p.parlay_id,
+    week_number: p.week_number,
+    status: p.status,
+    deadline: p.deadline,
+    league_id: p.league_id,
+    created_at: p.created_at,
+  })) || []
+
   // Count active weeks (open or locked)
   const activeParlays =
-    weeks?.filter((w) => w.status === 'open' || w.status === 'locked').length || 0
+    weeks.filter((w) => w.status === 'open' || w.status === 'locked').length
 
-  // Get all weeks for user's leagues
-  const weekIds = weeks?.map((w) => w.id) || []
+  // Get all week/parlay IDs for user's leagues
+  const weekIds = weeks.map((w) => w.id)
 
   // Get the user's personal leg submissions (not the entire parlay, just their legs)
   const { data: userLegs } = await supabase
