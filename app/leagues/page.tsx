@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { Plus, Users } from 'lucide-react'
+import { Plus } from 'lucide-react'
 
 export default async function LeaguesPage() {
   const supabase = await createClient()

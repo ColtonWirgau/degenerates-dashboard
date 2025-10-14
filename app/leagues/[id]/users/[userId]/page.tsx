@@ -69,8 +69,10 @@ export default async function UserStatsPage({
 
   // Sort by week number in descending order (most recent first)
   const sortedLegs = userLegs?.sort((a, b) => {
-    const parlayA = Array.isArray(a.parlays) ? a.parlays[0] : a.parlays
-    const parlayB = Array.isArray(b.parlays) ? b.parlays[0] : b.parlays
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parlayA = Array.isArray(a.parlays) ? a.parlays[0] : a.parlays as any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parlayB = Array.isArray(b.parlays) ? b.parlays[0] : b.parlays as any
     const weekA = parlayA?.global_weeks
     const weekB = parlayB?.global_weeks
     const weekNumA = Array.isArray(weekA) ? weekA[0]?.week_number : weekA?.week_number
