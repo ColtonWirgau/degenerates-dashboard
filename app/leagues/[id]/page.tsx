@@ -139,6 +139,33 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
   const currentWeekData = allWeeksData[currentWeekIndex]
   const userLegWithResult = currentWeekData?.userLeg || null
 
+  // Handle access denied error with custom message
+  if (leagueError === 'Access denied - not a member of this league') {
+    return (
+      <div className="min-h-[100dvh] ambient-glow">
+        <Header />
+        <main className="container mx-auto px-4 py-8 pt-24 pb-24">
+          <Card className="glass-card border-primary/30 max-w-2xl mx-auto">
+            <CardContent className="text-center py-12 space-y-4">
+              <div className="text-6xl">🔒</div>
+              <div>
+                <h3 className="text-2xl font-bold mb-2">Access Denied</h3>
+                <p className="text-muted-foreground mb-4">
+                  You are not a member of this league. Ask a league admin for an invite link to join.
+                </p>
+                <Link href="/leagues">
+                  <Button className="neon-glow-blue">
+                    Back to My Leagues
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    )
+  }
+
   if (leagueError || !league) {
     notFound()
   }

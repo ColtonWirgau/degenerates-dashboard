@@ -92,6 +92,18 @@ export async function getLeague(leagueId: string) {
     return { league: null, error: 'Unauthorized' }
   }
 
+  // First check if user is a member of this league
+  const { data: membership } = await supabase
+    .from('league_members')
+    .select('id')
+    .eq('league_id', leagueId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!membership) {
+    return { league: null, error: 'Access denied - not a member of this league' }
+  }
+
   // Get league with member info
   const { data: league, error } = await supabase
     .from('leagues')
