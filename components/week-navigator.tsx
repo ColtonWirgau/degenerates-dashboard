@@ -57,7 +57,6 @@ type WeekNavigatorProps = {
   currentWeekIndex: number
   canManage: boolean
   membersCount: number
-  currentUserId: string
 }
 
 export function WeekNavigator({
@@ -66,7 +65,6 @@ export function WeekNavigator({
   currentWeekIndex: initialIndex,
   canManage,
   membersCount,
-  currentUserId,
 }: WeekNavigatorProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex)
 

@@ -229,7 +229,6 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
             currentWeekIndex={currentWeekIndex}
             canManage={canManage}
             membersCount={members.length}
-            currentUserId={user?.id || ''}
           />
 
           {/* Season Stats - Always visible */}

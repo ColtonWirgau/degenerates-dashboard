@@ -26,23 +26,14 @@ export default async function HistoryPage({ params }: { params: Promise<{ id: st
   const nextWeekNumber = weeks.length > 0 ? Math.max(...weeks.map(w => w.week_number)) + 1 : 1
 
   // Group weeks by season
-  interface Week {
-    id: string
-    week_number: number
-    status: 'open' | 'locked' | 'closed'
-    deadline: string
-    season: string
-    created_at?: string
-    league_id?: string
-    global_week_id?: string
-  }
-  const weeksBySeason: Record<string, Week[]> = {}
+  type WeekData = typeof weeks[number]
+  const weeksBySeason: Record<string, WeekData[]> = {}
   weeks.forEach(week => {
     const season = week.season || '2025-2026' // Default for weeks without season
     if (!weeksBySeason[season]) {
       weeksBySeason[season] = []
     }
-    weeksBySeason[season].push(week as Week)
+    weeksBySeason[season].push(week)
   })
 
   // Sort seasons in descending order (most recent first)
