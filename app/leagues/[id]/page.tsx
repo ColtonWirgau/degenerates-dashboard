@@ -179,7 +179,8 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
 
   // Get recent legs for the user in this league
   // Join through parlays instead of weeks
-  const { data: recentLegsData } = await supabase
+  console.log('[LeaguePage] Fetching recent legs for user:', user?.id, 'in league:', id)
+  const { data: recentLegsData, error: recentLegsError } = await supabase
     .from('parlay_legs')
     .select(`
       id,
@@ -187,6 +188,8 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
       odds,
       result,
       parlay_id,
+      leg_number,
+      created_at,
       parlays!inner (
         id,
         league_id,
@@ -198,9 +201,12 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
     `)
     .eq('user_id', user?.id)
     .eq('parlays.league_id', id)
-    .gt('leg_number', 0)
     .order('created_at', { ascending: false })
     .limit(10)
+
+  if (recentLegsError) {
+    console.error('[LeaguePage] Error fetching recent legs:', recentLegsError)
+  }
 
   const recentLegs = recentLegsData?.map(leg => {
     const parlay = Array.isArray(leg.parlays) ? leg.parlays[0] : leg.parlays
@@ -215,6 +221,45 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
       week_id: parlay?.id || '', // Use parlay ID as week ID for compatibility
     }
   }) || []
+
+  // Filter out current week and get only one leg per unique week (the most recent one)
+  // Then take the 3 most recent weeks
+  const currentWeekNumber = currentWeek?.week_number
+  const legsWithoutCurrentWeek = currentWeekNumber
+    ? recentLegs.filter(leg => leg.week_number !== currentWeekNumber)
+    : recentLegs
+
+  // Group by week_number and take the first (most recent) leg for each week
+  const uniqueWeekLegs = new Map<number, typeof recentLegs[0]>()
+  for (const leg of legsWithoutCurrentWeek) {
+    if (!uniqueWeekLegs.has(leg.week_number)) {
+      uniqueWeekLegs.set(leg.week_number, leg)
+    }
+  }
+
+  // Convert to array, sort by week_number descending, and take first 3
+  const recentLegsFiltered = Array.from(uniqueWeekLegs.values())
+    .sort((a, b) => b.week_number - a.week_number)
+    .slice(0, 3)
+
+  console.log('[LeaguePage] Current week number:', currentWeekNumber)
+  console.log('[LeaguePage] Recent legs filtered:', recentLegsFiltered.map(l => ({ week: l.week_number, desc: l.description })))
+
+  // Debug logging for recent legs
+  console.log('[LeaguePage] Recent legs count:', recentLegsData?.length || 0)
+  console.log('[LeaguePage] Recent legs query result:', recentLegsData?.map(l => {
+    const parlay = Array.isArray(l.parlays) ? l.parlays[0] : l.parlays
+    const globalWeek = parlay?.global_weeks
+    const week = Array.isArray(globalWeek) ? globalWeek[0] : globalWeek
+    return {
+      week: week?.week_number,
+      leg_number: l.leg_number,
+      desc: l.description,
+      result: l.result,
+      created_at: l.created_at
+    }
+  }))
+  console.log('[LeaguePage] Recent legs (mapped):', recentLegs)
 
   // Debug logging
   console.log('[LeaguePage] Week status:', currentWeek?.status)
@@ -288,7 +333,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
               </CardHeader>
               <CardContent>
                 <div className="grid gap-6 md:grid-cols-2 md:h-full">
-                  <RecentLegs legs={recentLegs} leagueId={id} maxDisplay={3} />
+                  <RecentLegs legs={recentLegsFiltered} leagueId={id} userId={user?.id} maxDisplay={3} showViewAll={true} />
                   <PerformanceChart
                     wins={userStats.wins}
                     losses={userStats.losses}

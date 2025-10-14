@@ -40,29 +40,7 @@ export default async function UserStatsPage({
   const fullName = userProfile.raw_user_meta_data?.full_name || userProfile.email
   const avatarUrl = userProfile.raw_user_meta_data?.avatar_url
 
-  // Get all parlays for current season (using the new architecture)
-  const { data: parlaysData } = await supabase
-    .from('parlays_with_weeks')
-    .select('parlay_id, week_number, status, deadline')
-    .eq('league_id', leagueId)
-    .eq('season', currentSeason.id)
-    .order('week_number', { ascending: false })
-
-  if (!parlaysData) {
-    notFound()
-  }
-
-  // Map to match expected interface
-  const weeks = parlaysData.map(p => ({
-    id: p.parlay_id,
-    week_number: p.week_number,
-    status: p.status,
-    deadline: p.deadline,
-  }))
-
-  const weekIds = weeks.map(w => w.id)
-
-  // Get all user's legs for current season
+  // Get all user's legs for this league in current season through parlays and global_weeks
   const { data: userLegs } = await supabase
     .from('parlay_legs')
     .select(`
@@ -71,24 +49,33 @@ export default async function UserStatsPage({
       odds,
       result,
       created_at,
-      week_id,
-      week:weeks!week_id (
-        week_number,
-        deadline,
-        status
+      parlay_id,
+      parlays!inner (
+        id,
+        league_id,
+        global_week_id,
+        global_weeks!inner (
+          week_number,
+          season,
+          start_date,
+          end_date
+        )
       )
     `)
-    .in('week_id', weekIds)
     .eq('user_id', userId)
+    .eq('parlays.league_id', leagueId)
+    .eq('parlays.global_weeks.season', currentSeason.id)
+    .order('created_at', { ascending: false })
 
-  // Sort by week deadline in descending order (most recent first)
+  // Sort by week number in descending order (most recent first)
   const sortedLegs = userLegs?.sort((a, b) => {
-    // Type guard: Supabase returns week as an array but we know it's always a single object due to the foreign key
-    const weekA = Array.isArray(a.week) ? a.week[0] : a.week
-    const weekB = Array.isArray(b.week) ? b.week[0] : b.week
-    const dateA = new Date(weekA.deadline).getTime()
-    const dateB = new Date(weekB.deadline).getTime()
-    return dateB - dateA
+    const parlayA = Array.isArray(a.parlays) ? a.parlays[0] : a.parlays
+    const parlayB = Array.isArray(b.parlays) ? b.parlays[0] : b.parlays
+    const weekA = parlayA?.global_weeks
+    const weekB = parlayB?.global_weeks
+    const weekNumA = Array.isArray(weekA) ? weekA[0]?.week_number : weekA?.week_number
+    const weekNumB = Array.isArray(weekB) ? weekB[0]?.week_number : weekB?.week_number
+    return (weekNumB || 0) - (weekNumA || 0)
   })
 
   // Calculate stats
@@ -202,8 +189,9 @@ export default async function UserStatsPage({
             ) : (
               <div className="space-y-3">
                 {sortedLegs.map((leg) => {
-                  // Type guard: Supabase returns week as an array but we know it's always a single object due to the foreign key
-                  const week = Array.isArray(leg.week) ? leg.week[0] : leg.week
+                  const parlay = Array.isArray(leg.parlays) ? leg.parlays[0] : leg.parlays
+                  const globalWeek = parlay?.global_weeks
+                  const week = Array.isArray(globalWeek) ? globalWeek[0] : globalWeek
                   const resultColor =
                     leg.result === 'win' ? 'text-neon-blue border-neon-blue/30 bg-neon-blue/5' :
                     leg.result === 'loss' ? 'text-destructive border-destructive/30 bg-destructive/5' :
@@ -216,10 +204,10 @@ export default async function UserStatsPage({
                       className={`glass-card hover:glass-intense transition-all p-3 sm:p-4 border ${resultColor}`}
                     >
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xs text-muted-foreground">Week {week.week_number}</span>
+                        <span className="text-xs text-muted-foreground">Week {week?.week_number}</span>
                         <span className="text-xs text-muted-foreground">•</span>
                         <span className="text-xs text-muted-foreground">
-                          {new Date(week.deadline).toLocaleDateString()}
+                          {week?.end_date ? new Date(week.end_date).toLocaleDateString() : 'TBD'}
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-4">

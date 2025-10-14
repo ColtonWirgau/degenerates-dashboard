@@ -94,11 +94,7 @@ export default async function LeaguesPage() {
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Users className="h-4 w-4" />
-                          <span>View members</span>
-                        </div>
+                      <div className="flex items-center justify-end text-sm">
                         <span className="text-primary font-medium group-hover:text-neon-blue transition-colors">
                           View →
                         </span>

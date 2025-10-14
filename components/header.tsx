@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { logout } from "@/app/actions/auth";
 import Link from "next/link";
-import { User, Settings, LogOut } from "lucide-react";
+import { User, ArrowLeftRight, LogOut } from "lucide-react";
 
 export async function Header() {
   const supabase = await createClient();
@@ -94,8 +94,8 @@ export async function Header() {
                   href="/leagues"
                   className="flex items-center gap-2 cursor-pointer"
                 >
-                  <Settings className="h-4 w-4" />
-                  My Leagues
+                  <ArrowLeftRight className="h-4 w-4" />
+                  Switch League
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-primary/20" />

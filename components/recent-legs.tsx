@@ -17,12 +17,14 @@ interface RecentLeg {
 interface RecentLegsProps {
   legs: RecentLeg[]
   leagueId: string
+  userId?: string
   maxDisplay?: number
+  showViewAll?: boolean
 }
 
-export function RecentLegs({ legs, leagueId, maxDisplay = 5 }: RecentLegsProps) {
+export function RecentLegs({ legs, leagueId, userId, maxDisplay = 5, showViewAll = false }: RecentLegsProps) {
   const displayLegs = legs.slice(0, maxDisplay)
-  const hasMore = legs.length > maxDisplay
+  const hasMore = showViewAll || legs.length > maxDisplay
 
   return (
     <div className="glass-card p-4 flex flex-col">
@@ -83,8 +85,8 @@ export function RecentLegs({ legs, leagueId, maxDisplay = 5 }: RecentLegsProps) 
             ))}
           </div>
 
-          {hasMore && (
-            <Link href={`/leagues/${leagueId}/history`} className="block mt-4">
+          {hasMore && userId && (
+            <Link href={`/leagues/${leagueId}/users/${userId}`} className="block mt-4">
               <Button variant="outline" className="w-full glass border-primary/30">
                 See All
                 <ArrowRight className="h-4 w-4 ml-2" />
