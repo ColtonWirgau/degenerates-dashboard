@@ -13,10 +13,9 @@ interface InlineLegSubmissionProps {
   weekId: string
   leagueId: string
   existingLeg?: { description: string; odds: string }
-  currentUserId: string
 }
 
-export function InlineLegSubmission({ weekId, leagueId, existingLeg, currentUserId }: InlineLegSubmissionProps) {
+export function InlineLegSubmission({ weekId, leagueId, existingLeg }: InlineLegSubmissionProps) {
   const router = useRouter()
   const [description, setDescription] = useState(existingLeg?.description || '')
   const [odds, setOdds] = useState(existingLeg?.odds || '')

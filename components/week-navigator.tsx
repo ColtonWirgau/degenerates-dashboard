@@ -198,7 +198,6 @@ export function WeekNavigator({
                   description: userLeg.description || '',
                   odds: userLeg.odds || '',
                 } : undefined}
-                currentUserId={currentUserId}
               />
             </div>
 

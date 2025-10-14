@@ -32,7 +32,9 @@ export default async function HistoryPage({ params }: { params: Promise<{ id: st
     status: 'open' | 'locked' | 'closed'
     deadline: string
     season: string
-    created_at: string
+    created_at?: string
+    league_id?: string
+    global_week_id?: string
   }
   const weeksBySeason: Record<string, Week[]> = {}
   weeks.forEach(week => {
@@ -40,7 +42,7 @@ export default async function HistoryPage({ params }: { params: Promise<{ id: st
     if (!weeksBySeason[season]) {
       weeksBySeason[season] = []
     }
-    weeksBySeason[season].push(week)
+    weeksBySeason[season].push(week as Week)
   })
 
   // Sort seasons in descending order (most recent first)
