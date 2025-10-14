@@ -133,7 +133,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
     .limit(10)
 
   const recentLegs = recentLegsData?.map(leg => {
-    const weeks = leg.weeks as { id: string; week_number: number; league_id: string } | null
+    const weeks = Array.isArray(leg.weeks) ? leg.weeks[0] : leg.weeks
     return {
       id: leg.id,
       description: leg.description || '',
