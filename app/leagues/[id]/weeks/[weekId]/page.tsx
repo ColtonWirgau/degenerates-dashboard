@@ -66,7 +66,7 @@ export default async function WeekDetailPage({
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'open':
-        return <Clock className="h-5 w-5 text-neon-green" />
+        return <Clock className="h-5 w-5 text-neon-blue" />
       case 'locked':
         return <Lock className="h-5 w-5 text-gold" />
       case 'closed':
@@ -79,7 +79,7 @@ export default async function WeekDetailPage({
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'open':
-        return 'text-neon-green bg-[#39FF14]/10 border-[#39FF14]/30'
+        return 'text-neon-blue bg-[#00D9FF]/10 border-[#00D9FF]/30'
       case 'locked':
         return 'text-gold bg-[#FFD700]/10 border-[#FFD700]/30'
       case 'closed':

@@ -7,6 +7,10 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ParlayResultAnimation } from '@/components/parlay-result-animation'
+import { PerformanceChart } from '@/components/performance-chart'
+import { RecentLegs } from '@/components/recent-legs'
+import { WeekStatsChart } from '@/components/week-stats-chart'
+import { WeekResults } from '@/components/week-results'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Trophy, TrendingUp, Users, Clock, ArrowRight, Plus, History } from 'lucide-react'
@@ -29,8 +33,21 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
     user_id: string
     result: string | null
     odds?: string
+    description?: string
   } | null = null
   let weekStats = { wins: 0, losses: 0, pushes: 0, pending: 0 }
+  let winners: Array<{
+    userId: string
+    fullName: string | null
+    email: string
+    avatarUrl: string | null
+  }> = []
+  let losers: Array<{
+    userId: string
+    fullName: string | null
+    email: string
+    avatarUrl: string | null
+  }> = []
 
   if (currentWeek) {
 
@@ -60,6 +77,25 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
       pushes: weekLegs.filter(leg => leg.result === 'push').length,
       pending: weekLegs.filter(leg => leg.result === null).length
     }
+
+    // Extract winners and losers
+    winners = weekLegs
+      .filter(leg => leg.result === 'win')
+      .map(leg => ({
+        userId: leg.user_id,
+        fullName: leg.user?.raw_user_meta_data?.full_name || null,
+        email: leg.user?.email || '',
+        avatarUrl: leg.user?.raw_user_meta_data?.avatar_url || null,
+      }))
+
+    losers = weekLegs
+      .filter(leg => leg.result === 'loss')
+      .map(leg => ({
+        userId: leg.user_id,
+        fullName: leg.user?.raw_user_meta_data?.full_name || null,
+        email: leg.user?.email || '',
+        avatarUrl: leg.user?.raw_user_meta_data?.avatar_url || null,
+      }))
   }
 
   if (leagueError || !league) {
@@ -74,6 +110,36 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
   // Get user stats and leaderboard for CURRENT SEASON ONLY
   const { stats: userStats } = await getCurrentSeasonUserStats(id)
   const { leaderboard = [] } = await getCurrentSeasonLeaderboard(id)
+
+  // Get recent legs for the user in this league
+  const { data: recentLegsData } = await supabase
+    .from('parlay_legs')
+    .select(`
+      id,
+      description,
+      odds,
+      result,
+      week_id,
+      weeks!inner (
+        id,
+        week_number,
+        league_id
+      )
+    `)
+    .eq('user_id', user?.id)
+    .eq('weeks.league_id', id)
+    .gt('leg_number', 0)
+    .order('created_at', { ascending: false })
+    .limit(10)
+
+  const recentLegs = recentLegsData?.map(leg => ({
+    id: leg.id,
+    description: leg.description || '',
+    odds: leg.odds || '',
+    result: leg.result as 'win' | 'loss' | 'push' | null,
+    week_number: (leg.weeks as any)?.week_number || 0,
+    week_id: leg.week_id,
+  })) || []
 
   // Debug logging
   console.log('[LeaguePage] Week status:', currentWeek?.status)
@@ -116,19 +182,34 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                 <div className="flex-1">
                   <CardTitle className="text-2xl sm:text-3xl">Week {currentWeek.week_number}</CardTitle>
                   <CardDescription className="mt-2 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 text-sm sm:text-base">
-                    {deadline && (
-                      <span className="flex items-center gap-2">
-                        <Clock className="h-4 w-4" />
-                        <span>
-                          Deadline: {deadline.toLocaleDateString()} at{' '}
-                          {deadline.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </span>
-                    )}
-                    {isPastDeadline && (
-                      <Badge variant="outline" className="text-destructive border-destructive/30 w-fit">
-                        Deadline Passed
-                      </Badge>
+                    {isLocked ? (
+                      // Show fun message based on outcome when locked
+                      weekStats.wins > weekStats.losses ? (
+                        <span className="text-neon-blue font-medium">🔥 The boys are eatin' tonight!</span>
+                      ) : weekStats.losses > weekStats.wins ? (
+                        <span className="text-neon-pink font-medium">💀 The parlay is cooked boys</span>
+                      ) : weekStats.wins === weekStats.losses && weekStats.wins > 0 ? (
+                        <span className="text-gold font-medium">😬 Saved by the bell</span>
+                      ) : (
+                        <span className="text-muted-foreground font-medium">⏳ Results pending...</span>
+                      )
+                    ) : (
+                      <>
+                        {deadline && (
+                          <span className="flex items-center gap-2">
+                            <Clock className="h-4 w-4" />
+                            <span>
+                              Deadline: {deadline.toLocaleDateString()} at{' '}
+                              {deadline.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </span>
+                        )}
+                        {isPastDeadline && (
+                          <Badge variant="outline" className="text-destructive border-destructive/30 w-fit">
+                            Deadline Passed
+                          </Badge>
+                        )}
+                      </>
                     )}
                   </CardDescription>
                 </div>
@@ -142,92 +223,134 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
             </CardHeader>
             <CardContent>
               {/* This Week's Stats */}
-              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-4 mb-6">
-                <Card className="glass-card hover:glass-intense transition-all">
-                  <CardContent className="pt-4 pb-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Submissions</p>
-                        <p className="text-2xl font-bold text-primary">{submissionCount} / {members.length}</p>
+              {currentWeek.status === 'open' ? (
+                // When open: simple 2-column grid
+                <div className="grid gap-6 md:grid-cols-2">
+                  <Card className="glass-card hover:glass-intense transition-all py-3 gap-0 md:py-6">
+                    <CardContent className="px-4 md:px-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Submissions</p>
+                          <p className="text-xl md:text-2xl font-bold text-primary">{submissionCount} / {members.length}</p>
+                        </div>
+                        <Users className="h-6 w-6 md:h-8 md:w-8 text-muted-foreground" />
                       </div>
-                      <Users className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
 
-                <Card className="glass-card hover:glass-intense transition-all hover:neon-glow-green">
-                  <CardContent className="pt-4 pb-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Legs Won</p>
-                        <p className="text-2xl font-bold text-neon-green">{weekStats.wins}</p>
-                      </div>
-                      <TrendingUp className="h-8 w-8 text-neon-green" />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="glass-card hover:glass-intense transition-all hover:neon-glow-pink">
-                  <CardContent className="pt-4 pb-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Legs Lost</p>
-                        <p className="text-2xl font-bold text-destructive">{weekStats.losses}</p>
-                      </div>
-                      <TrendingUp className="h-8 w-8 text-destructive rotate-180" />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className={`glass-card hover:glass-intense transition-all ${
-                  userLegWithResult?.result === 'win' ? 'hover:neon-glow-green border-neon-green/30' :
+                  {/* Your Leg Card */}
+                  <Card className={`glass-card hover:glass-intense transition-all py-3 gap-0 md:py-6 ${
+                  userLegWithResult?.result === 'win' ? 'hover:neon-glow-blue border-neon-blue/30' :
                   userLegWithResult?.result === 'loss' ? 'hover:neon-glow-pink border-destructive/30' :
                   userLegWithResult?.result === 'push' ? 'hover:neon-glow-gold border-gold/30' :
                   'border-primary/20'
                 }`}>
-                  <CardContent className="pt-4 pb-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-muted-foreground mb-1">Your Leg</p>
-                        {userLegWithResult ? (
-                          <>
-                            {userLegWithResult.result === 'win' && (
-                              <p className="text-2xl font-bold text-neon-green">WIN! ✓</p>
-                            )}
-                            {userLegWithResult.result === 'loss' && (
-                              <p className="text-2xl font-bold text-destructive">LOST ✗</p>
-                            )}
-                            {userLegWithResult.result === 'push' && (
-                              <p className="text-2xl font-bold text-gold">PUSH</p>
-                            )}
-                            {!userLegWithResult.result && (
-                              <p className="text-2xl font-bold text-gold">Pending...</p>
-                            )}
-                          </>
-                        ) : currentWeek.status === 'open' ? (
-                          <p className="text-lg font-bold text-muted-foreground">Not Set</p>
-                        ) : (
-                          <p className="text-lg font-bold text-muted-foreground">None</p>
-                        )}
+                  <CardContent className="px-4 md:px-6">
+                    {userLegWithResult ? (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-2">Your Leg</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-base md:text-lg font-medium text-foreground break-words">
+                            {userLegWithResult.description || 'No description'}
+                          </p>
+                          <Badge variant="outline" className="text-sm font-bold flex-shrink-0">
+                            {(() => {
+                              const oddsStr = String(userLegWithResult.odds).trim()
+                              const numOdds = parseInt(oddsStr.replace(/[^-\d]/g, ''))
+                              if (!isNaN(numOdds) && numOdds > 0 && !oddsStr.startsWith('+')) {
+                                return `+${numOdds}`
+                              }
+                              return userLegWithResult.odds
+                            })()}
+                          </Badge>
+                        </div>
                       </div>
-                      {userLegWithResult ? (
-                        <Badge variant="outline" className={
-                          userLegWithResult.result === 'win' ? 'text-neon-green border-neon-green/30' :
-                          userLegWithResult.result === 'loss' ? 'text-destructive border-destructive/30' :
-                          userLegWithResult.result === 'push' ? 'text-gold border-gold/30' :
-                          'text-muted-foreground'
-                        }>
-                          {userLegWithResult.odds}
-                        </Badge>
-                      ) : currentWeek.status === 'open' ? (
-                        <Plus className="h-8 w-8 text-primary" />
-                      ) : (
-                        <Clock className="h-8 w-8 text-muted-foreground" />
-                      )}
-                    </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-muted-foreground mb-2">Your Leg</p>
+                          <p className="text-base md:text-lg font-bold text-muted-foreground">Not Set</p>
+                          <p className="text-xs text-muted-foreground mt-1">Click "View Details" to submit your leg</p>
+                        </div>
+                        <Plus className="h-8 w-8 md:h-10 md:w-10 text-primary flex-shrink-0" />
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
-              </div>
+                </div>
+              ) : (
+                // When locked: complex grid layout
+                // Mobile: stack all vertically
+                // Large screens: chart spans 2 rows in col 1, Your Leg spans 2 cols in row 1, Champions/Graveyard in row 2 cols 2-3
+                <div className="grid gap-4 grid-cols-1 lg:grid-cols-3 lg:grid-rows-2">
+                  {/* Chart - spans 2 rows on large screens */}
+                  <div className="lg:row-span-2">
+                    <WeekStatsChart
+                      wins={weekStats.wins}
+                      losses={weekStats.losses}
+                      pushes={weekStats.pushes}
+                      pending={weekStats.pending}
+                    />
+                  </div>
+
+                  {/* Your Leg - spans 2 columns on large screens */}
+                  <Card className={`lg:col-span-2 glass-card hover:glass-intense transition-all py-3 gap-0 md:py-6 ${
+                    userLegWithResult?.result === 'win' ? 'hover:neon-glow-blue border-neon-blue/30' :
+                    userLegWithResult?.result === 'loss' ? 'hover:neon-glow-pink border-destructive/30' :
+                    userLegWithResult?.result === 'push' ? 'hover:neon-glow-gold border-gold/30' :
+                    'border-primary/20'
+                  }`}>
+                    <CardContent className="px-4 md:px-6 h-full">
+                      {userLegWithResult ? (
+                        <div className="h-full flex flex-col">
+                          <p className="text-xs text-muted-foreground mb-2">Your Leg</p>
+                          <div className="flex-1 flex items-center">
+                            <div className="flex items-center justify-between gap-4 w-full">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <p className="text-base md:text-lg font-medium text-foreground break-words">
+                                  {userLegWithResult.description || 'No description'}
+                                </p>
+                                <Badge variant="outline" className="text-sm font-bold flex-shrink-0">
+                                  {(() => {
+                                    const oddsStr = String(userLegWithResult.odds).trim()
+                                    const numOdds = parseInt(oddsStr.replace(/[^-\d]/g, ''))
+                                    if (!isNaN(numOdds) && numOdds > 0 && !oddsStr.startsWith('+')) {
+                                      return `+${numOdds}`
+                                    }
+                                    return userLegWithResult.odds
+                                  })()}
+                                </Badge>
+                              </div>
+
+                              {userLegWithResult.result && (
+                                <div className="flex-shrink-0">
+                                  {userLegWithResult.result === 'win' && (
+                                    <p className="text-2xl sm:text-3xl font-bold text-neon-blue">WIN</p>
+                                  )}
+                                  {userLegWithResult.result === 'loss' && (
+                                    <p className="text-2xl sm:text-3xl font-bold text-destructive">LOSS</p>
+                                  )}
+                                  {userLegWithResult.result === 'push' && (
+                                    <p className="text-2xl sm:text-3xl font-bold text-gold">PUSH</p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Your Leg</p>
+                          <p className="text-base md:text-lg font-bold text-muted-foreground">None</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Champions Circle and Graveyard - side by side in row 2 on large screens */}
+                  <WeekResults winners={winners} losers={losers} compact />
+                </div>
+              )}
 
             </CardContent>
           </Card>
@@ -243,31 +366,14 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                     <CardDescription>2025-2026 season statistics</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid gap-4 md:grid-cols-4">
-                      <div className="glass-card hover:glass-intense transition-all p-4">
-                        <p className="text-xs text-muted-foreground mb-1">Win Rate</p>
-                        <p className="text-3xl font-bold text-neon-blue">
-                          {userStats.winRate.toFixed(1)}%
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {userStats.wins + userStats.losses} completed
-                        </p>
-                      </div>
-
-                      <div className="glass-card hover:glass-intense transition-all hover:neon-glow-green p-4">
-                        <p className="text-xs text-muted-foreground mb-1">Wins</p>
-                        <p className="text-3xl font-bold text-neon-green">{userStats.wins}</p>
-                      </div>
-
-                      <div className="glass-card hover:glass-intense transition-all hover:neon-glow-pink p-4">
-                        <p className="text-xs text-muted-foreground mb-1">Losses</p>
-                        <p className="text-3xl font-bold text-destructive">{userStats.losses}</p>
-                      </div>
-
-                      <div className="glass-card hover:glass-intense transition-all hover:neon-glow-gold p-4">
-                        <p className="text-xs text-muted-foreground mb-1">Pushes</p>
-                        <p className="text-3xl font-bold text-gold">{userStats.pushes}</p>
-                      </div>
+                    <div className="grid gap-6 md:grid-cols-2">
+                      <RecentLegs legs={recentLegs} leagueId={id} maxDisplay={3} />
+                      <PerformanceChart
+                        wins={userStats.wins}
+                        losses={userStats.losses}
+                        pushes={userStats.pushes}
+                        winRate={userStats.winRate}
+                      />
                     </div>
                   </CardContent>
                 </Card>

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
+import { PerformanceChart } from '@/components/performance-chart'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, TrendingUp, Trophy, Calendar } from 'lucide-react'
@@ -102,6 +103,16 @@ export default async function UserStatsPage({
     return name.slice(0, 2).toUpperCase()
   }
 
+  // Determine win rate color based on performance
+  const getWinRateColor = (rate: number) => {
+    if (rate >= 70) return '#FFD700' // gold
+    if (rate >= 55) return '#00D9FF' // neon-blue
+    if (rate >= 40) return '#00CED1' // dark-cyan
+    return '#FF69B4' // neon-pink
+  }
+
+  const winRateColor = getWinRateColor(winRate)
+
   return (
     <div className="min-h-screen ambient-glow">
       <Header />
@@ -120,84 +131,54 @@ export default async function UserStatsPage({
         {/* User Profile Card */}
         <Card className="glass-intense border-primary/30 neon-glow-blue mb-6">
           <CardContent className="pt-6 pb-6">
-            <div className="flex flex-col items-center gap-6">
-              {/* Win Rate - Featured at top on mobile */}
-              <div className="text-center w-full">
-                <div className="text-6xl font-bold text-neon-blue mb-2">
-                  {winRate.toFixed(1)}%
-                </div>
-                <p className="text-base text-muted-foreground">Win Rate</p>
-              </div>
-
-              {/* Avatar and User Info */}
-              <div className="flex flex-col items-center gap-3 w-full">
-                <Avatar className="h-20 w-20">
+            {/* Desktop: side by side, Mobile: stacked */}
+            <div className="flex flex-col lg:flex-row items-center gap-6 lg:gap-8">
+              {/* Left side: Avatar and User Info */}
+              <div className="flex flex-col items-center gap-4 lg:flex-1">
+                <Avatar className="h-24 w-24">
                   <AvatarImage src={avatarUrl} alt={fullName} />
-                  <AvatarFallback className="bg-primary/20 text-primary font-bold text-2xl">
+                  <AvatarFallback className="bg-primary/20 text-primary font-bold text-3xl">
                     {getInitials(fullName)}
                   </AvatarFallback>
                 </Avatar>
 
-                <div className="text-center w-full px-2">
-                  <h1 className="text-2xl font-bold text-neon-blue mb-2 break-words">{fullName}</h1>
+                <div className="text-center">
+                  <h1 className="text-3xl font-bold text-neon-blue mb-2 break-words">{fullName}</h1>
                   <p className="text-sm text-muted-foreground">{league.name}</p>
                   <p className="text-sm text-muted-foreground">{currentSeason.displayName}</p>
                 </div>
+
+                {/* Win Rate Display - Mobile */}
+                <div className="lg:hidden text-center">
+                  <div className="text-6xl font-bold mb-2" style={{ color: winRateColor }}>
+                    {winRate.toFixed(1)}%
+                  </div>
+                  <p className="text-base text-muted-foreground">Win Rate</p>
+                </div>
               </div>
+
+              {/* Right side: Performance Chart - Desktop only */}
+              <div className="hidden lg:block lg:flex-1">
+                <PerformanceChart
+                  wins={stats.wins}
+                  losses={stats.losses}
+                  pushes={stats.pushes}
+                  winRate={winRate}
+                />
+              </div>
+            </div>
+
+            {/* Performance Chart - Mobile */}
+            <div className="lg:hidden mt-6">
+              <PerformanceChart
+                wins={stats.wins}
+                losses={stats.losses}
+                pushes={stats.pushes}
+                winRate={winRate}
+              />
             </div>
           </CardContent>
         </Card>
-
-        {/* Stats Cards */}
-        <div className="grid gap-4 grid-cols-2 md:grid-cols-4 mb-6">
-          <Card className="glass-card hover:glass-intense transition-all hover:neon-glow-green">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Wins</p>
-                  <p className="text-3xl font-bold text-neon-green">{stats.wins}</p>
-                </div>
-                <Trophy className="h-8 w-8 text-neon-green" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-card hover:glass-intense transition-all hover:neon-glow-pink">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Losses</p>
-                  <p className="text-3xl font-bold text-destructive">{stats.losses}</p>
-                </div>
-                <TrendingUp className="h-8 w-8 text-destructive rotate-180" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-card hover:glass-intense transition-all hover:neon-glow-gold">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Pushes</p>
-                  <p className="text-3xl font-bold text-gold">{stats.pushes}</p>
-                </div>
-                <Calendar className="h-8 w-8 text-gold" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-card hover:glass-intense transition-all">
-            <CardContent className="pt-6">
-              <div className="flex flex-col gap-2">
-                <p className="text-sm text-muted-foreground">Record</p>
-                <p className="text-2xl font-bold text-foreground whitespace-nowrap">
-                  {stats.wins}W - {stats.losses}L
-                </p>
-                <p className="text-xs text-muted-foreground">{stats.total} total</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
 
         {/* Bet History */}
         <Card className="glass-card">
@@ -216,7 +197,7 @@ export default async function UserStatsPage({
                   // Type guard: Supabase returns week as an array but we know it's always a single object due to the foreign key
                   const week = Array.isArray(leg.week) ? leg.week[0] : leg.week
                   const resultColor =
-                    leg.result === 'win' ? 'text-neon-green border-neon-green/30 bg-neon-green/5' :
+                    leg.result === 'win' ? 'text-neon-blue border-neon-blue/30 bg-neon-blue/5' :
                     leg.result === 'loss' ? 'text-destructive border-destructive/30 bg-destructive/5' :
                     leg.result === 'push' ? 'text-gold border-gold/30 bg-gold/5' :
                     'text-muted-foreground border-muted-foreground/30'
@@ -226,52 +207,42 @@ export default async function UserStatsPage({
                       key={leg.id}
                       className={`glass-card hover:glass-intense transition-all p-3 sm:p-4 border ${resultColor}`}
                     >
-                      <div className="flex items-start sm:items-center justify-between gap-3 sm:gap-4">
-                        <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
-                          <div className="text-center flex-shrink-0 min-w-[60px] sm:min-w-[80px]">
-                            <p className="text-xs text-muted-foreground mb-1">Week</p>
-                            <p className="text-xl sm:text-2xl font-bold text-primary">{week.week_number}</p>
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-foreground text-sm sm:text-base md:text-lg mb-1 break-words">
-                              {leg.description}
-                            </p>
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                              <Badge variant="outline" className="text-xs w-fit">
-                                {leg.odds}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(week.deadline).toLocaleDateString()}
-                              </span>
-                            </div>
-                          </div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs text-muted-foreground">Week {week.week_number}</span>
+                        <span className="text-xs text-muted-foreground">•</span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(week.deadline).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <p className="font-medium text-foreground text-sm sm:text-base md:text-lg break-words">
+                            {leg.description}
+                          </p>
+                          <Badge variant="outline" className="text-sm font-bold flex-shrink-0">
+                            {(() => {
+                              const oddsStr = String(leg.odds).trim()
+                              const numOdds = parseInt(oddsStr.replace(/[^-\d]/g, ''))
+                              if (!isNaN(numOdds) && numOdds > 0 && !oddsStr.startsWith('+')) {
+                                return `+${numOdds}`
+                              }
+                              return leg.odds
+                            })()}
+                          </Badge>
                         </div>
 
                         <div className="text-right flex-shrink-0">
                           {leg.result === 'win' && (
-                            <div>
-                              <p className="text-xl sm:text-2xl font-bold text-neon-green">WIN</p>
-                              <p className="text-xs text-neon-green">✓</p>
-                            </div>
+                            <p className="text-2xl sm:text-3xl font-bold text-neon-blue">WIN</p>
                           )}
                           {leg.result === 'loss' && (
-                            <div>
-                              <p className="text-xl sm:text-2xl font-bold text-destructive">LOSS</p>
-                              <p className="text-xs text-destructive">✗</p>
-                            </div>
+                            <p className="text-2xl sm:text-3xl font-bold text-destructive">LOSS</p>
                           )}
                           {leg.result === 'push' && (
-                            <div>
-                              <p className="text-xl sm:text-2xl font-bold text-gold">PUSH</p>
-                              <p className="text-xs text-gold">—</p>
-                            </div>
+                            <p className="text-2xl sm:text-3xl font-bold text-gold">PUSH</p>
                           )}
                           {!leg.result && (
-                            <div>
-                              <p className="text-lg sm:text-xl font-bold text-muted-foreground">Pending</p>
-                              <p className="text-xs text-muted-foreground">⏳</p>
-                            </div>
+                            <p className="text-xl sm:text-2xl font-bold text-muted-foreground">PENDING</p>
                           )}
                         </div>
                       </div>

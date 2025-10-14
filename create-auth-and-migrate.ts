@@ -22,7 +22,7 @@ const users = [
     oldId: '29e7e280-78b8-416d-a526-1105180e9da3',
   },
   {
-    email: 'denzelwright@gmail.com',
+    email: 'dwright584@gmail.com',
     name: 'Denzel Wright',
     password: 'DenzelWrong69#',
     oldId: '9e3d956a-8ad2-4a59-8aac-32a2ffc9fc96',

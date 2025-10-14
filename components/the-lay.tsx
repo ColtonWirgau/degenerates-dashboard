@@ -227,7 +227,7 @@ export function TheLay({
     switch (result) {
       case 'win':
         return (
-          <Badge variant="outline" className="text-neon-green border-neon-green/30">
+          <Badge variant="outline" className="text-neon-blue border-neon-blue/30">
             Win
           </Badge>
         )
@@ -264,8 +264,8 @@ export function TheLay({
               {legs.length} of {members.length} legs submitted
               {!isLocked && (
                 <span className="inline-flex items-center gap-1.5 ml-3">
-                  <span className="h-2 w-2 rounded-full bg-neon-green animate-pulse" />
-                  <span className="text-xs text-neon-green">LIVE</span>
+                  <span className="h-2 w-2 rounded-full bg-neon-blue animate-pulse" />
+                  <span className="text-xs text-neon-blue">LIVE</span>
                 </span>
               )}
               {isLocked && totalOdds && (
@@ -311,7 +311,7 @@ export function TheLay({
 
               switch (leg.result) {
                 case 'win':
-                  return 'bg-neon-green/20 border-neon-green border-2 shadow-[0_0_20px_rgba(57,255,20,0.3)]'
+                  return 'bg-neon-blue/20 border-neon-blue border-2 shadow-[0_0_20px_rgba(0,217,255,0.3)]'
                 case 'loss':
                   return 'bg-destructive/20 border-destructive border-2 shadow-[0_0_20px_rgba(239,68,68,0.3)]'
                 case 'push':
@@ -326,7 +326,7 @@ export function TheLay({
                 key={leg.id}
                 className={`glass-card p-4 transition-all relative ${
                   newLegId === leg.id
-                    ? 'animate-in fade-in slide-in-from-right-4 neon-glow-green border-neon-green/50'
+                    ? 'animate-in fade-in slide-in-from-right-4 neon-glow-blue border-neon-blue/50'
                     : getResultStyles()
                 }`}
               >
@@ -356,7 +356,7 @@ export function TheLay({
                 {/* Leg Details */}
                 <div className="pl-10 mb-2">
                   <p className={`text-sm mb-1 ${
-                    isLocked && leg.result === 'win' ? 'text-neon-green' :
+                    isLocked && leg.result === 'win' ? 'text-neon-blue' :
                     isLocked && leg.result === 'loss' ? 'text-destructive' :
                     isLocked && leg.result === 'push' ? 'text-gold' :
                     ''
@@ -364,7 +364,7 @@ export function TheLay({
                     {leg.description}
                   </p>
                   <Badge variant="outline" className={`text-xs ${
-                    isLocked && leg.result === 'win' ? 'text-neon-green border-neon-green/30' :
+                    isLocked && leg.result === 'win' ? 'text-neon-blue border-neon-blue/30' :
                     isLocked && leg.result === 'loss' ? 'text-destructive border-destructive/30' :
                     isLocked && leg.result === 'push' ? 'text-gold border-gold/30' :
                     ''
@@ -389,8 +389,8 @@ export function TheLay({
                       disabled={updatingLegId === leg.id}
                       className={`h-8 w-8 rounded ${
                         leg.result === 'win'
-                          ? 'bg-[#39FF14] text-black hover:bg-[#39FF14] hover:text-black'
-                          : 'bg-transparent text-neon-green hover:text-neon-green hover:bg-neon-green/10 border-[0.5px] border-[#39FF14]'
+                          ? 'bg-[#00D9FF] text-black hover:bg-[#00D9FF] hover:text-black'
+                          : 'bg-transparent text-neon-blue hover:text-neon-blue hover:bg-neon-blue/10 border-[0.5px] border-[#00D9FF]'
                       }`}
                       title="Win"
                     >
