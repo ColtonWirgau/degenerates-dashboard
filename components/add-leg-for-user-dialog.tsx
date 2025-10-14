@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Dialog,
   DialogContent,
@@ -47,6 +48,7 @@ export function AddLegForUserDialog({
   members,
   existingLegUserIds,
 }: AddLegForUserDialogProps) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [selectedUserId, setSelectedUserId] = useState<string>('')
   const [description, setDescription] = useState('')
@@ -97,6 +99,8 @@ export function AddLegForUserDialog({
       setSelectedUserId('')
       setDescription('')
       setOdds('')
+      // Refresh the page to show the new leg
+      router.refresh()
     }
   }
 

@@ -19,18 +19,19 @@ export async function submitLeg(
     return { success: false, error: 'Unauthorized' }
   }
 
-  // Check if week is open
-  const { data: week } = await supabase
-    .from('weeks')
+  // Check if parlay/week is open
+  // Note: weekId now refers to a parlay ID after migration
+  const { data: parlay } = await supabase
+    .from('parlays')
     .select('status, deadline')
     .eq('id', weekId)
     .single()
 
-  if (!week) {
+  if (!parlay) {
     return { success: false, error: 'Week not found' }
   }
 
-  if (week.status !== 'open') {
+  if (parlay.status !== 'open') {
     return { success: false, error: 'Week is closed for submissions' }
   }
 
@@ -45,32 +46,22 @@ export async function submitLeg(
   const canBypassDeadline = membership?.role === 'owner' || membership?.role === 'admin'
 
   // Check if past deadline
-  if (!canBypassDeadline && new Date(week.deadline) < new Date()) {
+  if (!canBypassDeadline && new Date(parlay.deadline) < new Date()) {
     return { success: false, error: 'Submission deadline has passed' }
   }
 
   // TODO: Add AI validation back later
   // For now, skip validation to avoid OpenAI quota issues
 
-  // Get the parlay for this week (should always exist now)
-  const { data: parlay } = await supabase
-    .from('parlays')
-    .select('id')
-    .eq('week_id', weekId)
-    .single()
-
-  if (!parlay) {
-    console.error('No parlay found for week:', weekId)
-    return { success: false, error: 'Week parlay not found' }
-  }
+  // weekId is now the parlay ID after migration
+  const parlayId = weekId
 
   // Check if user already has a leg for this week
   const { data: existingLeg } = await supabase
     .from('parlay_legs')
     .select('id')
-    .eq('week_id', weekId)
+    .eq('parlay_id', parlayId)
     .eq('user_id', user.id)
-    .eq('parlay_id', parlay.id)
     .maybeSingle()
 
   if (existingLeg) {
@@ -94,9 +85,8 @@ export async function submitLeg(
     const { error: insertError } = await supabase
       .from('parlay_legs')
       .insert({
-        week_id: weekId,
         user_id: user.id,
-        parlay_id: parlay.id, // Assigned to parlay immediately
+        parlay_id: parlayId, // Assigned to parlay immediately
         description: leg.description,
         odds: leg.odds,
         leg_number: 0, // Will be updated when week is locked
@@ -126,10 +116,11 @@ export async function getUserLeg(weekId: string) {
   }
 
   // Get user's leg for this week
+  // weekId is now the parlay ID after migration
   const { data: leg } = await supabase
     .from('parlay_legs')
     .select('*')
-    .eq('week_id', weekId)
+    .eq('parlay_id', weekId)
     .eq('user_id', user.id)
     .single()
 
@@ -140,6 +131,7 @@ export async function getAllLegsForWeek(weekId: string) {
   const supabase = await createClient()
 
   // Get all leg submissions for this week
+  // weekId is now the parlay ID after migration
   const { data: legs, error } = await supabase
     .from('parlay_legs')
     .select(`
@@ -150,8 +142,8 @@ export async function getAllLegsForWeek(weekId: string) {
         raw_user_meta_data
       )
     `)
-    .eq('week_id', weekId)
-    .order('created_at', { ascending: true })
+    .eq('parlay_id', weekId)
+    .order('created_at', { ascending: false })
 
   if (error) {
     console.error('Error fetching legs:', error)
@@ -304,39 +296,29 @@ export async function submitLegForUser(
     return { success: false, error: 'User is not a member of this league' }
   }
 
-  // Check if week is open
-  const { data: week } = await supabase
-    .from('weeks')
+  // Check if parlay/week is open
+  const { data: parlay } = await supabase
+    .from('parlays')
     .select('status')
     .eq('id', weekId)
     .single()
 
-  if (!week || week.status !== 'open') {
+  if (!parlay || parlay.status !== 'open') {
     return { success: false, error: 'Week is not open for submissions' }
   }
 
   // TODO: Add AI validation back later
   // For now, skip validation to avoid OpenAI quota issues
 
-  // Get the parlay for this week (should always exist now)
-  const { data: parlay } = await supabase
-    .from('parlays')
-    .select('id')
-    .eq('week_id', weekId)
-    .single()
-
-  if (!parlay) {
-    console.error('No parlay found for week:', weekId)
-    return { success: false, error: 'Week parlay not found' }
-  }
+  // weekId is now the parlay ID
+  const parlayId = weekId
 
   // Check if target user already has a leg for this week
   const { data: existingLeg } = await supabase
     .from('parlay_legs')
     .select('id')
-    .eq('week_id', weekId)
+    .eq('parlay_id', parlayId)
     .eq('user_id', targetUserId)
-    .eq('parlay_id', parlay.id)
     .maybeSingle()
 
   if (existingLeg) {
@@ -360,9 +342,8 @@ export async function submitLegForUser(
     const { error: insertError } = await supabase
       .from('parlay_legs')
       .insert({
-        week_id: weekId,
         user_id: targetUserId,
-        parlay_id: parlay.id, // Assigned to parlay immediately
+        parlay_id: parlayId, // Assigned to parlay immediately
         description: leg.description,
         odds: leg.odds,
         leg_number: 0,
@@ -383,19 +364,19 @@ export async function submitLegForUser(
 export async function getLeaderboard(leagueId: string) {
   const supabase = await createClient()
 
-  // Get all weeks for this league
-  const { data: weeks } = await supabase
-    .from('weeks')
+  // Get all parlays for this league
+  const { data: parlays } = await supabase
+    .from('parlays')
     .select('id')
     .eq('league_id', leagueId)
 
-  if (!weeks || weeks.length === 0) {
+  if (!parlays || parlays.length === 0) {
     return { leaderboard: [], error: null }
   }
 
-  const weekIds = weeks.map(w => w.id)
+  const parlayIds = parlays.map(p => p.id)
 
-  // Get all legs for all weeks
+  // Get all legs for all parlays
   const { data: allLegs } = await supabase
     .from('parlay_legs')
     .select(`
@@ -407,7 +388,7 @@ export async function getLeaderboard(leagueId: string) {
         raw_user_meta_data
       )
     `)
-    .in('week_id', weekIds)
+    .in('parlay_id', parlayIds)
 
   if (!allLegs) {
     return { leaderboard: [], error: 'Failed to fetch leaderboard data' }
@@ -482,13 +463,13 @@ export async function getUserStats(leagueId: string) {
     return { stats: null, error: 'Unauthorized' }
   }
 
-  // Get all weeks for this league
-  const { data: weeks } = await supabase
-    .from('weeks')
+  // Get all parlays for this league
+  const { data: parlays } = await supabase
+    .from('parlays')
     .select('id')
     .eq('league_id', leagueId)
 
-  if (!weeks || weeks.length === 0) {
+  if (!parlays || parlays.length === 0) {
     return {
       stats: {
         wins: 0,
@@ -502,13 +483,13 @@ export async function getUserStats(leagueId: string) {
     }
   }
 
-  const weekIds = weeks.map(w => w.id)
+  const parlayIds = parlays.map(p => p.id)
 
-  // Get all user's legs for all weeks
+  // Get all user's legs for all parlays
   const { data: userLegs } = await supabase
     .from('parlay_legs')
     .select('result')
-    .in('week_id', weekIds)
+    .in('parlay_id', parlayIds)
     .eq('user_id', user.id)
 
   if (!userLegs) {

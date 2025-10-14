@@ -109,7 +109,7 @@ export function TheLay({
           event: '*',
           schema: 'public',
           table: 'parlay_legs',
-          filter: `week_id=eq.${weekId}`,
+          filter: `parlay_id=eq.${weekId}`,
         },
         async (payload) => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
@@ -136,7 +136,8 @@ export function TheLay({
                 } else {
                   setNewLegId(newLeg.id)
                   setTimeout(() => setNewLegId(null), 2000)
-                  return [...prev, newLeg]
+                  // Prepend new leg to the beginning to match descending order
+                  return [newLeg, ...prev]
                 }
               })
             }
@@ -165,7 +166,13 @@ export function TheLay({
 
   const handleDelete = async (legId: string) => {
     if (!confirm('Are you sure you want to delete this leg?')) return
+
+    // Optimistically update the UI immediately
+    setLegs((prev) => prev.filter((l) => l.id !== legId))
+
+    // Then delete from the database
     await deleteLeg(weekId, legId, leagueId)
+    router.refresh()
   }
 
   const handleLock = async () => {

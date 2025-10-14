@@ -123,8 +123,19 @@ export async function getLeagueMembers(leagueId: string) {
   const supabase = await createClient()
 
   const { data: members, error } = await supabase
-    .from('league_members_with_users')
-    .select('*')
+    .from('league_members')
+    .select(`
+      id,
+      user_id,
+      league_id,
+      role,
+      joined_at,
+      user:user_profiles!user_id (
+        id,
+        email,
+        raw_user_meta_data
+      )
+    `)
     .eq('league_id', leagueId)
     .order('joined_at', { ascending: true })
 
@@ -133,7 +144,23 @@ export async function getLeagueMembers(leagueId: string) {
     return { members: [], error: 'Failed to load members' }
   }
 
-  return { members, error: null }
+  // Transform the data to flatten the user object
+  const transformedMembers = members?.map(member => {
+    const user = Array.isArray(member.user) ? member.user[0] : member.user
+    return {
+      id: member.id,
+      user_id: member.user_id,
+      league_id: member.league_id,
+      role: member.role,
+      joined_at: member.joined_at,
+      email: user?.email || '',
+      full_name: user?.raw_user_meta_data?.full_name || null,
+      raw_user_meta_data: user?.raw_user_meta_data || null,
+      avatar_url: user?.raw_user_meta_data?.avatar_url || null,
+    }
+  }) || []
+
+  return { members: transformedMembers, error: null }
 }
 
 export async function getCurrentUserRole(leagueId: string) {
