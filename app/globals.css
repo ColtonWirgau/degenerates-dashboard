@@ -106,6 +106,34 @@
     letter-spacing: 0.02em;
     text-transform: uppercase;
   }
+
+  /* Custom scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #0A0A0A;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(0, 217, 255, 0.6), rgba(168, 85, 247, 0.6));
+    border-radius: 4px;
+    transition: all 0.3s ease;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgba(0, 217, 255, 0.8), rgba(168, 85, 247, 0.8));
+    box-shadow: 0 0 10px rgba(0, 217, 255, 0.5);
+  }
+
+  /* Firefox scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 217, 255, 0.6) #0A0A0A;
+  }
 }
 
 @layer utilities {
