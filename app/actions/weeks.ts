@@ -307,6 +307,7 @@ export async function updateWeekStatus(
   }
 
   revalidatePath(`/leagues/${leagueId}`)
+  revalidatePath(`/leagues/${leagueId}/weeks/${weekId}`)
   return { success: true, error: null }
 }
 
@@ -345,6 +346,7 @@ export async function updateWeekDeadline(
   }
 
   revalidatePath(`/leagues/${leagueId}`)
+  revalidatePath(`/leagues/${leagueId}/weeks/${weekId}`)
   return { success: true, error: null }
 }
 
@@ -443,19 +445,34 @@ export async function closeWeekAndCreateNext(leagueId: string, weekId: string) {
       .single()
 
     if (!existingNextParlay) {
-      // Create next week's parlay with deadline on next Sunday at 9:15 AM
-      const now = new Date()
-      const nextSunday = new Date(now)
-      const daysUntilSunday = (7 - now.getDay()) % 7 || 7
-      nextSunday.setDate(now.getDate() + daysUntilSunday)
-      nextSunday.setHours(9, 15, 0, 0)
+      // Get the next global week's details to use its start_date as the deadline
+      const { data: nextWeekDetails } = await supabase
+        .from('global_weeks')
+        .select('start_date')
+        .eq('id', nextGlobalWeek.id)
+        .single()
+
+      // Use the global week's start_date as the deadline (already in correct ET timezone)
+      // If no start_date, fall back to calculated Sunday at 1:15 PM UTC (9:15 AM EDT)
+      let deadline: string
+      if (nextWeekDetails?.start_date) {
+        deadline = nextWeekDetails.start_date
+      } else {
+        const now = new Date()
+        const nextSunday = new Date(now)
+        const daysUntilSunday = (7 - now.getDay()) % 7 || 7
+        nextSunday.setDate(now.getDate() + daysUntilSunday)
+        // Set to 13:15 UTC (9:15 AM EDT) - approximation
+        nextSunday.setUTCHours(13, 15, 0, 0)
+        deadline = nextSunday.toISOString()
+      }
 
       const { error: createError } = await supabase
         .from('parlays')
         .insert({
           league_id: leagueId,
           global_week_id: nextGlobalWeek.id,
-          deadline: nextSunday.toISOString(),
+          deadline,
           status: 'open',
         })
 

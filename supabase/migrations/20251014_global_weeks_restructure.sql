@@ -38,9 +38,10 @@ DECLARE
 BEGIN
   FOR week_num IN 1..18 LOOP
     -- Each week starts on Sunday at 9:15 AM ET (when first games typically start)
-    week_start := (season_start_date + ((week_num - 1) * 7))::TIMESTAMP + INTERVAL '9 hours 15 minutes';
+    -- Create timestamp in America/New_York timezone, then convert to UTC for storage
+    week_start := ((season_start_date + ((week_num - 1) * 7))::TIMESTAMP + INTERVAL '9 hours 15 minutes') AT TIME ZONE 'America/New_York';
     -- Each week ends on Tuesday at 5:00 AM ET (after MNF has concluded)
-    week_end := (season_start_date + ((week_num - 1) * 7) + 2)::TIMESTAMP + INTERVAL '5 hours';
+    week_end := ((season_start_date + ((week_num - 1) * 7) + 2)::TIMESTAMP + INTERVAL '5 hours') AT TIME ZONE 'America/New_York';
 
     INSERT INTO global_weeks (week_number, season, start_date, end_date)
     VALUES (week_num, '2025-2026', week_start, week_end)
