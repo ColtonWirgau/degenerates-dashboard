@@ -62,13 +62,19 @@ export async function createWeek(
     return { success: false, error: `Week ${weekNumber} already exists for this league` }
   }
 
+  // Parse datetime-local string as local time (not UTC)
+  const [datePart, timePart] = deadline.split('T')
+  const [year, month, day] = datePart.split('-').map(Number)
+  const [hour, minute] = timePart.split(':').map(Number)
+  const localDate = new Date(year, month - 1, day, hour, minute)
+
   // Create parlay for this league and week
   const { data: parlay, error: insertError } = await supabase
     .from('parlays')
     .insert({
       league_id: leagueId,
       global_week_id: globalWeek.id,
-      deadline: new Date(deadline).toISOString(),
+      deadline: localDate.toISOString(),
       status: 'open',
     })
     .select()
@@ -335,9 +341,17 @@ export async function updateWeekDeadline(
     return { success: false, error: 'Only owners and admins can update deadlines' }
   }
 
+  // Parse datetime-local string as local time (not UTC)
+  // datetime-local returns "YYYY-MM-DDTHH:mm" which new Date() would treat as UTC
+  // We need to explicitly parse it as local time
+  const [datePart, timePart] = deadline.split('T')
+  const [year, month, day] = datePart.split('-').map(Number)
+  const [hour, minute] = timePart.split(':').map(Number)
+  const localDate = new Date(year, month - 1, day, hour, minute)
+
   const { error: updateError } = await supabase
     .from('parlays')
-    .update({ deadline: new Date(deadline).toISOString() })
+    .update({ deadline: localDate.toISOString() })
     .eq('id', weekId)
 
   if (updateError) {
