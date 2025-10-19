@@ -14,6 +14,7 @@ import { CloseWeekButton } from '@/components/close-week-button'
 import { TheLay } from '@/components/the-lay'
 import { ParlayResultAnimation } from '@/components/parlay-result-animation'
 import { SaveLastLeague } from '@/components/save-last-league'
+import { DeadlineDisplay } from '@/components/deadline-display'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, Clock, Lock, CheckCircle2 } from 'lucide-react'
@@ -128,8 +129,7 @@ export default async function WeekDetailPage({
             </div>
             <div className="flex items-center gap-3 mt-1">
               <p className="text-muted-foreground text-lg">
-                Deadline: {deadline.toLocaleDateString()} at{' '}
-                {deadline.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                Deadline: <DeadlineDisplay deadline={week.deadline} />
               </p>
               {canManage && week.status === 'open' && (
                 <EditDeadlineDialog
