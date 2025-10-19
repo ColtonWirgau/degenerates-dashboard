@@ -359,11 +359,12 @@ export async function getFinalParlay(weekId: string) {
 
   console.log('[getFinalParlay] Fetching parlay for week:', weekId)
 
-  // Get the final parlay for this week (just find any parlay for this week)
+  // Get the final parlay for this week
+  // Note: weekId is now a parlay ID after migration
   const { data: parlay, error: parlayError } = await supabase
     .from('parlays')
     .select('*')
-    .eq('week_id', weekId)
+    .eq('id', weekId)
     .maybeSingle()
 
   console.log('[getFinalParlay] Parlay result:', { parlay, parlayError })
