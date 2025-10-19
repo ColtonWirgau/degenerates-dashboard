@@ -32,9 +32,16 @@ export function CreateWeekDialog({ leagueId, nextWeekNumber }: CreateWeekDialogP
     setError(null)
     setCreating(true)
 
+    // Convert datetime-local to ISO string with timezone
+    const [datePart, timePart] = deadline.split('T')
+    const [year, month, day] = datePart.split('-').map(Number)
+    const [hour, minute] = timePart.split(':').map(Number)
+    const localDate = new Date(year, month - 1, day, hour, minute)
+    const isoString = localDate.toISOString()
+
     const formData = new FormData()
     formData.append('week_number', weekNumber.toString())
-    formData.append('deadline', deadline)
+    formData.append('deadline', isoString)
 
     const result = await createWeek(leagueId, formData)
 

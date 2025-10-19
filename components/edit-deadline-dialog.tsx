@@ -47,7 +47,16 @@ export function EditDeadlineDialog({
     setError(null)
     setUpdating(true)
 
-    const result = await updateWeekDeadline(leagueId, weekId, deadline)
+    // Convert datetime-local to ISO string with timezone
+    // datetime-local returns "YYYY-MM-DDTHH:mm" in local time
+    // We need to create a Date object and convert to ISO with timezone
+    const [datePart, timePart] = deadline.split('T')
+    const [year, month, day] = datePart.split('-').map(Number)
+    const [hour, minute] = timePart.split(':').map(Number)
+    const localDate = new Date(year, month - 1, day, hour, minute)
+    const isoString = localDate.toISOString()
+
+    const result = await updateWeekDeadline(leagueId, weekId, isoString)
 
     if (result.error) {
       setError(result.error)
