@@ -30,7 +30,7 @@ export function SubmissionStatsChart({ submitted, notSubmitted, total }: Submiss
   const submittedPercent = total > 0 ? (submitted / total) * 100 : 0
 
   return (
-    <div className="glass-card p-4 flex flex-col">
+    <div className="glass-card p-4 flex flex-col h-full">
       <p className="text-xs text-muted-foreground mb-3">This Week</p>
       <div className="flex-1 flex flex-col items-center justify-center min-h-[300px]">
         <div className="flex items-center justify-center w-full">

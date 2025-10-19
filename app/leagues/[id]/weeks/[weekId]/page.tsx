@@ -13,6 +13,7 @@ import { AddLegForUserDialog } from '@/components/add-leg-for-user-dialog'
 import { CloseWeekButton } from '@/components/close-week-button'
 import { TheLay } from '@/components/the-lay'
 import { ParlayResultAnimation } from '@/components/parlay-result-animation'
+import { SaveLastLeague } from '@/components/save-last-league'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, Clock, Lock, CheckCircle2 } from 'lucide-react'
@@ -95,6 +96,9 @@ export default async function WeekDetailPage({
 
   return (
     <div className="min-h-screen ambient-glow">
+      {/* Save last visited league to localStorage */}
+      <SaveLastLeague leagueId={leagueId} />
+
       {/* Win/Loss Animation - Only show for non-admins */}
       {isLocked && userLegWithResult && !canManage && (
         <ParlayResultAnimation

@@ -176,7 +176,7 @@ export function WeekNavigator({
         {/* This Week's Stats */}
         {week.status === 'open' ? (
           // When open: grid layout similar to locked state
-          <div className="grid gap-4 grid-cols-1 lg:grid-cols-3 lg:grid-rows-2">
+          <div className="grid gap-4 grid-cols-1 lg:grid-cols-3 lg:grid-rows-2 h-full">
             {/* Submission Stats Chart - spans 2 rows on large screens */}
             <div className="lg:row-span-2">
               <SubmissionStatsChart
@@ -200,7 +200,7 @@ export function WeekNavigator({
             </div>
 
             {/* Locked In - Who submitted */}
-            <div className="glass-card p-4 lg:col-span-1">
+            <div className="glass-card p-4 lg:col-span-1 h-full">
               <p className="text-neon-blue font-bold text-sm mb-3 uppercase tracking-wide">🔒 Locked In</p>
               {submittedUsers.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No one has submitted yet</p>
@@ -219,7 +219,7 @@ export function WeekNavigator({
             </div>
 
             {/* Slackers - Who hasn't submitted */}
-            <div className="glass-card p-4 lg:col-span-1">
+            <div className="glass-card p-4 lg:col-span-1 h-full">
               <p className="text-muted-foreground font-bold text-sm mb-3 uppercase tracking-wide">😴 Slackers</p>
               {notSubmittedUsers.length === 0 ? (
                 <p className="text-xs text-neon-blue">Everyone&apos;s in! 🎉</p>
@@ -239,7 +239,7 @@ export function WeekNavigator({
           </div>
         ) : (
           // When locked: complex grid layout
-          <div className="grid gap-4 grid-cols-1 lg:grid-cols-3 lg:grid-rows-2">
+          <div className="grid gap-4 grid-cols-1 lg:grid-cols-3 lg:grid-rows-2 h-full">
             {/* Chart - spans 2 rows on large screens */}
             <div className="lg:row-span-2 h-full">
               <WeekStatsChart

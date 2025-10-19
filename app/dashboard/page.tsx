@@ -9,6 +9,7 @@ import { TrendingUp, Trophy, Clock } from 'lucide-react'
 import { getLeagues } from '@/app/actions/leagues'
 import { getDashboardStats } from '@/app/actions/dashboard'
 import { LeagueStatsCard } from '@/components/league-stats-card'
+import { LastLeagueRedirect } from '@/components/last-league-redirect'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -32,6 +33,9 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen ambient-glow">
+      {/* Auto-redirect to last visited league if user has multiple leagues */}
+      <LastLeagueRedirect leagues={leagues || []} />
+
       <Header />
 
       {/* Main Content */}

@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { PerformanceChart } from '@/components/performance-chart'
+import { SaveLastLeague } from '@/components/save-last-league'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
@@ -112,6 +113,9 @@ export default async function UserStatsPage({
 
   return (
     <div className="min-h-screen ambient-glow">
+      {/* Save last visited league to localStorage */}
+      <SaveLastLeague leagueId={leagueId} />
+
       <Header />
 
       <main className="container mx-auto px-4 py-8 pt-24">

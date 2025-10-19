@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { CreateWeekDialog } from '@/components/create-week-dialog'
 import { WeekCard } from '@/components/week-card'
+import { SaveLastLeague } from '@/components/save-last-league'
 import { formatSeason } from '@/lib/seasons'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -41,6 +42,9 @@ export default async function HistoryPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="min-h-screen ambient-glow">
+      {/* Save last visited league to localStorage */}
+      <SaveLastLeague leagueId={id} />
+
       <Header />
 
       <main className="container mx-auto px-4 py-8 pt-24">

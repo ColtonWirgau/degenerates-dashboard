@@ -12,6 +12,7 @@ import { PerformanceChart } from '@/components/performance-chart'
 import { RecentLegs } from '@/components/recent-legs'
 import { WeekNavigator } from '@/components/week-navigator'
 import { MemberManagementDialog } from '@/components/member-management-dialog'
+import { SaveLastLeague } from '@/components/save-last-league'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Trophy, Plus, History } from 'lucide-react'
@@ -269,6 +270,9 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="min-h-[100dvh] ambient-glow">
+      {/* Save last visited league to localStorage */}
+      <SaveLastLeague leagueId={id} />
+
       {/* Win/Loss Animation */}
       {isLocked && userLegWithResult && (
         <ParlayResultAnimation
@@ -332,7 +336,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                 <CardDescription>2025-2026 season statistics</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-6 md:grid-cols-2 md:h-full">
+                <div className="grid gap-6 md:grid-cols-2 h-full">
                   <RecentLegs legs={recentLegsFiltered} leagueId={id} userId={user?.id} maxDisplay={3} showViewAll={true} />
                   <PerformanceChart
                     wins={userStats.wins}
