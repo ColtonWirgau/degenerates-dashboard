@@ -141,27 +141,44 @@ function SheetContent({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
-              className="mt-4 mb-4 flex items-center gap-4 px-6"
             >
-              {canGoBack && (
-                <button
-                  onClick={onBack}
-                  className="text-muted-foreground hover:text-foreground -ml-1 flex items-center gap-1 text-xs font-semibold tracking-widest uppercase transition-colors"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                  Back
-                </button>
-              )}
-              {canGoBack && activePage?.title && (
-                <span className="text-foreground min-w-0 flex-1 truncate text-xs font-bold tracking-widest uppercase">
-                  {activePage.title}
-                </span>
-              )}
-              {activePage?.backBarTrailing && (
-                <div className="ml-auto flex shrink-0 items-center gap-2">
-                  {activePage.backBarTrailing}
+              {/* Page header — title (+ trailing actions) in a bordered
+                  section; the back link sits below it, content-side. */}
+              {activePage?.title ? (
+                <div className="flex items-center gap-2.5 border-b border-white/5 px-5 sm:px-6 pt-4 pb-3">
+                  <span className="text-foreground min-w-0 flex-1 truncate text-base font-bold tracking-wide uppercase">
+                    {activePage.title}
+                  </span>
+                  {activePage?.backBarTrailing && (
+                    <div className="ml-auto flex shrink-0 items-center gap-2">
+                      {activePage.backBarTrailing}
+                    </div>
+                  )}
                 </div>
-              )}
+              ) : null}
+
+              <div
+                className={
+                  activePage?.title
+                    ? 'mt-3 mb-3 flex items-center gap-4 px-5 sm:px-6'
+                    : 'mt-4 mb-4 flex items-center gap-4 px-6'
+                }
+              >
+                {canGoBack && (
+                  <button
+                    onClick={onBack}
+                    className="text-muted-foreground hover:text-foreground -ml-1 flex items-center gap-1 text-xs font-semibold tracking-widest uppercase transition-colors"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                    Back
+                  </button>
+                )}
+                {!activePage?.title && activePage?.backBarTrailing && (
+                  <div className="ml-auto flex shrink-0 items-center gap-2">
+                    {activePage.backBarTrailing}
+                  </div>
+                )}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
