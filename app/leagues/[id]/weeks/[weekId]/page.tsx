@@ -108,6 +108,7 @@ export default async function WeekDetailPage({
         season={week.season}
         inviteCode={league.inviteCode}
         canManage={canManage}
+        currentUserRole={currentUserRole ?? 'member'}
         weeks={[]}
         currentWeekIndex={-1}
         members={members.map((m) => ({

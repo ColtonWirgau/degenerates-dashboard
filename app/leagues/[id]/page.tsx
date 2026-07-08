@@ -94,6 +94,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
         season={season}
         inviteCode={league.invite_code}
         canManage={canManage}
+        currentUserRole={currentUserRole ?? 'member'}
         weeks={allWeeksData}
         currentWeekIndex={sheetCurrentWeekIndex}
         members={sheetMembers}

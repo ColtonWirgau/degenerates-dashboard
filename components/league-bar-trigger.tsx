@@ -2,7 +2,11 @@
 
 import { useState } from 'react'
 import { LeagueAvatar } from '@/components/league-avatar'
-import { LeagueSheet, type LeagueSheetMember } from '@/components/league-sheet'
+import {
+  LeagueSheet,
+  type LeagueSheetMember,
+  type LeagueSwitcherRow,
+} from '@/components/league-sheet'
 import type { WeekDetailData } from '@/components/week-detail-sheet'
 import type { LeaderboardEntry } from '@/components/leaderboard-sheet'
 import { ChevronDown } from 'lucide-react'
@@ -14,12 +18,14 @@ interface LeagueBarTriggerProps {
   season: string
   inviteCode: string
   canManage: boolean
+  currentUserRole: 'owner' | 'admin' | 'member'
   weeks: WeekDetailData[]
   currentWeekIndex: number
   members: LeagueSheetMember[]
   currentUserId: string
   leaderboard: LeaderboardEntry[]
   availableSeasons: string[]
+  leagues: LeagueSwitcherRow[]
 }
 
 /**
@@ -54,12 +60,14 @@ export function LeagueBarTrigger(props: LeagueBarTriggerProps) {
         season={props.season}
         inviteCode={props.inviteCode}
         canManage={props.canManage}
+        currentUserRole={props.currentUserRole}
         weeks={props.weeks}
         currentWeekIndex={props.currentWeekIndex}
         members={props.members}
         currentUserId={props.currentUserId}
         leaderboard={props.leaderboard}
         availableSeasons={props.availableSeasons}
+        leagues={props.leagues}
       />
     </>
   )

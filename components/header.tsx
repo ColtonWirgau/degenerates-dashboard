@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { getLeagues } from "@/app/actions/leagues";
 import { getCurrentUser } from "@/lib/data/auth-bridge";
 import { getDevToolbarData, getDevPhaseData } from "@/lib/data/dev-toolbar-data";
 import { UserMenu } from "@/components/user-menu";
@@ -7,8 +6,7 @@ import Link from "next/link";
 
 export async function Header() {
   const me = await getCurrentUser();
-  const [{ leagues }, mock, devPhase] = await Promise.all([
-    me ? getLeagues() : Promise.resolve({ leagues: [] }),
+  const [mock, devPhase] = await Promise.all([
     getDevToolbarData(),
     getDevPhaseData(),
   ]);
@@ -33,7 +31,7 @@ export async function Header() {
         </Link>
 
         {me ? (
-          <UserMenu user={me} leagues={leagues} mock={mock} devPhase={devPhase} />
+          <UserMenu user={me} mock={mock} devPhase={devPhase} />
         ) : (
           <div className="flex items-center gap-2">
             <Link href="/">

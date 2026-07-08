@@ -1,22 +1,20 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { ConnectedDots, type ConnectedDotsResult } from '@/components/connected-dots'
-import { LeaderboardSheet, type LeaderboardEntry } from '@/components/leaderboard-sheet'
-import { WeekDetailSheet, type WeekDetailData } from '@/components/week-detail-sheet'
+import type { LeaderboardEntry } from '@/components/leaderboard-sheet'
+import type { WeekDetailData } from '@/components/week-detail-sheet'
 
 interface FinalStandingsProps {
-  leagueId: string
   currentUserId: string
   leaderboard: LeaderboardEntry[]
   allWeeksData: WeekDetailData[]
-  membersCount: number
-  availableSeasons: string[]
-  defaultSeason: string
+  /** Row tap → the host drills into that member (e.g. a sheet page). */
+  onSelectUser: (userId: string) => void
 }
 
 const getInitials = (name: string | null, email: string) => {
@@ -39,23 +37,17 @@ const winRateColor = (rate: number) =>
 
 /**
  * Final-standings rows for the offseason / preseason path. Each row is
- * tappable to drill into that member's bet history (via LeaderboardSheet's
- * user-detail page), and shows their per-week W/L dot trace inline on
- * wider screens — same primitive as the mid-season Performance section.
+ * tappable — drilling into the member is the host's job (the League
+ * sheet pages to its user-detail page), so no sheets are mounted here.
+ * Shows the per-week W/L dot trace inline on wider screens — same
+ * primitive as the mid-season Performance section.
  */
 export function FinalStandings({
-  leagueId,
   currentUserId,
   leaderboard,
   allWeeksData,
-  membersCount,
-  availableSeasons,
-  defaultSeason,
+  onSelectUser,
 }: FinalStandingsProps) {
-  const [leaderboardOpen, setLeaderboardOpen] = useState(false)
-  const [focusUserId, setFocusUserId] = useState<string | null>(null)
-  const [activeWeek, setActiveWeek] = useState<WeekDetailData | null>(null)
-
   // Per-member chronological result sequence — feeds the row's dot trace.
   const dotsByUser = useMemo(() => {
     const map = new Map<string, ConnectedDotsResult[]>()
@@ -76,19 +68,8 @@ export function FinalStandings({
     return map
   }, [leaderboard, allWeeksData])
 
-  const openUser = (userId: string) => {
-    setFocusUserId(userId)
-    setLeaderboardOpen(true)
-  }
-
-  const openWeek = (weekId: string) => {
-    const data = allWeeksData.find((w) => w.week.id === weekId)
-    if (data) setActiveWeek(data)
-  }
-
   return (
-    <>
-      <div className="space-y-2.5">
+    <div className="space-y-2.5">
         {leaderboard.map((m, i) => {
           const dots = dotsByUser.get(m.userId) ?? []
           const isMe = m.userId === currentUserId
@@ -105,7 +86,7 @@ export function FinalStandings({
             <button
               key={m.userId}
               type="button"
-              onClick={() => openUser(m.userId)}
+              onClick={() => onSelectUser(m.userId)}
               className={cn(
                 'group flex w-full items-center gap-3 rounded-lg border bg-white/[0.02] px-3 py-3 text-left transition-all hover:bg-white/[0.04]',
                 isMe
@@ -168,29 +149,6 @@ export function FinalStandings({
             </button>
           )
         })}
-      </div>
-
-      <LeaderboardSheet
-        open={leaderboardOpen}
-        onClose={() => setLeaderboardOpen(false)}
-        leagueId={leagueId}
-        leaderboard={leaderboard}
-        currentUserId={currentUserId}
-        focusUserId={focusUserId}
-        onOpenWeek={openWeek}
-        availableSeasons={availableSeasons}
-        defaultSeason={defaultSeason}
-      />
-
-      {activeWeek && (
-        <WeekDetailSheet
-          open={activeWeek !== null}
-          onClose={() => setActiveWeek(null)}
-          data={activeWeek}
-          leagueId={leagueId}
-          membersCount={membersCount}
-        />
-      )}
-    </>
+    </div>
   )
 }

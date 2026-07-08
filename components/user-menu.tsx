@@ -1,18 +1,14 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition } from 'react'
-import Link from 'next/link'
-import { useParams, useRouter } from 'next/navigation'
+import { useRef, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   ResponsiveSheet,
   SheetPage,
-  SheetPageKebab,
-  type SheetPageKebabItem,
   useResponsiveSheet,
 } from '@/components/ui/responsive-sheet'
 import { logout } from '@/app/actions/auth'
@@ -20,32 +16,14 @@ import { setScenario, setMockUser, setSeasonPhase } from '@/app/actions/dev-tool
 import type { DevPhaseData, DevSeasonPhase } from '@/lib/data/dev-toolbar-data'
 import { updateProfile } from '@/app/actions/profile'
 import {
-  getLeagueMembers,
-  inviteMember,
-  updateMemberRole,
-  removeMember,
-  regenerateInviteCode,
-} from '@/app/actions/leagues'
-import {
   AlertCircle,
   ArrowRight,
-  Check,
   Clock,
-  Copy,
-  Crown,
   FlaskConical,
-  Link2,
   LogOut,
-  Mail,
-  Plus,
-  RefreshCw,
   Settings,
-  Shield,
   Upload,
   User as UserIcon,
-  UserMinus,
-  UserPlus,
-  Users,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -58,13 +36,6 @@ interface CurrentUser {
   avatarUrl: string | null
 }
 
-interface LeagueRow {
-  id: string
-  name: string
-  invite_code: string
-  league_members: Array<{ role: string }>
-}
-
 interface DevToolbarData {
   scenarios: Array<{ id: string; name: string; hint: string }>
   activeScenarioId: string
@@ -74,21 +45,10 @@ interface DevToolbarData {
 
 interface UserMenuProps {
   user: CurrentUser
-  leagues: LeagueRow[]
   /** Mock-mode dev controls. Null in production. */
   mock?: DevToolbarData | null
   /** Neon-mode dev control — season-phase time travel. Null outside dev. */
   devPhase?: DevPhaseData | null
-}
-
-interface Member {
-  id: string
-  user_id: string
-  full_name: string | null
-  email: string
-  avatar_url: string | null
-  role: 'owner' | 'admin' | 'member'
-  joined_at: string
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -102,12 +62,6 @@ const getInitials = (name: string | null, email: string) => {
   return email.slice(0, 2).toUpperCase()
 }
 
-const ROLE_VISUALS = {
-  owner: { icon: Crown, color: 'text-neon-blue', label: 'Owner' },
-  admin: { icon: Shield, color: 'text-neon-blue', label: 'Admin' },
-  member: { icon: UserIcon, color: 'text-neon-blue', label: 'Member' },
-} as const
-
 // ─── Top-level component ────────────────────────────────────────────────────
 
 /**
@@ -116,47 +70,9 @@ const ROLE_VISUALS = {
  * invites). Replaces the previous LeaguePicker pill + avatar dropdown +
  * separate ProfileSheet + separate MemberManagementSheet.
  */
-export function UserMenu({ user, leagues, mock, devPhase }: UserMenuProps) {
-  const params = useParams<{ id?: string }>()
-  const currentLeagueId = params?.id
+export function UserMenu({ user, mock, devPhase }: UserMenuProps) {
   const [open, setOpen] = useState(false)
   const initials = getInitials(user.fullName, user.email)
-
-  // Lazy-loaded per-league data — only fetch when the user drills into
-  // a 'league' or 'members' sub-page. Lives at the top level so it's shared
-  // across the per-league pages.
-  const [activeLeagueId, setActiveLeagueId] = useState<string | null>(currentLeagueId ?? null)
-  const [members, setMembers] = useState<Member[]>([])
-  const [membersPending, startMembersTransition] = useTransition()
-  const [membersError, setMembersError] = useState<string | null>(null)
-
-  const fetchMembers = (leagueId: string) => {
-    setMembersError(null)
-    startMembersTransition(async () => {
-      const res = await getLeagueMembers(leagueId)
-      if (res.error) {
-        setMembersError(res.error)
-        setMembers([])
-        return
-      }
-      setMembers(res.members as Member[])
-    })
-  }
-
-  // Reset on close so reopening doesn't show stale data
-  useEffect(() => {
-    if (!open) {
-      setActiveLeagueId(currentLeagueId ?? null)
-      setMembers([])
-      setMembersError(null)
-    }
-  }, [open, currentLeagueId])
-
-  const activeLeague = leagues.find((l) => l.id === activeLeagueId)
-  const activeRole = (activeLeague?.league_members?.[0]?.role ?? 'member') as
-    | 'owner'
-    | 'admin'
-    | 'member'
 
   return (
     <>
@@ -183,54 +99,16 @@ export function UserMenu({ user, leagues, mock, devPhase }: UserMenuProps) {
         <SheetPage name="main">
           <MainPage
             user={user}
-            leagues={leagues}
-            currentLeagueId={currentLeagueId}
             devPhase={devPhase ?? null}
             mockEnabled={!!mock}
             mockScenarioName={
               mock?.scenarios.find((s) => s.id === mock.activeScenarioId)?.name ?? null
             }
-            onClose={() => setOpen(false)}
-            onPickLeagueToManage={(id) => {
-              setActiveLeagueId(id)
-              if (id) fetchMembers(id)
-            }}
           />
         </SheetPage>
 
         <SheetPage name="profile" title="Edit Profile">
           <ProfilePage user={user} onSaved={() => setOpen(false)} />
-        </SheetPage>
-
-        <SheetPage name="league" title={activeLeague?.name ?? 'League'}>
-          {activeLeague ? (
-            <LeaguePage
-              league={activeLeague}
-              role={activeRole}
-              isCurrent={activeLeague.id === currentLeagueId}
-              onClose={() => setOpen(false)}
-            />
-          ) : null}
-        </SheetPage>
-
-        <SheetPage name="members" title="Members">
-          <MembersPage
-            leagueId={activeLeagueId ?? ''}
-            currentUserId={user.id}
-            members={members}
-            pending={membersPending}
-            error={membersError}
-            currentUserRole={activeRole}
-            onMutate={() => activeLeagueId && fetchMembers(activeLeagueId)}
-          />
-        </SheetPage>
-
-        <SheetPage name="invite-email" title="Invite by email">
-          <InviteEmailPage leagueId={activeLeagueId ?? ''} />
-        </SheetPage>
-
-        <SheetPage name="invite-link" title="Invite link">
-          <InviteLinkPage league={activeLeague} />
         </SheetPage>
 
         {mock && (
@@ -247,39 +125,17 @@ export function UserMenu({ user, leagues, mock, devPhase }: UserMenuProps) {
 
 function MainPage({
   user,
-  leagues,
-  currentLeagueId,
   devPhase,
   mockEnabled,
   mockScenarioName,
-  onClose,
-  onPickLeagueToManage,
 }: {
   user: CurrentUser
-  leagues: LeagueRow[]
-  currentLeagueId: string | undefined
   devPhase: DevPhaseData | null
   mockEnabled: boolean
   mockScenarioName: string | null
-  onClose: () => void
-  onPickLeagueToManage: (leagueId: string) => void
 }) {
-  const router = useRouter()
   const { navigate } = useResponsiveSheet()
   const initials = getInitials(user.fullName, user.email)
-
-  // Tap on a league row:
-  //   - Inactive league → switch (close sheet, navigate)
-  //   - Active league   → drill into per-league management
-  const handleLeagueTap = (id: string) => {
-    if (id === currentLeagueId) {
-      onPickLeagueToManage(id)
-      navigate('league')
-      return
-    }
-    onClose()
-    router.push(`/leagues/${id}`)
-  }
 
   return (
     <div className="px-5 sm:px-6 pb-8">
@@ -305,80 +161,6 @@ function MainPage({
         >
           <Settings className="h-4 w-4" />
         </button>
-      </div>
-
-      {/* Leagues list */}
-      <div className="border-t border-white/10 pt-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-[10px] font-bold tracking-[0.25em] uppercase text-muted-foreground">
-            Your Leagues
-          </h3>
-          <Link
-            href="/leagues/new"
-            onClick={onClose}
-            className="inline-flex items-center gap-1 text-[10px] font-bold tracking-widest uppercase text-neon-blue hover:text-primary transition-colors"
-          >
-            <Plus className="h-3 w-3" />
-            New
-          </Link>
-        </div>
-        <div className="space-y-1.5">
-          {leagues.length === 0 && (
-            <p className="text-sm text-muted-foreground py-3 text-center">
-              You&apos;re not in any leagues yet.
-            </p>
-          )}
-          {leagues.map((league) => {
-            const role = (league.league_members?.[0]?.role ?? 'member') as
-              | 'owner'
-              | 'admin'
-              | 'member'
-            const isCurrent = league.id === currentLeagueId
-            const Roi = ROLE_VISUALS[role].icon
-            return (
-              <button
-                key={league.id}
-                type="button"
-                onClick={() => handleLeagueTap(league.id)}
-                className={cn(
-                  'group flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all',
-                  isCurrent
-                    ? 'border-primary/60 bg-primary/5 hover:bg-primary/10'
-                    : 'border-white/10 hover:border-primary/40 hover:bg-white/5'
-                )}
-              >
-                <Roi
-                  className={cn(
-                    'h-4 w-4 shrink-0',
-                    isCurrent ? ROLE_VISUALS[role].color : 'text-muted-foreground'
-                  )}
-                />
-                <div className="min-w-0 flex-1">
-                  <p
-                    className={cn(
-                      'text-sm font-semibold truncate',
-                      isCurrent && 'text-neon-blue'
-                    )}
-                  >
-                    {league.name}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground capitalize">
-                    {ROLE_VISUALS[role].label}
-                    {isCurrent && ' · Active'}
-                  </p>
-                </div>
-                {isCurrent ? (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold tracking-widest uppercase text-neon-blue">
-                    Manage
-                    <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
-                  </span>
-                ) : (
-                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-neon-blue transition-colors" />
-                )}
-              </button>
-            )
-          })}
-        </div>
       </div>
 
       {/* Season phase (dev, neon mode) — time-travel the season-state
@@ -672,440 +454,3 @@ function ProfilePage({ user, onSaved }: { user: CurrentUser; onSaved: () => void
   )
 }
 
-// ─── League sub-page (per-league actions) ──────────────────────────────────
-
-function LeaguePage({
-  league,
-  role,
-  isCurrent,
-  onClose,
-}: {
-  league: LeagueRow
-  role: 'owner' | 'admin' | 'member'
-  isCurrent: boolean
-  onClose: () => void
-}) {
-  const router = useRouter()
-  const { navigate } = useResponsiveSheet()
-  const Roi = ROLE_VISUALS[role].icon
-  const canManage = role === 'owner' || role === 'admin'
-
-  return (
-    <div className="px-5 sm:px-6 pb-6 pt-4">
-      <div className="flex items-center gap-2 text-sm">
-        <Roi className={cn('h-4 w-4', ROLE_VISUALS[role].color)} />
-        <span className="font-semibold">You&apos;re an {ROLE_VISUALS[role].label.toLowerCase()}</span>
-      </div>
-
-      <div className="mt-5 space-y-1.5">
-        {!isCurrent && (
-          <ActionRow
-            icon={ArrowRight}
-            label="Open league"
-            description="Switch to this league"
-            onClick={() => {
-              onClose()
-              router.push(`/leagues/${league.id}`)
-            }}
-          />
-        )}
-
-        {canManage && (
-          <>
-            <ActionRow
-              icon={Users}
-              label="Members"
-              description="Roles, kicks, the works"
-              onClick={() => navigate('members')}
-            />
-            <ActionRow
-              icon={Mail}
-              label="Invite by email"
-              description="Send an invite to a specific email"
-              onClick={() => navigate('invite-email')}
-            />
-            <ActionRow
-              icon={Link2}
-              label="Invite link"
-              description="Share a join code anyone can use"
-              onClick={() => navigate('invite-link')}
-            />
-          </>
-        )}
-
-        {!canManage && (
-          <ActionRow
-            icon={UserMinus}
-            label="Leave league"
-            description="You can rejoin with an invite"
-            tone="destructive"
-            onClick={() => {
-              if (confirm('Leave this league? You can rejoin with an invite link.')) {
-                console.warn('[mock] leaveLeague no-op')
-              }
-            }}
-          />
-        )}
-      </div>
-    </div>
-  )
-}
-
-function ActionRow({
-  icon: Icon,
-  label,
-  description,
-  tone = 'default',
-  onClick,
-}: {
-  icon: React.ComponentType<{ className?: string }>
-  label: string
-  description?: string
-  tone?: 'default' | 'destructive'
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'group flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left transition-all',
-        tone === 'destructive'
-          ? 'border-destructive/30 hover:border-destructive/60 hover:bg-destructive/5'
-          : 'border-white/10 hover:border-primary/40 hover:bg-white/5'
-      )}
-    >
-      <Icon
-        className={cn(
-          'h-4 w-4 shrink-0',
-          tone === 'destructive' ? 'text-destructive' : 'text-neon-blue'
-        )}
-      />
-      <div className="min-w-0 flex-1">
-        <div
-          className={cn(
-            'text-sm font-semibold',
-            tone === 'destructive' ? 'text-destructive' : 'text-foreground'
-          )}
-        >
-          {label}
-        </div>
-        {description && (
-          <div className="text-[11px] text-muted-foreground">{description}</div>
-        )}
-      </div>
-      <ArrowRight
-        className={cn(
-          'h-3.5 w-3.5 shrink-0 group-hover:translate-x-0.5 transition-transform',
-          tone === 'destructive' ? 'text-destructive' : 'text-muted-foreground group-hover:text-neon-blue'
-        )}
-      />
-    </button>
-  )
-}
-
-// ─── Members sub-page ──────────────────────────────────────────────────────
-
-function MembersPage({
-  leagueId,
-  currentUserId,
-  members,
-  pending,
-  error,
-  currentUserRole,
-  onMutate,
-}: {
-  leagueId: string
-  currentUserId: string
-  members: Member[]
-  pending: boolean
-  error: string | null
-  currentUserRole: 'owner' | 'admin' | 'member'
-  onMutate: () => void
-}) {
-  const router = useRouter()
-  const [updatingId, setUpdatingId] = useState<string | null>(null)
-
-  const canManage = currentUserRole === 'owner' || currentUserRole === 'admin'
-  const isOwner = currentUserRole === 'owner'
-
-  const buildKebabItems = (m: Member): SheetPageKebabItem[] => {
-    if (!canManage || m.user_id === currentUserId || m.role === 'owner') return []
-    const items: SheetPageKebabItem[] = []
-    if (isOwner && m.role === 'member') {
-      items.push({
-        key: 'promote',
-        label: 'Promote to admin',
-        icon: Shield,
-        onSelect: async () => {
-          setUpdatingId(m.id)
-          await updateMemberRole(leagueId, m.user_id, 'admin')
-          setUpdatingId(null)
-          onMutate()
-          router.refresh()
-        },
-      })
-    }
-    if (isOwner && m.role === 'admin') {
-      items.push({
-        key: 'demote',
-        label: 'Demote to member',
-        icon: UserIcon,
-        onSelect: async () => {
-          setUpdatingId(m.id)
-          await updateMemberRole(leagueId, m.user_id, 'member')
-          setUpdatingId(null)
-          onMutate()
-          router.refresh()
-        },
-      })
-    }
-    items.push({
-      key: 'remove',
-      label: 'Remove from league',
-      icon: UserMinus,
-      variant: 'destructive',
-      onSelect: async () => {
-        if (!confirm(`Remove ${m.full_name ?? m.email} from the league?`)) return
-        setUpdatingId(m.id)
-        await removeMember(leagueId, m.user_id)
-        setUpdatingId(null)
-        onMutate()
-        router.refresh()
-      },
-    })
-    return items
-  }
-
-  if (error) {
-    return (
-      <div className="px-6 py-12 text-center">
-        <AlertCircle className="h-6 w-6 text-destructive mx-auto mb-2" />
-        <p className="text-sm text-destructive">{error}</p>
-      </div>
-    )
-  }
-  if (pending && members.length === 0) {
-    return (
-      <p className="px-6 py-12 text-center text-sm text-muted-foreground">Loading members…</p>
-    )
-  }
-  if (members.length === 0) {
-    return (
-      <p className="px-6 py-12 text-center text-sm text-muted-foreground">
-        No members yet.
-      </p>
-    )
-  }
-
-  return (
-    <div className="px-3 pb-4 space-y-1.5">
-      {members.map((m) => {
-        const Roi = ROLE_VISUALS[m.role].icon
-        const items = buildKebabItems(m)
-        const initials = getInitials(m.full_name, m.email)
-        return (
-          <div
-            key={m.id}
-            className={cn(
-              'flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5',
-              updatingId === m.id && 'opacity-60 transition-opacity'
-            )}
-          >
-            <Avatar className="h-9 w-9 shrink-0">
-              <AvatarImage src={m.avatar_url ?? undefined} alt={m.full_name ?? m.email} />
-              <AvatarFallback className="bg-primary text-primary-foreground font-bold text-xs">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold truncate flex items-center gap-1.5">
-                {m.full_name ?? m.email}
-                <Roi className={cn('h-3 w-3', ROLE_VISUALS[m.role].color)} />
-                <span className={cn('text-[10px] font-bold tracking-widest uppercase', ROLE_VISUALS[m.role].color)}>
-                  {ROLE_VISUALS[m.role].label}
-                </span>
-                {m.user_id === currentUserId && (
-                  <Badge variant="outline" className="text-[10px] border-primary/40 px-1.5 py-0">
-                    You
-                  </Badge>
-                )}
-              </p>
-              {m.full_name && (
-                <p className="text-[11px] text-muted-foreground truncate">{m.email}</p>
-              )}
-            </div>
-            {items.length > 0 && <SheetPageKebab items={items} forceMenu />}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-// ─── Invite by email sub-page ──────────────────────────────────────────────
-
-function InviteEmailPage({ leagueId }: { leagueId: string }) {
-  const [email, setEmail] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [success, setSuccess] = useState<{ message: string; inviteUrl: string | null } | null>(
-    null
-  )
-  const [error, setError] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setSuccess(null)
-    setSubmitting(true)
-    const result = await inviteMember(leagueId, email)
-    setSubmitting(false)
-    if (result.error) {
-      setError(result.error)
-      return
-    }
-    setSuccess({ message: result.message ?? 'Invitation sent.', inviteUrl: result.inviteUrl })
-    setEmail('')
-  }
-
-  const handleCopy = async () => {
-    if (!success?.inviteUrl) return
-    await navigator.clipboard.writeText(success.inviteUrl)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="px-5 sm:px-6 pb-6 pt-4 space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Send an invite to a specific email. They&apos;ll be added when they sign up or sign in.
-      </p>
-      <div className="space-y-2">
-        <Label htmlFor="invite-email">Email</Label>
-        <Input
-          id="invite-email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="friend@example.com"
-          required
-          className="glass border-primary/30"
-        />
-      </div>
-      {error && (
-        <div className="glass border-destructive/50 p-3 rounded-lg text-sm text-destructive flex items-start gap-2">
-          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-      {success && (
-        <div className="glass border-neon-blue/50 bg-neon-blue/5 p-3 rounded-lg text-sm space-y-2">
-          <p className="text-neon-blue font-semibold">{success.message}</p>
-          {success.inviteUrl && (
-            <div className="flex items-center gap-2">
-              <code className="flex-1 truncate text-xs bg-black/40 px-2 py-1 rounded">
-                {success.inviteUrl}
-              </code>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={handleCopy}
-                className="glass border-neon-blue/40 shrink-0"
-              >
-                {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
-      <Button type="submit" disabled={submitting} className="w-full neon-glow-blue">
-        {submitting ? 'Sending…' : (
-          <>
-            <UserPlus className="h-4 w-4 mr-2" />
-            Send invite
-          </>
-        )}
-      </Button>
-    </form>
-  )
-}
-
-// ─── Invite link sub-page ──────────────────────────────────────────────────
-
-function InviteLinkPage({ league }: { league: LeagueRow | undefined }) {
-  const [inviteCode, setInviteCode] = useState(league?.invite_code ?? '')
-  const [copied, setCopied] = useState(false)
-  const [regenerating, setRegenerating] = useState(false)
-
-  // Sync if parent re-renders with a new code (e.g. router.refresh after regen)
-  useEffect(() => {
-    if (league?.invite_code) setInviteCode(league.invite_code)
-  }, [league?.invite_code])
-
-  const inviteUrl = typeof window !== 'undefined' ? `${window.location.origin}/join/${inviteCode}` : `/join/${inviteCode}`
-
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(inviteUrl)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  const handleRegenerate = async () => {
-    if (!league) return
-    if (!confirm('Regenerate the invite code? The old link will stop working.')) return
-    setRegenerating(true)
-    const result = await regenerateInviteCode(league.id)
-    setRegenerating(false)
-    if (result.inviteCode) setInviteCode(result.inviteCode)
-  }
-
-  return (
-    <div className="px-5 sm:px-6 pb-6 pt-4 space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Anyone with this link can join the league.
-      </p>
-
-      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-3">
-        <code className="block break-all text-sm bg-black/40 px-3 py-2 rounded text-foreground/90 font-mono">
-          {inviteUrl}
-        </code>
-        <Button
-          type="button"
-          onClick={handleCopy}
-          className="w-full neon-glow-blue"
-        >
-          {copied ? (
-            <>
-              <Check className="h-4 w-4 mr-2" />
-              Copied
-            </>
-          ) : (
-            <>
-              <Copy className="h-4 w-4 mr-2" />
-              Copy link
-            </>
-          )}
-        </Button>
-      </div>
-
-      <div className="rounded-xl border border-white/10 p-4 space-y-2">
-        <p className="text-[10px] font-bold tracking-[0.25em] uppercase text-muted-foreground">
-          Code
-        </p>
-        <p className="font-mono text-lg text-neon-pink">{inviteCode || '—'}</p>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={handleRegenerate}
-          disabled={regenerating}
-          className="glass border-destructive/30 text-destructive hover:bg-destructive/5 w-full"
-        >
-          <RefreshCw className={cn('h-4 w-4 mr-2', regenerating && 'animate-spin')} />
-          {regenerating ? 'Regenerating…' : 'Regenerate code'}
-        </Button>
-      </div>
-    </div>
-  )
-}

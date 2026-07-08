@@ -5,7 +5,7 @@ import { UserMenu } from '@/components/user-menu'
 import { LeagueBarTrigger } from '@/components/league-bar-trigger'
 import type { WeekDetailData } from '@/components/week-detail-sheet'
 import type { LeaderboardEntry } from '@/components/leaderboard-sheet'
-import type { LeagueSheetMember } from '@/components/league-sheet'
+import type { LeagueSheetMember, LeagueSwitcherRow } from '@/components/league-sheet'
 import Link from 'next/link'
 
 interface LeagueBarProps {
@@ -15,6 +15,7 @@ interface LeagueBarProps {
   season: string
   inviteCode: string
   canManage: boolean
+  currentUserRole: 'owner' | 'admin' | 'member'
   weeks: WeekDetailData[]
   currentWeekIndex: number
   members: LeagueSheetMember[]
@@ -36,6 +37,13 @@ export async function LeagueBar(props: LeagueBarProps) {
     getDevToolbarData(),
     getDevPhaseData(),
   ])
+
+  // Compact rows for the league sheet's in-sheet switcher.
+  const switcherRows: LeagueSwitcherRow[] = leagues.map((l) => ({
+    id: l.id,
+    name: l.name,
+    role: (l.league_members?.[0]?.role ?? 'member') as LeagueSwitcherRow['role'],
+  }))
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 glass border-b border-primary/20">
@@ -61,14 +69,16 @@ export async function LeagueBar(props: LeagueBarProps) {
             season={props.season}
             inviteCode={props.inviteCode}
             canManage={props.canManage}
+            currentUserRole={props.currentUserRole}
             weeks={props.weeks}
             currentWeekIndex={props.currentWeekIndex}
             members={props.members}
             currentUserId={props.currentUserId}
             leaderboard={props.leaderboard}
             availableSeasons={props.availableSeasons}
+            leagues={switcherRows}
           />
-          {me && <UserMenu user={me} leagues={leagues} mock={mock} devPhase={devPhase} />}
+          {me && <UserMenu user={me} mock={mock} devPhase={devPhase} />}
         </div>
       </div>
     </header>

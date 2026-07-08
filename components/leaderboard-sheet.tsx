@@ -333,7 +333,7 @@ function LeaderboardListPage({
   )
 }
 
-function UserDetailContent({
+export function UserDetailContent({
   detail,
   pending,
   availableSeasons,

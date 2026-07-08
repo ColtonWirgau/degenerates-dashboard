@@ -1,35 +1,57 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   ResponsiveSheet,
   SheetPage,
+  SheetPageKebab,
+  type SheetPageKebabItem,
   useResponsiveSheet,
 } from '@/components/ui/responsive-sheet'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { LeagueAvatar } from '@/components/league-avatar'
 import { Button } from '@/components/ui/button'
 import { SeasonFormStrip } from '@/components/season-form-strip'
 import { FinalStandings } from '@/components/final-standings'
-import { regenerateInviteCode } from '@/app/actions/leagues'
-import { getLeagueSeasonBundle } from '@/app/actions/league-season'
-import type { WeekDetailData } from '@/components/week-detail-sheet'
-import type { LeaderboardEntry } from '@/components/leaderboard-sheet'
 import {
+  inviteMember,
+  regenerateInviteCode,
+  removeMember,
+  updateMemberRole,
+} from '@/app/actions/leagues'
+import { getLeagueSeasonBundle } from '@/app/actions/league-season'
+import { getUserDetail, type UserDetailPayload } from '@/app/actions/user-detail'
+import {
+  WeekDetailSheet,
+  type WeekDetailData,
+} from '@/components/week-detail-sheet'
+import {
+  UserDetailContent,
+  type LeaderboardEntry,
+} from '@/components/leaderboard-sheet'
+import {
+  AlertCircle,
   ArrowRight,
   Check,
-  ChevronRight,
   Copy,
   Crown,
   History,
   Link2,
   Loader2,
   Lock,
+  Mail,
+  Plus,
   RefreshCw,
   Settings as SettingsIcon,
   Shield,
   User as UserIcon,
+  UserMinus,
+  UserPlus,
   Users,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -39,6 +61,13 @@ export type LeagueSheetMember = {
   fullName: string | null
   email: string
   avatarUrl: string | null
+  role: 'owner' | 'admin' | 'member'
+}
+
+/** Compact row for the in-sheet league switcher. */
+export type LeagueSwitcherRow = {
+  id: string
+  name: string
   role: 'owner' | 'admin' | 'member'
 }
 
@@ -52,6 +81,8 @@ interface LeagueSheetProps {
   season: string
   inviteCode: string
   canManage: boolean
+  /** Viewer's role — owner unlocks promote/demote in Members. */
+  currentUserRole: 'owner' | 'admin' | 'member'
   weeks: WeekDetailData[]
   /** Index into `weeks` of the in-flight week (only for the active season). */
   currentWeekIndex: number
@@ -59,6 +90,8 @@ interface LeagueSheetProps {
   currentUserId: string
   leaderboard: LeaderboardEntry[]
   availableSeasons: string[]
+  /** Every league the viewer belongs to — powers the switcher section. */
+  leagues: LeagueSwitcherRow[]
 }
 
 export function LeagueSheet(props: LeagueSheetProps) {
@@ -81,6 +114,44 @@ export function LeagueSheet(props: LeagueSheetProps) {
   const isActiveSeason = selectedSeason === props.season
   const effectiveWeekIndex = isActiveSeason ? props.currentWeekIndex : -1
 
+  // Standings drill-in — a member's detail renders as a page *within*
+  // this sheet (no stacked sheet). Week drill from there opens the
+  // week-detail sheet on top, same as before.
+  const [detailUserId, setDetailUserId] = useState<string | null>(null)
+  const [detailSeason, setDetailSeason] = useState<string>(props.season)
+  const [detail, setDetail] = useState<UserDetailPayload | null>(null)
+  const [detailPending, startDetailTransition] = useTransition()
+  const [activeWeek, setActiveWeek] = useState<WeekDetailData | null>(null)
+
+  useEffect(() => {
+    if (!props.open) {
+      setDetailUserId(null)
+      setDetail(null)
+      setDetailSeason(props.season)
+      setActiveWeek(null)
+    }
+  }, [props.open, props.season])
+
+  useEffect(() => {
+    if (!detailUserId) {
+      setDetail(null)
+      return
+    }
+    let cancelled = false
+    startDetailTransition(async () => {
+      const res = await getUserDetail(props.leagueId, detailUserId, detailSeason)
+      if (!cancelled) setDetail(res.payload)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [detailUserId, detailSeason, props.leagueId])
+
+  const openWeekFromDetail = (weekId: string) => {
+    const data = weeks.find((w) => w.week.id === weekId)
+    if (data) setActiveWeek(data)
+  }
+
   const handlePickSeason = (s: string) => {
     if (s === selectedSeason) return
     setSelectedSeason(s)
@@ -100,49 +171,84 @@ export function LeagueSheet(props: LeagueSheetProps) {
   }
 
   return (
-    <ResponsiveSheet
-      open={props.open}
-      onClose={props.onClose}
-      panelClassName="glass-intense border-t border-primary/30 md:border md:rounded-2xl"
-      sheetMaxHeight="92dvh"
-    >
-      <SheetPage name="main">
-        <MainPage
+    <>
+      <ResponsiveSheet
+        open={props.open}
+        onClose={props.onClose}
+        panelClassName="glass-intense border-t border-primary/30 md:border md:rounded-2xl"
+        sheetMaxHeight="92dvh"
+      >
+        <SheetPage name="main">
+          <MainPage
+            leagueId={props.leagueId}
+            leagueName={props.leagueName}
+            memberCount={props.memberCount}
+            season={selectedSeason}
+            availableSeasons={props.availableSeasons}
+            onPickSeason={handlePickSeason}
+            switching={pending}
+            weeks={weeks}
+            currentWeekIndex={effectiveWeekIndex}
+            leaderboard={leaderboard}
+            currentUserId={props.currentUserId}
+            leagues={props.leagues}
+            onClose={props.onClose}
+            onSelectUser={setDetailUserId}
+          />
+        </SheetPage>
+
+        <SheetPage name="settings" title="Settings">
+          <SettingsPage canManage={props.canManage} leagueId={props.leagueId} />
+        </SheetPage>
+
+        <SheetPage name="members" title="Members">
+          <MembersPage
+            leagueId={props.leagueId}
+            members={props.members}
+            currentUserId={props.currentUserId}
+            currentUserRole={props.currentUserRole}
+          />
+        </SheetPage>
+
+        <SheetPage name="invite" title="Invite">
+          <InvitePage
+            leagueId={props.leagueId}
+            inviteCode={props.inviteCode}
+            canManage={props.canManage}
+          />
+        </SheetPage>
+
+        <SheetPage name="history" title="History">
+          <HistoryPage />
+        </SheetPage>
+
+        <SheetPage name="user">
+          {detailPending && !detail ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="h-6 w-6 animate-spin text-neon-blue" />
+            </div>
+          ) : detail ? (
+            <UserDetailContent
+              detail={detail}
+              pending={detailPending}
+              availableSeasons={props.availableSeasons}
+              onSeasonChange={setDetailSeason}
+              onOpenLeg={openWeekFromDetail}
+            />
+          ) : null}
+        </SheetPage>
+      </ResponsiveSheet>
+
+      {activeWeek && (
+        <WeekDetailSheet
+          open={activeWeek !== null}
+          onClose={() => setActiveWeek(null)}
+          data={activeWeek}
           leagueId={props.leagueId}
-          leagueName={props.leagueName}
-          memberCount={props.memberCount}
-          season={selectedSeason}
-          availableSeasons={props.availableSeasons}
-          onPickSeason={handlePickSeason}
-          switching={pending}
-          weeks={weeks}
-          currentWeekIndex={effectiveWeekIndex}
-          leaderboard={leaderboard}
-          currentUserId={props.currentUserId}
-          canManage={props.canManage}
+          membersCount={props.memberCount}
         />
-      </SheetPage>
-
-      <SheetPage name="settings" title="Settings">
-        <SettingsPage canManage={props.canManage} leagueId={props.leagueId} />
-      </SheetPage>
-
-      <SheetPage name="members" title="Members">
-        <MembersPage members={props.members} currentUserId={props.currentUserId} />
-      </SheetPage>
-
-      <SheetPage name="invite" title="Invite">
-        <InvitePage
-          leagueId={props.leagueId}
-          inviteCode={props.inviteCode}
-          canRegenerate={props.canManage}
-        />
-      </SheetPage>
-
-      <SheetPage name="history" title="History">
-        <HistoryPage />
-      </SheetPage>
-    </ResponsiveSheet>
+      )}
+    </>
   )
 }
 
@@ -160,7 +266,9 @@ function MainPage({
   currentWeekIndex,
   leaderboard,
   currentUserId,
-  canManage,
+  leagues,
+  onClose,
+  onSelectUser,
 }: {
   leagueId: string
   leagueName: string
@@ -173,10 +281,18 @@ function MainPage({
   currentWeekIndex: number
   leaderboard: LeaderboardEntry[]
   currentUserId: string
-  canManage: boolean
+  leagues: LeagueSwitcherRow[]
+  onClose: () => void
+  onSelectUser: (userId: string) => void
 }) {
+  const router = useRouter()
   const { navigate } = useResponsiveSheet()
   const showSwitcher = availableSeasons.length > 1
+
+  const handleStandingsTap = (userId: string) => {
+    onSelectUser(userId)
+    navigate('user')
+  }
 
   return (
     <div className="px-5 sm:px-6 pb-8 pt-2">
@@ -208,12 +324,76 @@ function MainPage({
         <NavTile icon={History} label="History" onClick={() => navigate('history')} />
       </div>
 
+      {/* League switcher — leagues are contexts, so switching lives here
+          on the league surface (not on the user avatar). */}
+      {leagues.length > 0 && (
+        <div className="mt-6 border-t border-white/10 pt-5">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[10px] font-bold tracking-[0.25em] uppercase text-muted-foreground">
+              Your Leagues
+            </p>
+            <Link
+              href="/leagues/new"
+              onClick={onClose}
+              className="inline-flex items-center gap-1 text-[10px] font-bold tracking-widest uppercase text-neon-blue hover:text-primary transition-colors"
+            >
+              <Plus className="h-3 w-3" />
+              New
+            </Link>
+          </div>
+          <div className="space-y-1.5">
+            {leagues.map((l) => {
+              const isCurrent = l.id === leagueId
+              const Roi = ROLE_VISUALS[l.role].icon
+              return (
+                <button
+                  key={l.id}
+                  type="button"
+                  disabled={isCurrent}
+                  onClick={() => {
+                    onClose()
+                    router.push(`/leagues/${l.id}`)
+                  }}
+                  className={cn(
+                    'group flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all',
+                    isCurrent
+                      ? 'border-neon-blue/50 bg-neon-blue/5 cursor-default'
+                      : 'border-white/10 hover:border-neon-blue/40 hover:bg-white/5'
+                  )}
+                >
+                  <Roi
+                    className={cn(
+                      'h-4 w-4 shrink-0',
+                      isCurrent ? ROLE_VISUALS[l.role].color : 'text-muted-foreground'
+                    )}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className={cn(
+                        'text-sm font-semibold truncate',
+                        isCurrent && 'text-neon-blue'
+                      )}
+                    >
+                      {l.name}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground capitalize">
+                      {ROLE_VISUALS[l.role].label}
+                      {isCurrent && ' · Current'}
+                    </p>
+                  </div>
+                  {!isCurrent && (
+                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-neon-blue group-hover:translate-x-0.5 transition-all" />
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Season switcher chip row */}
       {showSwitcher && (
         <div className="mt-6 border-t border-white/10 pt-5">
-          <p className="mb-2 text-[10px] font-bold tracking-[0.25em] uppercase text-muted-foreground">
-            Season
-          </p>
           <div className="-mx-1 flex flex-wrap gap-1.5">
             {availableSeasons.map((s) => {
               const active = s === season
@@ -261,13 +441,10 @@ function MainPage({
             Standings
           </p>
           <FinalStandings
-            leagueId={leagueId}
             currentUserId={currentUserId}
             leaderboard={leaderboard}
             allWeeksData={weeks}
-            membersCount={memberCount}
-            availableSeasons={[season]}
-            defaultSeason={season}
+            onSelectUser={handleStandingsTap}
           />
         </div>
       )}
@@ -539,21 +716,80 @@ const getInitials = (name: string | null, email: string) => {
 }
 
 function MembersPage({
+  leagueId,
   members,
   currentUserId,
+  currentUserRole,
 }: {
+  leagueId: string
   members: LeagueSheetMember[]
   currentUserId: string
+  currentUserRole: 'owner' | 'admin' | 'member'
 }) {
+  const router = useRouter()
+  const [updatingId, setUpdatingId] = useState<string | null>(null)
+
+  const canManage = currentUserRole === 'owner' || currentUserRole === 'admin'
+  const isOwner = currentUserRole === 'owner'
+
+  const buildKebabItems = (m: LeagueSheetMember): SheetPageKebabItem[] => {
+    if (!canManage || m.userId === currentUserId || m.role === 'owner') return []
+    const items: SheetPageKebabItem[] = []
+    if (isOwner && m.role === 'member') {
+      items.push({
+        key: 'promote',
+        label: 'Promote to admin',
+        icon: Shield,
+        onSelect: async () => {
+          setUpdatingId(m.userId)
+          await updateMemberRole(leagueId, m.userId, 'admin')
+          setUpdatingId(null)
+          router.refresh()
+        },
+      })
+    }
+    if (isOwner && m.role === 'admin') {
+      items.push({
+        key: 'demote',
+        label: 'Demote to member',
+        icon: UserIcon,
+        onSelect: async () => {
+          setUpdatingId(m.userId)
+          await updateMemberRole(leagueId, m.userId, 'member')
+          setUpdatingId(null)
+          router.refresh()
+        },
+      })
+    }
+    items.push({
+      key: 'remove',
+      label: 'Remove from league',
+      icon: UserMinus,
+      variant: 'destructive',
+      onSelect: async () => {
+        if (!confirm(`Remove ${m.fullName ?? m.email} from the league?`)) return
+        setUpdatingId(m.userId)
+        await removeMember(leagueId, m.userId)
+        setUpdatingId(null)
+        router.refresh()
+      },
+    })
+    return items
+  }
+
   return (
     <div className="px-3 pb-6 pt-2 space-y-1.5">
       {members.map((m) => {
         const Roi = ROLE_VISUALS[m.role].icon
         const initials = getInitials(m.fullName, m.email)
+        const items = buildKebabItems(m)
         return (
           <div
             key={m.userId}
-            className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5"
+            className={cn(
+              'flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5',
+              updatingId === m.userId && 'opacity-60 transition-opacity'
+            )}
           >
             <Avatar className="h-9 w-9 shrink-0">
               <AvatarImage src={m.avatarUrl ?? undefined} alt={m.fullName ?? m.email} />
@@ -586,12 +822,10 @@ function MembersPage({
                 <p className="text-[11px] text-muted-foreground truncate">{m.email}</p>
               )}
             </div>
+            {items.length > 0 && <SheetPageKebab items={items} forceMenu />}
           </div>
         )
       })}
-      <p className="px-3 pt-3 text-[11px] text-muted-foreground">
-        Promote, demote, and remove members from the user-menu avatar (top right).
-      </p>
     </div>
   )
 }
@@ -601,12 +835,13 @@ function MembersPage({
 function InvitePage({
   leagueId,
   inviteCode: initialInviteCode,
-  canRegenerate,
+  canManage,
 }: {
   leagueId: string
   inviteCode: string
-  canRegenerate: boolean
+  canManage: boolean
 }) {
+  const canRegenerate = canManage
   const [inviteCode, setInviteCode] = useState(initialInviteCode)
   const [copied, setCopied] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
@@ -676,7 +911,110 @@ function InvitePage({
           </Button>
         )}
       </div>
+
+      {canManage && <InviteByEmail leagueId={leagueId} />}
     </div>
+  )
+}
+
+// Email invite — targeted invite for a specific address. Folded into the
+// Invite page so the league sheet is the one home for member recruitment.
+function InviteByEmail({ leagueId }: { leagueId: string }) {
+  const [email, setEmail] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [success, setSuccess] = useState<{
+    message: string
+    inviteUrl: string | null
+  } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setSuccess(null)
+    setSubmitting(true)
+    const result = await inviteMember(leagueId, email)
+    setSubmitting(false)
+    if (result.error) {
+      setError(result.error)
+      return
+    }
+    setSuccess({
+      message: result.message ?? 'Invitation sent.',
+      inviteUrl: result.inviteUrl,
+    })
+    setEmail('')
+  }
+
+  const handleCopy = async () => {
+    if (!success?.inviteUrl) return
+    await navigator.clipboard.writeText(success.inviteUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="rounded-xl border border-white/10 p-4 space-y-3"
+    >
+      <p className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-[0.25em] uppercase text-muted-foreground">
+        <Mail className="h-3 w-3" />
+        Invite by email
+      </p>
+      <div className="space-y-2">
+        <Label htmlFor="invite-email" className="sr-only">
+          Email
+        </Label>
+        <Input
+          id="invite-email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="friend@example.com"
+          required
+          className="glass border-primary/30"
+        />
+      </div>
+      {error && (
+        <div className="glass border-destructive/50 p-3 rounded-lg text-sm text-destructive flex items-start gap-2">
+          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+      {success && (
+        <div className="glass border-neon-blue/50 bg-neon-blue/5 p-3 rounded-lg text-sm space-y-2">
+          <p className="text-neon-blue font-semibold">{success.message}</p>
+          {success.inviteUrl && (
+            <div className="flex items-center gap-2">
+              <code className="flex-1 truncate text-xs bg-black/40 px-2 py-1 rounded">
+                {success.inviteUrl}
+              </code>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleCopy}
+                className="glass border-neon-blue/40 shrink-0"
+              >
+                {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+      <Button type="submit" disabled={submitting} className="w-full neon-glow-blue">
+        {submitting ? (
+          'Sending…'
+        ) : (
+          <>
+            <UserPlus className="h-4 w-4 mr-2" />
+            Send invite
+          </>
+        )}
+      </Button>
+    </form>
   )
 }
 
