@@ -26,6 +26,14 @@ import {
 } from '@/app/actions/leagues'
 import { getLeagueSeasonBundle } from '@/app/actions/league-season'
 import { getUserDetail, type UserDetailPayload } from '@/app/actions/user-detail'
+import { logout } from '@/app/actions/auth'
+import {
+  DevPhaseSwitcher,
+  MockPage,
+  ProfilePage,
+  type CurrentUser,
+} from '@/components/user-menu'
+import type { DevPhaseData, DevToolbarData } from '@/lib/data/dev-toolbar-data'
 import {
   WeekDetailSheet,
   type WeekDetailData,
@@ -44,10 +52,12 @@ import {
   Link2,
   Loader2,
   Lock,
+  LogOut,
   Mail,
   Plus,
   RefreshCw,
   Settings as SettingsIcon,
+  Settings2,
   Shield,
   User as UserIcon,
   UserMinus,
@@ -92,6 +102,13 @@ interface LeagueSheetProps {
   availableSeasons: string[]
   /** Every league the viewer belongs to — powers the switcher section. */
   leagues: LeagueSwitcherRow[]
+  /** The signed-in user — the sheet is the single home for account +
+   *  league, opened from the combined avatar trigger. */
+  user: CurrentUser
+  /** Mock-mode dev controls. Null in production / neon. */
+  mock?: DevToolbarData | null
+  /** Neon-mode dev control — season-phase time travel. Null outside dev. */
+  devPhase?: DevPhaseData | null
 }
 
 export function LeagueSheet(props: LeagueSheetProps) {
@@ -194,7 +211,14 @@ export function LeagueSheet(props: LeagueSheetProps) {
             leagues={props.leagues}
             onClose={props.onClose}
             onSelectUser={setDetailUserId}
+            user={props.user}
+            devPhase={props.devPhase ?? null}
+            mockEnabled={!!props.mock}
           />
+        </SheetPage>
+
+        <SheetPage name="profile" title="Edit Profile">
+          <ProfilePage user={props.user} onSaved={props.onClose} />
         </SheetPage>
 
         <SheetPage name="settings" title="Settings">
@@ -221,6 +245,12 @@ export function LeagueSheet(props: LeagueSheetProps) {
         <SheetPage name="history" title="History">
           <HistoryPage />
         </SheetPage>
+
+        {props.mock && (
+          <SheetPage name="mock" title="Mock controls">
+            <MockPage data={props.mock} />
+          </SheetPage>
+        )}
 
         <SheetPage name="user">
           {detailPending && !detail ? (
@@ -269,6 +299,9 @@ function MainPage({
   leagues,
   onClose,
   onSelectUser,
+  user,
+  devPhase,
+  mockEnabled,
 }: {
   leagueId: string
   leagueName: string
@@ -284,6 +317,9 @@ function MainPage({
   leagues: LeagueSwitcherRow[]
   onClose: () => void
   onSelectUser: (userId: string) => void
+  user: CurrentUser
+  devPhase: DevPhaseData | null
+  mockEnabled: boolean
 }) {
   const router = useRouter()
   const { navigate } = useResponsiveSheet()
@@ -296,9 +332,37 @@ function MainPage({
 
   return (
     <div className="px-5 sm:px-6 pb-8 pt-2">
-      {/* Identity hero */}
-      <div className="flex items-center gap-4 pt-4 pb-5">
-        <LeagueAvatar leagueId={leagueId} size="lg" />
+      {/* You — account hero. The trigger is your avatar, so the sheet
+          leads with you; the league context follows. */}
+      <div className="flex items-center gap-3 pt-4 pb-4">
+        <Avatar className="h-11 w-11 ring-2 ring-primary/40 shrink-0">
+          <AvatarImage
+            src={user.avatarUrl ?? undefined}
+            alt={user.fullName ?? user.email}
+          />
+          <AvatarFallback className="bg-primary text-primary-foreground font-bold">
+            {getInitials(user.fullName, user.email)}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-base font-bold text-foreground truncate leading-tight">
+            {user.fullName ?? user.email}
+          </h2>
+          <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate('profile')}
+          className="rounded-full p-2 text-muted-foreground hover:text-neon-blue hover:bg-white/5 transition-colors shrink-0"
+          aria-label="Edit profile"
+        >
+          <Settings2 className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* League hero */}
+      <div className="flex items-center gap-4 border-t border-white/10 pt-4 pb-5">
+        <LeagueAvatar leagueId={leagueId} size="lg" name={leagueName} />
         <div className="min-w-0 flex-1">
           <h2 className="text-xl font-bold text-foreground leading-tight break-words">
             {leagueName}
@@ -313,7 +377,7 @@ function MainPage({
       </div>
 
       {/* Nav tiles — Settings / Members / Invite / History */}
-      <div className="grid grid-cols-4 gap-1.5 border-t border-white/10 pt-5">
+      <div className="grid grid-cols-4 gap-1.5">
         <NavTile
           icon={SettingsIcon}
           label="Settings"
@@ -448,6 +512,34 @@ function MainPage({
           />
         </div>
       )}
+
+      {/* Season phase (dev, neon mode) — time-travel preview. */}
+      {devPhase && <DevPhaseSwitcher data={devPhase} />}
+
+      {/* Mock controls entry — mock mode only. */}
+      {mockEnabled && (
+        <button
+          type="button"
+          onClick={() => navigate('mock')}
+          className="mt-5 flex w-full items-center gap-3 rounded-lg border border-neon-pink/30 bg-neon-pink/5 px-3 py-2.5 text-left transition-all hover:border-neon-pink/60 hover:bg-neon-pink/10"
+        >
+          <span className="text-[10px] font-bold tracking-[0.25em] uppercase text-neon-pink">
+            Mock controls
+          </span>
+          <ArrowRight className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        </button>
+      )}
+
+      {/* Sign out */}
+      <form action={logout} className="mt-6 border-t border-white/10 pt-5">
+        <button
+          type="submit"
+          className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-bold tracking-[0.2em] uppercase text-destructive/80 hover:text-destructive hover:bg-destructive/5 transition-colors"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          Sign Out
+        </button>
+      </form>
     </div>
   )
 }

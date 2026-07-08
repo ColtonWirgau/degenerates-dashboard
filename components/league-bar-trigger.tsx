@@ -1,15 +1,17 @@
 'use client'
 
 import { useState } from 'react'
-import { LeagueAvatar } from '@/components/league-avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { leagueInitials } from '@/components/league-avatar'
 import {
   LeagueSheet,
   type LeagueSheetMember,
   type LeagueSwitcherRow,
 } from '@/components/league-sheet'
+import type { CurrentUser } from '@/components/user-menu'
 import type { WeekDetailData } from '@/components/week-detail-sheet'
 import type { LeaderboardEntry } from '@/components/leaderboard-sheet'
-import { ChevronDown } from 'lucide-react'
+import type { DevPhaseData, DevToolbarData } from '@/lib/data/dev-toolbar-data'
 
 interface LeagueBarTriggerProps {
   leagueId: string
@@ -26,12 +28,24 @@ interface LeagueBarTriggerProps {
   leaderboard: LeaderboardEntry[]
   availableSeasons: string[]
   leagues: LeagueSwitcherRow[]
+  user: CurrentUser
+  mock?: DevToolbarData | null
+  devPhase?: DevPhaseData | null
+}
+
+const userInitials = (name: string | null, email: string) => {
+  if (name) {
+    const parts = name.split(' ').filter(Boolean)
+    if (parts.length >= 2) return `${parts[0]![0]}${parts[1]![0]}`.toUpperCase()
+    return name.slice(0, 2).toUpperCase()
+  }
+  return email.slice(0, 2).toUpperCase()
 }
 
 /**
- * Compact league chip that sits in the page top bar, just left of the user
- * avatar. Mobile: league avatar + chevron. Desktop: + truncated league name.
- * Tap → opens `<LeagueSheet>`.
+ * The single top-bar trigger: your avatar as the main circle with a
+ * small league badge (initials until Sleeper art lands) overlapping its
+ * bottom-right corner. Tap → the combined account + league sheet.
  */
 export function LeagueBarTrigger(props: LeagueBarTriggerProps) {
   const [open, setOpen] = useState(false)
@@ -41,14 +55,25 @@ export function LeagueBarTrigger(props: LeagueBarTriggerProps) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label={`${props.leagueName} — open league details`}
-        className="group flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] py-1 pl-1 pr-2 transition-all hover:border-primary/40 hover:bg-white/[0.06]"
+        aria-label={`${props.user.fullName ?? props.user.email} — ${props.leagueName}`}
+        className="group relative shrink-0"
       >
-        <LeagueAvatar leagueId={props.leagueId} size="sm" />
-        <span className="hidden sm:inline max-w-[14ch] truncate text-xs font-bold text-foreground group-hover:text-neon-blue transition-colors">
-          {props.leagueName}
+        <Avatar className="h-10 w-10 ring-2 ring-primary/50 group-hover:ring-primary transition-all cursor-pointer">
+          <AvatarImage
+            src={props.user.avatarUrl ?? undefined}
+            alt={props.user.fullName ?? props.user.email}
+          />
+          <AvatarFallback className="bg-primary text-primary-foreground font-bold">
+            {userInitials(props.user.fullName, props.user.email)}
+          </AvatarFallback>
+        </Avatar>
+        {/* League mini-badge — initials until Sleeper art lands. */}
+        <span
+          aria-hidden
+          className="absolute -bottom-0.5 -right-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#1a1a1e] ring-2 ring-background text-[8px] font-bold text-foreground/90"
+        >
+          {leagueInitials(props.leagueName)}
         </span>
-        <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground transition-colors group-hover:text-neon-blue" />
       </button>
 
       <LeagueSheet
@@ -68,6 +93,9 @@ export function LeagueBarTrigger(props: LeagueBarTriggerProps) {
         leaderboard={props.leaderboard}
         availableSeasons={props.availableSeasons}
         leagues={props.leagues}
+        user={props.user}
+        mock={props.mock}
+        devPhase={props.devPhase}
       />
     </>
   )

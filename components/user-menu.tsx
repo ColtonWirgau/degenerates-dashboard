@@ -13,7 +13,11 @@ import {
 } from '@/components/ui/responsive-sheet'
 import { logout } from '@/app/actions/auth'
 import { setScenario, setMockUser, setSeasonPhase } from '@/app/actions/dev-toolbar'
-import type { DevPhaseData, DevSeasonPhase } from '@/lib/data/dev-toolbar-data'
+import type {
+  DevPhaseData,
+  DevSeasonPhase,
+  DevToolbarData,
+} from '@/lib/data/dev-toolbar-data'
 import { updateProfile } from '@/app/actions/profile'
 import {
   AlertCircle,
@@ -29,18 +33,11 @@ import { cn } from '@/lib/utils'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-interface CurrentUser {
+export interface CurrentUser {
   id: string
   email: string
   fullName: string | null
   avatarUrl: string | null
-}
-
-interface DevToolbarData {
-  scenarios: Array<{ id: string; name: string; hint: string }>
-  activeScenarioId: string
-  users: Array<{ id: string; fullName: string | null; email: string }>
-  activeUserId: string | null
 }
 
 interface UserMenuProps {
@@ -204,7 +201,7 @@ function MainPage({
 
 // ─── Season phase switcher (dev, neon mode) ────────────────────────────────
 
-function DevPhaseSwitcher({ data }: { data: DevPhaseData }) {
+export function DevPhaseSwitcher({ data }: { data: DevPhaseData }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
 
@@ -252,7 +249,7 @@ function DevPhaseSwitcher({ data }: { data: DevPhaseData }) {
 
 // ─── Mock controls sub-page ────────────────────────────────────────────────
 
-function MockPage({ data }: { data: DevToolbarData }) {
+export function MockPage({ data }: { data: DevToolbarData }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const { scenarios, activeScenarioId, users, activeUserId } = data
@@ -343,7 +340,7 @@ function MockPage({ data }: { data: DevToolbarData }) {
 
 // ─── Profile sub-page ───────────────────────────────────────────────────────
 
-function ProfilePage({ user, onSaved }: { user: CurrentUser; onSaved: () => void }) {
+export function ProfilePage({ user, onSaved }: { user: CurrentUser; onSaved: () => void }) {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(false)

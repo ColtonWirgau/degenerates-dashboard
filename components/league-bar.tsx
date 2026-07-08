@@ -1,7 +1,6 @@
 import { getLeagues } from '@/app/actions/leagues'
 import { getCurrentUser } from '@/lib/data/auth-bridge'
 import { getDevToolbarData, getDevPhaseData } from '@/lib/data/dev-toolbar-data'
-import { UserMenu } from '@/components/user-menu'
 import { LeagueBarTrigger } from '@/components/league-bar-trigger'
 import type { WeekDetailData } from '@/components/week-detail-sheet'
 import type { LeaderboardEntry } from '@/components/leaderboard-sheet'
@@ -62,23 +61,27 @@ export async function LeagueBar(props: LeagueBarProps) {
         </Link>
 
         <div className="flex items-center gap-2 min-w-0">
-          <LeagueBarTrigger
-            leagueId={props.leagueId}
-            leagueName={props.leagueName}
-            memberCount={props.memberCount}
-            season={props.season}
-            inviteCode={props.inviteCode}
-            canManage={props.canManage}
-            currentUserRole={props.currentUserRole}
-            weeks={props.weeks}
-            currentWeekIndex={props.currentWeekIndex}
-            members={props.members}
-            currentUserId={props.currentUserId}
-            leaderboard={props.leaderboard}
-            availableSeasons={props.availableSeasons}
-            leagues={switcherRows}
-          />
-          {me && <UserMenu user={me} mock={mock} devPhase={devPhase} />}
+          {me && (
+            <LeagueBarTrigger
+              leagueId={props.leagueId}
+              leagueName={props.leagueName}
+              memberCount={props.memberCount}
+              season={props.season}
+              inviteCode={props.inviteCode}
+              canManage={props.canManage}
+              currentUserRole={props.currentUserRole}
+              weeks={props.weeks}
+              currentWeekIndex={props.currentWeekIndex}
+              members={props.members}
+              currentUserId={props.currentUserId}
+              leaderboard={props.leaderboard}
+              availableSeasons={props.availableSeasons}
+              leagues={switcherRows}
+              user={me}
+              mock={mock}
+              devPhase={devPhase}
+            />
+          )}
         </div>
       </div>
     </header>
