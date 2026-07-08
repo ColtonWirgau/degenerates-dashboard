@@ -46,6 +46,8 @@ import {
   AlertCircle,
   ArrowRight,
   Check,
+  ChevronDown,
+  ChevronRight,
   Copy,
   Crown,
   History,
@@ -208,12 +210,27 @@ export function LeagueSheet(props: LeagueSheetProps) {
             currentWeekIndex={effectiveWeekIndex}
             leaderboard={leaderboard}
             currentUserId={props.currentUserId}
-            leagues={props.leagues}
-            onClose={props.onClose}
             onSelectUser={setDetailUserId}
             user={props.user}
             devPhase={props.devPhase ?? null}
             mockEnabled={!!props.mock}
+          />
+        </SheetPage>
+
+        <SheetPage name="leagues" title="Your Leagues">
+          <LeaguesPage
+            leagues={props.leagues}
+            currentLeagueId={props.leagueId}
+            onClose={props.onClose}
+          />
+        </SheetPage>
+
+        <SheetPage name="standings" title="Standings">
+          <StandingsPage
+            currentUserId={props.currentUserId}
+            leaderboard={leaderboard}
+            weeks={weeks}
+            onSelectUser={setDetailUserId}
           />
         </SheetPage>
 
@@ -296,8 +313,6 @@ function MainPage({
   currentWeekIndex,
   leaderboard,
   currentUserId,
-  leagues,
-  onClose,
   onSelectUser,
   user,
   devPhase,
@@ -314,14 +329,11 @@ function MainPage({
   currentWeekIndex: number
   leaderboard: LeaderboardEntry[]
   currentUserId: string
-  leagues: LeagueSwitcherRow[]
-  onClose: () => void
   onSelectUser: (userId: string) => void
   user: CurrentUser
   devPhase: DevPhaseData | null
   mockEnabled: boolean
 }) {
-  const router = useRouter()
   const { navigate } = useResponsiveSheet()
   const showSwitcher = availableSeasons.length > 1
 
@@ -329,6 +341,17 @@ function MainPage({
     onSelectUser(userId)
     navigate('user')
   }
+
+  // Standings preview — top 3 plus the viewer's row when they sit
+  // outside it. The full table lives on the standings page.
+  const previewRows = (() => {
+    const rows = leaderboard
+      .slice(0, 3)
+      .map((m, i) => ({ entry: m, rank: i + 1 }))
+    const meIdx = leaderboard.findIndex((m) => m.userId === currentUserId)
+    if (meIdx >= 3) rows.push({ entry: leaderboard[meIdx]!, rank: meIdx + 1 })
+    return rows
+  })()
 
   return (
     <div className="px-5 sm:px-6 pb-8 pt-2">
@@ -360,12 +383,18 @@ function MainPage({
         </button>
       </div>
 
-      {/* League hero */}
-      <div className="flex items-center gap-4 border-t border-white/10 pt-4 pb-5">
+      {/* League hero — doubles as the league switcher trigger. */}
+      <button
+        type="button"
+        onClick={() => navigate('leagues')}
+        className="group flex w-full items-center gap-4 border-t border-white/10 pt-4 pb-5 text-left"
+        aria-label="Switch league"
+      >
         <LeagueAvatar leagueId={leagueId} size="lg" name={leagueName} />
         <div className="min-w-0 flex-1">
-          <h2 className="text-xl font-bold text-foreground leading-tight break-words">
-            {leagueName}
+          <h2 className="flex items-center gap-1.5 text-xl font-bold text-foreground leading-tight">
+            <span className="min-w-0 break-words">{leagueName}</span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-neon-blue transition-colors" />
           </h2>
           <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1">
@@ -374,7 +403,7 @@ function MainPage({
             </span>
           </div>
         </div>
-      </div>
+      </button>
 
       {/* Nav tiles — Settings / Members / Invite / History */}
       <div className="grid grid-cols-4 gap-1.5">
@@ -387,73 +416,6 @@ function MainPage({
         <NavTile icon={Link2} label="Invite" onClick={() => navigate('invite')} />
         <NavTile icon={History} label="History" onClick={() => navigate('history')} />
       </div>
-
-      {/* League switcher — leagues are contexts, so switching lives here
-          on the league surface (not on the user avatar). */}
-      {leagues.length > 0 && (
-        <div className="mt-6 border-t border-white/10 pt-5">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-[10px] font-bold tracking-[0.25em] uppercase text-muted-foreground">
-              Your Leagues
-            </p>
-            <Link
-              href="/leagues/new"
-              onClick={onClose}
-              className="inline-flex items-center gap-1 text-[10px] font-bold tracking-widest uppercase text-neon-blue hover:text-primary transition-colors"
-            >
-              <Plus className="h-3 w-3" />
-              New
-            </Link>
-          </div>
-          <div className="space-y-1.5">
-            {leagues.map((l) => {
-              const isCurrent = l.id === leagueId
-              const Roi = ROLE_VISUALS[l.role].icon
-              return (
-                <button
-                  key={l.id}
-                  type="button"
-                  disabled={isCurrent}
-                  onClick={() => {
-                    onClose()
-                    router.push(`/leagues/${l.id}`)
-                  }}
-                  className={cn(
-                    'group flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all',
-                    isCurrent
-                      ? 'border-neon-blue/50 bg-neon-blue/5 cursor-default'
-                      : 'border-white/10 hover:border-neon-blue/40 hover:bg-white/5'
-                  )}
-                >
-                  <Roi
-                    className={cn(
-                      'h-4 w-4 shrink-0',
-                      isCurrent ? ROLE_VISUALS[l.role].color : 'text-muted-foreground'
-                    )}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className={cn(
-                        'text-sm font-semibold truncate',
-                        isCurrent && 'text-neon-blue'
-                      )}
-                    >
-                      {l.name}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground capitalize">
-                      {ROLE_VISUALS[l.role].label}
-                      {isCurrent && ' · Current'}
-                    </p>
-                  </div>
-                  {!isCurrent && (
-                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-neon-blue group-hover:translate-x-0.5 transition-all" />
-                  )}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Season switcher chip row */}
       {showSwitcher && (
@@ -498,18 +460,73 @@ function MainPage({
         </div>
       )}
 
-      {/* Final standings */}
+      {/* Standings preview — top 3 + you; the full table is a page. */}
       {leaderboard.length > 0 && (
         <div className="mt-2">
           <p className="mb-3 text-[10px] font-bold tracking-[0.25em] uppercase text-muted-foreground">
             Standings
           </p>
-          <FinalStandings
-            currentUserId={currentUserId}
-            leaderboard={leaderboard}
-            allWeeksData={weeks}
-            onSelectUser={handleStandingsTap}
-          />
+          <div className="space-y-1.5">
+            {previewRows.map(({ entry, rank }) => {
+              const isMe = entry.userId === currentUserId
+              return (
+                <button
+                  key={entry.userId}
+                  type="button"
+                  onClick={() => handleStandingsTap(entry.userId)}
+                  className={cn(
+                    'group flex w-full items-center gap-3 rounded-lg border bg-white/[0.02] px-3 py-2.5 text-left transition-all hover:bg-white/[0.04]',
+                    isMe
+                      ? 'border-neon-blue/40 hover:border-neon-blue/60'
+                      : 'border-white/10 hover:border-white/20'
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'shrink-0 w-7 text-center text-sm font-bold tabular-nums leading-none',
+                      rank === 1 ? 'text-neon-blue' : 'text-muted-foreground'
+                    )}
+                  >
+                    #{rank}
+                  </span>
+                  <Avatar className="h-8 w-8 shrink-0 ring-1 ring-white/10">
+                    <AvatarImage
+                      src={entry.avatarUrl ?? undefined}
+                      alt={entry.fullName ?? entry.email}
+                    />
+                    <AvatarFallback className="bg-primary text-primary-foreground font-bold text-xs">
+                      {getInitials(entry.fullName, entry.email)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <p className="min-w-0 flex-1 truncate text-sm font-semibold flex items-center gap-1.5">
+                    {entry.fullName ?? entry.email}
+                    {isMe && (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] border-neon-blue/40 px-1.5 py-0 text-neon-blue"
+                      >
+                        You
+                      </Badge>
+                    )}
+                  </p>
+                  <span className="shrink-0 text-sm font-bold tabular-nums text-foreground/90">
+                    {entry.winRate.toFixed(1)}%
+                  </span>
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
+                </button>
+              )
+            })}
+            {leaderboard.length > previewRows.length && (
+              <button
+                type="button"
+                onClick={() => navigate('standings')}
+                className="group flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/10 px-3 py-2.5 text-[11px] font-bold tracking-widest uppercase text-muted-foreground hover:border-neon-blue/30 hover:text-neon-blue transition-colors"
+              >
+                Full standings ({leaderboard.length})
+                <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -540,6 +557,102 @@ function MainPage({
           Sign Out
         </button>
       </form>
+    </div>
+  )
+}
+
+// Your Leagues — reached from the league hero's chevron. Tap another
+// league to switch; "+ New" creates one.
+function LeaguesPage({
+  leagues,
+  currentLeagueId,
+  onClose,
+}: {
+  leagues: LeagueSwitcherRow[]
+  currentLeagueId: string
+  onClose: () => void
+}) {
+  const router = useRouter()
+  return (
+    <div className="px-5 sm:px-6 pb-6 pt-2 space-y-1.5">
+      {leagues.map((l) => {
+        const isCurrent = l.id === currentLeagueId
+        const Roi = ROLE_VISUALS[l.role].icon
+        return (
+          <button
+            key={l.id}
+            type="button"
+            disabled={isCurrent}
+            onClick={() => {
+              onClose()
+              router.push(`/leagues/${l.id}`)
+            }}
+            className={cn(
+              'group flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left transition-all',
+              isCurrent
+                ? 'border-neon-blue/50 bg-neon-blue/5 cursor-default'
+                : 'border-white/10 hover:border-neon-blue/40 hover:bg-white/5'
+            )}
+          >
+            <LeagueAvatar leagueId={l.id} size="sm" name={l.name} />
+            <div className="min-w-0 flex-1">
+              <p
+                className={cn(
+                  'text-sm font-semibold truncate',
+                  isCurrent && 'text-neon-blue'
+                )}
+              >
+                {l.name}
+              </p>
+              <p className="inline-flex items-center gap-1 text-[11px] text-muted-foreground capitalize">
+                <Roi className="h-3 w-3" />
+                {ROLE_VISUALS[l.role].label}
+                {isCurrent && ' · Current'}
+              </p>
+            </div>
+            {!isCurrent && (
+              <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-neon-blue group-hover:translate-x-0.5 transition-all" />
+            )}
+          </button>
+        )
+      })}
+      <Link
+        href="/leagues/new"
+        onClick={onClose}
+        className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/10 px-3 py-3 text-[11px] font-bold tracking-widest uppercase text-muted-foreground hover:border-neon-blue/30 hover:text-neon-blue transition-colors"
+      >
+        <Plus className="h-3 w-3" />
+        New league
+      </Link>
+    </div>
+  )
+}
+
+// Full standings — the complete table with dot traces; rows drill into
+// the member's detail page.
+function StandingsPage({
+  currentUserId,
+  leaderboard,
+  weeks,
+  onSelectUser,
+}: {
+  currentUserId: string
+  leaderboard: LeaderboardEntry[]
+  weeks: WeekDetailData[]
+  onSelectUser: (userId: string) => void
+}) {
+  const { navigate } = useResponsiveSheet()
+  return (
+    <div className="px-5 sm:px-6 pb-6 pt-2">
+      <FinalStandings
+        currentUserId={currentUserId}
+        leaderboard={leaderboard}
+        allWeeksData={weeks}
+        onSelectUser={(id) => {
+          onSelectUser(id)
+          navigate('user')
+        }}
+      />
     </div>
   )
 }
