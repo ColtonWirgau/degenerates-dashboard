@@ -38,26 +38,56 @@ export async function setSeasonPhase(phase: DevSeasonPhase) {
     return
   }
 
-  // Focus season = latest by starting year, mirroring getSeasonState.
   const { db } = await import('@/db/client')
-  const { nflWeeks } = await import('@/db/schema')
-  const seasons = await db.selectDistinct({ season: nflWeeks.season }).from(nflWeeks)
-  const focus = seasons
-    .map((s) => s.season)
-    .sort((a, b) => parseInt(b.split('-')[0]!, 10) - parseInt(a.split('-')[0]!, 10))[0]
-  if (!focus) return
-  const weeks = await db
-    .select()
+  const { nflWeeks, parlays } = await import('@/db/schema')
+  const byYearDesc = (a: string, b: string) =>
+    parseInt(b.split('-')[0]!, 10) - parseInt(a.split('-')[0]!, 10)
+
+  const allWeeks = await db.select().from(nflWeeks)
+  const withData = await db
+    .selectDistinct({ season: nflWeeks.season })
     .from(nflWeeks)
-    .where(eq(nflWeeks.season, focus))
-    .orderBy(asc(nflWeeks.weekNumber))
+    .innerJoin(parlays, eq(parlays.nflWeekId, nflWeeks.id))
+  const dataSeasons = withData.map((r) => r.season).sort(byYearDesc)
+  const allSeasons = [...new Set(allWeeks.map((w) => w.season))].sort(byYearDesc)
+
+  // Which week kinds the phase needs to exist in the target season.
+  const requiredKinds: Record<string, string[]> = {
+    'regular-season': ['regular'],
+    playoffs: ['wildcard', 'divisional', 'conference'],
+    'super-bowl': ['super-bowl'],
+  }
+  const required = requiredKinds[phase] ?? []
+  const seasonWorks = (season: string) =>
+    required.length === 0
+      ? allWeeks.some((w) => w.season === season && w.startDate)
+      : allWeeks.some(
+          (w) => w.season === season && required.includes(w.kind) && w.startDate
+        )
+
+  // In-season phases preview the latest season that actually has league
+  // data (parlays) — falling back to any season with the needed weeks —
+  // so the page isn't a wall of empty states. Off/preseason use the
+  // latest (upcoming) season, matching real life.
+  const inSeasonPhase = required.length > 0
+  const ordered = inSeasonPhase
+    ? [...dataSeasons, ...allSeasons.filter((x) => !dataSeasons.includes(x))]
+    : allSeasons
+  const focus = ordered.find(seasonWorks)
+  if (!focus) return
+  const weeks = allWeeks
+    .filter((w) => w.season === focus)
+    .sort((a, b) => a.weekNumber - b.weekNumber)
 
   const first = weeks.find((w) => w.startDate)?.startDate
   if (!first) return
   const regular = weeks.filter((w) => w.kind === 'regular' && w.startDate)
-  const wildcard = weeks.find((w) => w.kind === 'wildcard' && w.startDate)
+  const playoffWeek = weeks.find(
+    (w) =>
+      (w.kind === 'wildcard' || w.kind === 'divisional' || w.kind === 'conference') &&
+      w.startDate
+  )
   const superBowl = weeks.find((w) => w.kind === 'super-bowl' && w.startDate)
-  const lastRegular = regular[regular.length - 1]
 
   // Land 12h after the phase's first kickoff so we're solidly inside it.
   const inside = (d: Date) => new Date(d.getTime() + 12 * 60 * 60 * 1000)
@@ -69,11 +99,9 @@ export async function setSeasonPhase(phase: DevSeasonPhase) {
         : phase === 'regular-season'
           ? inside((regular[4] ?? regular[0])?.startDate ?? first)
           : phase === 'playoffs'
-            ? wildcard?.startDate
-              ? inside(wildcard.startDate)
-              : lastRegular?.endDate
-                ? new Date(lastRegular.endDate.getTime() + 2 * DAY_MS)
-                : null
+            ? playoffWeek?.startDate
+              ? inside(playoffWeek.startDate)
+              : null
             : superBowl?.startDate
               ? inside(superBowl.startDate)
               : null

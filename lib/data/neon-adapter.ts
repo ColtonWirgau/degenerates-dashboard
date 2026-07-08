@@ -292,16 +292,48 @@ export const neonAdapter: DataAdapter = {
         expectedKickoff: null,
       }
     }
-    // Sort seasons by starting year (e.g. '2026-2027' → 2026)
+    // Sort seasons by starting year (e.g. '2026-2027' → 2026), newest first
     const sorted = [...allSeasons].sort((a, b) => {
       const ay = parseInt(a.season.split('-')[0]!, 10)
       const by = parseInt(b.season.split('-')[0]!, 10)
       return by - ay
     })
-    const focusSeason = sorted[0]!.season
 
-    const weeks = await this.getWeeksForSeason(focusSeason)
+    // Focus season — now-aware: prefer the season whose schedule window
+    // contains `now` (actively running), then the nearest upcoming one,
+    // then the most recent past season. Keeps the state machine correct
+    // when the DB holds multiple seasons and when dev time-travel pins
+    // `now` inside a completed season.
     const now = await getDevNow()
+    type WeekList = Awaited<ReturnType<typeof this.getWeeksForSeason>>
+    let focusSeason: string | null = null
+    let weeks: WeekList = []
+    let upcoming: { season: string; weeks: WeekList } | null = null
+    for (const { season } of sorted) {
+      const w = await this.getWeeksForSeason(season)
+      const first = w[0]?.startDate ? new Date(w[0].startDate) : null
+      const last = w[w.length - 1]?.endDate
+        ? new Date(w[w.length - 1]!.endDate!)
+        : null
+      if (first && last && first <= now && now <= last) {
+        focusSeason = season
+        weeks = w
+        break
+      }
+      // Descending order → the last season with `now < first` is the
+      // earliest upcoming one.
+      if (first && now < first) upcoming = { season, weeks: w }
+    }
+    if (!focusSeason) {
+      if (upcoming) {
+        focusSeason = upcoming.season
+        weeks = upcoming.weeks
+      } else {
+        focusSeason = sorted[0]!.season
+        weeks = await this.getWeeksForSeason(focusSeason)
+      }
+    }
+
     const firstWeek = weeks[0]
     const lastWeek = weeks[weeks.length - 1]
     if (!firstWeek || !lastWeek) {

@@ -34,22 +34,26 @@ export async function getLeagueOverview(leagueId: string) {
   // with, so we recap the most recently completed one.
   const seasonState = await adapter.getSeasonState()
   const displaySeason =
-    (seasonState.kind === 'offseason' || seasonState.kind === 'preseason') &&
-    seasonState.kind === 'offseason' &&
-    seasonState.lastSeason
-      ? seasonState.lastSeason
+    seasonState.kind === 'offseason'
+      ? seasonState.lastSeason ?? scenario.currentSeason
       : seasonState.kind === 'preseason'
         ? // Preseason → recap the most recently completed season.
           (() => {
-            const startYear = parseInt(scenario.currentSeason.split('-')[0]!, 10)
+            const startYear = parseInt(
+              seasonState.currentSeason.split('-')[0]!,
+              10
+            )
             return `${startYear - 1}-${startYear}`
           })()
-        : scenario.currentSeason
+        : // In-season kinds carry the active NFL week — its season is the
+          // one the page should display (the mock scenario's season is
+          // meaningless in neon mode).
+          seasonState.activeWeek.season
 
   const [members, role, currentWeek, parlays, leaderboard, userStats] = await Promise.all([
     adapter.getLeagueMembers(leagueId),
     adapter.getUserRole(leagueId, me.id),
-    adapter.getCurrentWeek(scenario.currentSeason),
+    adapter.getCurrentWeek(displaySeason),
     adapter.getLeagueParlays(leagueId, displaySeason),
     adapter.getLeaderboard(leagueId, displaySeason),
     adapter.getUserStats(leagueId, me.id, displaySeason),
@@ -60,10 +64,10 @@ export async function getLeagueOverview(leagueId: string) {
   // Mock generates the current scenario season + the immediately-prior one.
   // Future Sleeper history walking will extend this list.
   const prevSeason = (() => {
-    const startYear = parseInt(scenario.currentSeason.split('-')[0]!, 10)
+    const startYear = parseInt(displaySeason.split('-')[0]!, 10)
     return `${startYear - 1}-${startYear}`
   })()
-  const availableSeasons = [scenario.currentSeason, prevSeason]
+  const availableSeasons = [displaySeason, prevSeason]
 
   // Build per-week summaries the league page expects.
   const allWeeksData = parlays.map((p) => {
