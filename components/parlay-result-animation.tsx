@@ -12,34 +12,34 @@ interface ParlayResultAnimationProps {
 }
 
 const winMessages = [
-  "🎰 JACKPOT! You're on fire!",
-  "💰 CASHING OUT! What a legend!",
-  "🔥 ABSOLUTE HEATER! Keep it going!",
-  "⚡ MONEY PRINTER GO BRRR!",
-  "🚀 TO THE MOON! Unstoppable!",
-  "💎 DIAMOND HANDS! You called it!",
-  "👑 KING OF THE PARLAY!",
-  "🎯 STRAIGHT CASH HOMIE!",
+  "JACKPOT! You're on fire!",
+  "CASHING OUT! What a legend!",
+  "ABSOLUTE HEATER! Keep it going!",
+  "MONEY PRINTER GO BRRR!",
+  "TO THE MOON! Unstoppable!",
+  "DIAMOND HANDS! You called it!",
+  "KING OF THE PARLAY!",
+  "STRAIGHT CASH HOMIE!",
 ]
 
 const lossMessages = [
-  "💀 You're really not good at this...",
-  "🤡 Maybe stick to your day job?",
-  "😬 Ouch... that one hurt",
-  "🗑️ Into the trash it goes!",
-  "💸 There goes the rent money",
-  "🎪 What a circus performance",
-  "📉 Stonks only go down for you",
-  "🤦 Better luck next week, champ",
-  "🎲 Vegas thanks you for your service",
-  "💩 That pick was absolutely terrible",
+  "You're really not good at this...",
+  "Maybe stick to your day job?",
+  "Ouch... that one hurt",
+  "Into the trash it goes!",
+  "There goes the rent money",
+  "What a circus performance",
+  "Stonks only go down for you",
+  "Better luck next week, champ",
+  "Vegas thanks you for your service",
+  "That pick was absolutely terrible",
 ]
 
 const pushMessages = [
-  "😐 Meh... not great, not terrible",
-  "🤷 Push city! Money back time",
-  "⚖️ Perfectly balanced, as all things should be",
-  "💤 That was boring",
+  "Meh... not great, not terrible",
+  "Push city! Money back time",
+  "Perfectly balanced, as all things should be",
+  "That was boring",
 ]
 
 export function ParlayResultAnimation({ result, userParlay }: ParlayResultAnimationProps) {
@@ -126,16 +126,16 @@ export function ParlayResultAnimation({ result, userParlay }: ParlayResultAnimat
       }
     } else if (allWins) {
       return {
-        bg: 'from-green-500/20 to-neon-green/20',
-        text: 'text-neon-green',
-        border: 'border-neon-green/50',
-        glow: 'shadow-[0_0_30px_rgba(57,255,20,0.5)]'
+        bg: 'from-cyan-500/20 to-neon-blue/20',
+        text: 'text-neon-blue',
+        border: 'border-neon-blue/50',
+        glow: 'shadow-[0_0_30px_rgba(0,217,255,0.5)]'
       }
     } else {
       return {
-        bg: 'from-yellow-500/20 to-gold/20',
-        text: 'text-gold',
-        border: 'border-gold/50',
+        bg: 'from-neon-blue/20 to-neon-blue/5',
+        text: 'text-neon-blue',
+        border: 'border-neon-blue/50',
         glow: 'shadow-[0_0_30px_rgba(255,215,0,0.5)]'
       }
     }

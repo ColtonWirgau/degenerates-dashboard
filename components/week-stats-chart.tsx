@@ -15,7 +15,7 @@ export function WeekStatsChart({ wins, losses, pushes, pending }: WeekStatsChart
   const chartData = [
     { name: 'Wins', value: wins, fill: '#00D9FF' },
     { name: 'Losses', value: losses, fill: '#FF69B4' },
-    ...(pushes > 0 ? [{ name: 'Pushes', value: pushes, fill: '#FFD700' }] : []),
+    ...(pushes > 0 ? [{ name: 'Pushes', value: pushes, fill: '#9CA3AF' }] : []),
     ...(pending > 0 ? [{ name: 'Pending', value: pending, fill: '#6B7280' }] : []),
   ]
 
@@ -30,7 +30,7 @@ export function WeekStatsChart({ wins, losses, pushes, pending }: WeekStatsChart
     },
     pushes: {
       label: 'Pushes',
-      color: '#FFD700',
+      color: '#9CA3AF',
     },
     pending: {
       label: 'Pending',
@@ -42,9 +42,9 @@ export function WeekStatsChart({ wins, losses, pushes, pending }: WeekStatsChart
   const winPercentage = completedLegs > 0 ? (wins / completedLegs) * 100 : 0
 
   // Determine win percentage color based on performance
-  // 70%+ = gold (excellent), 55-69% = blue (good), 40-54% = cyan (okay), <40% = pink (poor)
+  // 70%+ = green (excellent), 55-69% = blue (good), 40-54% = cyan (okay), <40% = pink (poor)
   const getWinPercentageColor = (rate: number) => {
-    if (rate >= 70) return '#FFD700' // gold
+    if (rate >= 70) return '#39FF14' // neon-green
     if (rate >= 55) return '#00D9FF' // neon-blue
     if (rate >= 40) return '#00CED1' // dark-cyan
     return '#FF69B4' // neon-pink
@@ -111,7 +111,7 @@ export function WeekStatsChart({ wins, losses, pushes, pending }: WeekStatsChart
             {losses} Losses
           </span>
           {pushes > 0 && (
-            <span className="text-sm font-medium" style={{ color: '#FFD700' }}>
+            <span className="text-sm font-medium" style={{ color: '#9CA3AF' }}>
               {pushes} Pushes
             </span>
           )}

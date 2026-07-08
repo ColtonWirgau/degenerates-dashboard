@@ -36,7 +36,7 @@ export function WeekResults({ winners, losers, compact = false }: WeekResultsPro
       <>
         {/* Champions Circle */}
         <div className="glass-card p-4">
-          <h3 className="text-sm font-semibold text-neon-blue mb-3">Champions Circle 🏆</h3>
+          <h3 className="text-sm font-semibold text-neon-blue mb-3">Champions</h3>
           {winners.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-4">No winners yet</p>
           ) : (
@@ -44,7 +44,7 @@ export function WeekResults({ winners, losers, compact = false }: WeekResultsPro
               {winners.map((winner) => (
                 <Avatar key={winner.userId} className="h-12 w-12 border-2 border-neon-blue/50">
                   <AvatarImage src={winner.avatarUrl || undefined} alt={winner.fullName || winner.email} />
-                  <AvatarFallback className="bg-neon-blue/20 text-neon-blue text-base font-bold">
+                  <AvatarFallback className="bg-neon-blue text-primary-foreground text-base font-bold">
                     {getInitials(winner.fullName, winner.email)}
                   </AvatarFallback>
                 </Avatar>
@@ -55,7 +55,7 @@ export function WeekResults({ winners, losers, compact = false }: WeekResultsPro
 
         {/* Graveyard */}
         <div className="glass-card p-4">
-          <h3 className="text-sm font-semibold text-neon-pink mb-3">Graveyard 💀</h3>
+          <h3 className="text-sm font-semibold text-neon-pink mb-3">Graveyard</h3>
           {losers.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-4">No losses yet</p>
           ) : (
@@ -63,7 +63,7 @@ export function WeekResults({ winners, losers, compact = false }: WeekResultsPro
               {losers.map((loser) => (
                 <Avatar key={loser.userId} className="h-12 w-12 border-2 border-destructive/50">
                   <AvatarImage src={loser.avatarUrl || undefined} alt={loser.fullName || loser.email} />
-                  <AvatarFallback className="bg-destructive/20 text-destructive text-base font-bold">
+                  <AvatarFallback className="bg-destructive text-white text-base font-bold">
                     {getInitials(loser.fullName, loser.email)}
                   </AvatarFallback>
                 </Avatar>
@@ -79,7 +79,7 @@ export function WeekResults({ winners, losers, compact = false }: WeekResultsPro
     <div className="grid gap-4 md:grid-cols-2">
       {/* Champions Circle */}
       <div className="glass-card p-4">
-        <h3 className="text-sm font-semibold text-neon-blue mb-3">Champions Circle 🏆</h3>
+        <h3 className="text-sm font-semibold text-neon-blue mb-3">Champions</h3>
         {winners.length === 0 ? (
           <p className="text-xs text-muted-foreground text-center py-4">No winners yet</p>
         ) : (
@@ -91,7 +91,7 @@ export function WeekResults({ winners, losers, compact = false }: WeekResultsPro
               >
                 <Avatar className="h-6 w-6">
                   <AvatarImage src={winner.avatarUrl || undefined} alt={winner.fullName || winner.email} />
-                  <AvatarFallback className="bg-neon-blue/20 text-neon-blue text-xs font-bold">
+                  <AvatarFallback className="bg-neon-blue text-primary-foreground text-xs font-bold">
                     {getInitials(winner.fullName, winner.email)}
                   </AvatarFallback>
                 </Avatar>
@@ -106,7 +106,7 @@ export function WeekResults({ winners, losers, compact = false }: WeekResultsPro
 
       {/* Graveyard */}
       <div className="glass-card p-4">
-        <h3 className="text-sm font-semibold text-neon-pink mb-3">Graveyard 💀</h3>
+        <h3 className="text-sm font-semibold text-neon-pink mb-3">Graveyard</h3>
         {losers.length === 0 ? (
           <p className="text-xs text-muted-foreground text-center py-4">No losses yet</p>
         ) : (
@@ -118,7 +118,7 @@ export function WeekResults({ winners, losers, compact = false }: WeekResultsPro
               >
                 <Avatar className="h-6 w-6">
                   <AvatarImage src={loser.avatarUrl || undefined} alt={loser.fullName || loser.email} />
-                  <AvatarFallback className="bg-destructive/20 text-destructive text-xs font-bold">
+                  <AvatarFallback className="bg-destructive text-white text-xs font-bold">
                     {getInitials(loser.fullName, loser.email)}
                   </AvatarFallback>
                 </Avatar>

@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Zap, AlertCircle } from 'lucide-react'
-import { submitLeg } from '@/app/actions/legs'
+import { Zap, AlertCircle, AlertTriangle } from 'lucide-react'
+import { submitLeg, type SubmitLegResult } from '@/app/actions/legs'
 import confetti from 'canvas-confetti'
 
 interface SubmitLegFormProps {
@@ -22,14 +22,15 @@ export function SubmitLegForm({ weekId, leagueId, existingLeg }: SubmitLegFormPr
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [warning, setWarning] = useState<SubmitLegResult['warning'] | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setSuccess(false)
+    setWarning(null)
     setSubmitting(true)
 
-    // Ensure values are strings before calling trim
     const descStr = String(description || '').trim()
     const oddsStr = String(odds || '').trim()
 
@@ -50,16 +51,17 @@ export function SubmitLegForm({ weekId, leagueId, existingLeg }: SubmitLegFormPr
     } else {
       setSuccess(true)
       setSubmitting(false)
+      if (result.warning) setWarning(result.warning)
 
-      // Celebrate with confetti!
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#00D9FF', '#FF69B4', '#39FF14', '#FFD700'],
-      })
+      if (!result.warning) {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#00D9FF', '#FF69B4', '#39FF14', '#A855F7'],
+        })
+      }
 
-      // Reset success after showing message
       setTimeout(() => setSuccess(false), 3000)
     }
   }
@@ -68,7 +70,7 @@ export function SubmitLegForm({ weekId, leagueId, existingLeg }: SubmitLegFormPr
     <Card className="glass-intense border-primary/30">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Zap className="h-5 w-5 text-gold" />
+          <Zap className="h-5 w-5 text-neon-blue" />
           Submit Your Leg
         </CardTitle>
         <CardDescription>
@@ -84,9 +86,28 @@ export function SubmitLegForm({ weekId, leagueId, existingLeg }: SubmitLegFormPr
             </div>
           )}
 
-          {success && (
-            <div className="glass border-neon-green/50 p-3 rounded-xl text-sm text-neon-green animate-in fade-in slide-in-from-top-2">
-              🎉 Your leg is locked in! Check out what others picked below.
+          {success && !warning && (
+            <div className="glass border-neon-blue/50 p-3 rounded-xl text-sm text-neon-blue animate-in fade-in slide-in-from-top-2">
+              Your leg is locked in. Check out what others picked below.
+            </div>
+          )}
+
+          {warning && (
+            <div className="glass border-neon-pink/50 bg-neon-pink/5 p-3 rounded-xl text-sm space-y-2 animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-start gap-2 text-neon-pink">
+                <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <span className="font-bold tracking-wide uppercase text-xs">Conflict detected</span>
+              </div>
+              <p className="text-foreground/90">{warning.reason}</p>
+              {warning.conflictsWith.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Conflicts with:{' '}
+                  <span className="text-foreground">{warning.conflictsWith.join(', ')}</span>
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Saved your leg anyway — edit it above before kickoff if you want to change.
+              </p>
             </div>
           )}
 
@@ -119,6 +140,11 @@ export function SubmitLegForm({ weekId, leagueId, existingLeg }: SubmitLegFormPr
                 value={odds}
                 onChange={(e) => setOdds(e.target.value)}
                 className="glass border-primary/30 mt-1"
+                // `tel` gives mobile keyboards a numeric keypad with
+                // `+`/`-` access — the closest native fit for American
+                // odds (no native "signed number" inputMode exists).
+                inputMode="tel"
+                autoComplete="off"
                 required
               />
             </div>
@@ -132,8 +158,8 @@ export function SubmitLegForm({ weekId, leagueId, existingLeg }: SubmitLegFormPr
             {submitting
               ? 'Submitting...'
               : existingLeg
-              ? '🔄 Update Your Leg'
-              : '🎲 Lock It In!'}
+              ? 'Update Your Leg'
+              : 'Lock It In'}
           </Button>
 
           {existingLeg && (

@@ -1,66 +1,33 @@
-import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request,
-  })
+// Auth.js v5 session-cookie names. The `__Secure-` prefix is used on
+// https deployments (Vercel prod); dev / preview can hit the un-prefixed
+// variant. Either being present means "this user has a session in their
+// browser" — the actual validity check happens server-side when a page
+// calls `auth()`.
+const AUTHJS_COOKIES = ['authjs.session-token', '__Secure-authjs.session-token']
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({
-            request,
-          })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
-        },
-      },
-    }
-  )
+const PROTECTED_PREFIXES = ['/dashboard', '/leagues', '/profile']
 
-  // Refresh session if expired - required for Server Components
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+  const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))
+  if (!isProtected) return NextResponse.next()
 
-  // Protected routes that require authentication
-  const protectedPaths = ['/dashboard', '/leagues', '/profile']
-  const isProtectedPath = protectedPaths.some(path =>
-    request.nextUrl.pathname.startsWith(path)
-  )
+  const hasAuthCookie = AUTHJS_COOKIES.some((name) => request.cookies.has(name))
+  if (hasAuthCookie) return NextResponse.next()
 
-  // Public routes that should redirect to dashboard if logged in
-  const publicPaths = ['/login', '/signup']
-  const isPublicPath = publicPaths.some(path =>
-    request.nextUrl.pathname.startsWith(path)
-  )
-
-  // If trying to access protected route without auth, redirect to login
-  if (isProtectedPath && !user) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    // Store the original URL to redirect back after login
-    url.searchParams.set('redirectTo', request.nextUrl.pathname)
-    return NextResponse.redirect(url)
-  }
-
-  // If logged in and trying to access public route, redirect to dashboard
-  if (isPublicPath && user) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
-    return NextResponse.redirect(url)
-  }
-
-  return supabaseResponse
+  // Optimistic: cookie presence is enough to let through. Real validation
+  // happens in the page's `auth()` call — if the cookie is stale (e.g.
+  // the sessions row was wiped), that path renders the unauthenticated
+  // state correctly.
+  //
+  // No cookie at all → send them to the home sign-in dock with a
+  // callbackUrl that returns them here after sign-in.
+  const url = request.nextUrl.clone()
+  url.pathname = '/'
+  url.searchParams.set('callbackUrl', pathname)
+  return NextResponse.redirect(url)
 }
 
 export const config = {

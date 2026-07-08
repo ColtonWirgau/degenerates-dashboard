@@ -37,6 +37,14 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  /* Brand palette — bringing custom colours into the theme so utilities
+     like bg-neon-blue, border-neon-green/40, hover:bg-neon-pink/10 actually
+     compile. The custom .text-neon-* classes below still layer their
+     text-shadow on top for the neon-glow look. */
+  --color-neon-blue: var(--electric-blue);
+  --color-neon-green: var(--neon-green);
+  --color-neon-pink: var(--hot-pink);
+  --color-neon-purple: var(--neon-purple);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -53,7 +61,6 @@
   --neon-green: #39FF14;
   --hot-pink: #FF69B4;
   --neon-purple: #A855F7;
-  --gold: #FFD700;
 
   /* Theme Mappings */
   --background: #0A0A0A;
@@ -74,7 +81,7 @@
   --destructive-foreground: #F9FAFB;
   --success: #39FF14;
   --success-foreground: #0F1419;
-  --warning: #FFD700;
+  --warning: #FF69B4;
   --warning-foreground: #0F1419;
   --border: rgba(0, 217, 255, 0.2);
   --input: rgba(255, 255, 255, 0.1);
@@ -142,6 +149,17 @@
 }
 
 @layer utilities {
+  /* Hide scrollbars while keeping the content scrollable. Used inside the
+     responsive sheet panels so the scroll affordance comes from the content
+     overflowing, not a chrome bar over the glass surface. */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Glassmorphism utilities */
   .glass {
     @apply backdrop-blur-xl bg-white/5 border border-white/10;
@@ -195,11 +213,6 @@
   .text-neon-purple {
     color: #A855F7;
     text-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
-  }
-
-  .text-gold {
-    color: #FFD700;
-    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
   }
 
   /* Animated gradient border */

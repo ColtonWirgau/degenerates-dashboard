@@ -1,24 +1,30 @@
-import { getWeek } from '@/app/actions/weeks'
-import { getUserLeg, getAllLegsForWeek } from '@/app/actions/legs'
-import { getFinalParlay } from '@/app/actions/parlays'
-import { getCurrentUserRole } from '@/app/actions/leagues'
-import { createClient } from '@/lib/supabase/server'
+import { getWeekOverview } from '@/app/actions/week-overview'
 import { Header } from '@/components/header'
+import { LeagueBar } from '@/components/league-bar'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { SubmitLegForm } from '@/components/submit-leg-form'
-import { LiveWeekStatus } from '@/components/live-week-status'
-import { EditDeadlineDialog } from '@/components/edit-deadline-dialog'
 import { AddLegForUserDialog } from '@/components/add-leg-for-user-dialog'
-import { CloseWeekButton } from '@/components/close-week-button'
 import { TheLay } from '@/components/the-lay'
+import { YourLockedLeg } from '@/components/your-locked-leg'
+import { SubmissionProgress } from '@/components/submission-progress'
 import { ParlayResultAnimation } from '@/components/parlay-result-animation'
 import { SaveLastLeague } from '@/components/save-last-league'
 import { DeadlineDisplay } from '@/components/deadline-display'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Clock, Lock, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, Clock, Lock, CheckCircle2, Trophy, Skull } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import type { ParlayState } from '@/lib/data/types'
+
+// Thin dispatcher. Reads the composite week overview, branches on
+// derived ParlayState, renders one of five focused views.
+//
+//   1. open + you haven't submitted     → submission form + progress
+//   2. open + you've submitted (locked) → your-locked-leg + progress
+//   3. locked (everyone in, no results) → TheLay (assembled, awaiting)
+//   4. graded (some results in)         → TheLay (with grading chips)
+//   5. won / lost                       → TheLay (hero + leg breakdown)
 
 export default async function WeekDetailPage({
   params,
@@ -26,209 +32,337 @@ export default async function WeekDetailPage({
   params: Promise<{ id: string; weekId: string }>
 }) {
   const { id: leagueId, weekId } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const result = await getWeekOverview(leagueId, weekId)
 
-  const { week } = await getWeek(weekId)
-  const { role: currentUserRole } = await getCurrentUserRole(leagueId)
-  const { leg: userLeg } = await getUserLeg(weekId)
-  const { legs: allLegs } = await getAllLegsForWeek(weekId)
-  const { parlay: finalParlay, legs: finalParlayLegs } = await getFinalParlay(weekId)
-
-  // Get all league members for the Add Leg dialog
-  const { data: leagueMembersRaw } = await supabase
-    .from('league_members')
-    .select(`
-      user_id,
-      user:user_profiles!user_id (
-        id,
-        email,
-        raw_user_meta_data
-      )
-    `)
-    .eq('league_id', leagueId)
-
-  // Transform the data to handle Supabase's array return type for foreign keys
-  const leagueMembers = leagueMembersRaw?.map(member => {
-    const user = Array.isArray(member.user) ? member.user[0] : member.user
-    return {
-      user_id: member.user_id,
-      user: user
-    }
-  }) || []
-
-  if (!week) {
-    notFound()
+  if (result.error === 'Access denied - not a member of this league') {
+    return (
+      <div className="min-h-screen ambient-glow">
+        <Header />
+        <main className="container mx-auto px-4 py-8 pt-24">
+          <Card className="glass-card border-primary/30 max-w-2xl mx-auto">
+            <CardContent className="text-center py-12 space-y-4">
+              <Lock className="h-10 w-10 text-muted-foreground mx-auto" />
+              <h3 className="text-2xl font-bold">Access Denied</h3>
+              <p className="text-muted-foreground">
+                You are not a member of this league.
+              </p>
+              <Link href="/">
+                <Button className="neon-glow-blue">Back to Leagues</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    )
   }
+
+  if (result.error || !result.payload) notFound()
+
+  const {
+    me,
+    league,
+    week,
+    parlayId,
+    parlayState,
+    parlayResult,
+    totalOdds,
+    legs,
+    myLeg,
+    members,
+    notSubmittedMembers,
+    currentUserRole,
+  } = result.payload
 
   const canManage = currentUserRole === 'owner' || currentUserRole === 'admin'
-  const deadline = new Date(week.deadline)
-  const isPastDeadline = deadline < new Date()
-  const isLocked = week.status === 'locked' || week.status === 'closed'
+  const submittedMembers = members.filter((m) =>
+    legs.some((l) => l.user.id === m.userId)
+  )
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'open':
-        return <Clock className="h-5 w-5 text-neon-blue" />
-      case 'locked':
-        return <Lock className="h-5 w-5 text-gold" />
-      case 'closed':
-        return <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
-      default:
-        return null
-    }
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'open':
-        return 'text-neon-blue bg-[#00D9FF]/10 border-[#00D9FF]/30'
-      case 'locked':
-        return 'text-gold bg-[#FFD700]/10 border-[#FFD700]/30'
-      case 'closed':
-        return 'text-muted-foreground bg-white/5 border-white/10'
-      default:
-        return ''
-    }
-  }
-
-  // Get user's leg with result for animation
-  const userLegWithResult = userLeg ? allLegs.find(leg => leg.user_id === user?.id) : null
+  // The adapter's ParlayState says 'locked' the moment all *submitted* legs
+  // are locked — but the parlay isn't really sealed until every member is
+  // in. From the user's perspective, the experience is:
+  //   - Submissions still open if anyone is missing → states 1 or 2
+  //   - Everyone in, no results → state 3 (locked)
+  //   - Some results in / fully graded → states 4 / 5
+  // We collapse that here so the rest of the page is a simple branch.
+  const everyoneIn = legs.length >= members.length && legs.length > 0
+  const submissionsOpen = parlayState === 'open' || (parlayState === 'locked' && !everyoneIn)
 
   return (
     <div className="min-h-screen ambient-glow">
-      {/* Save last visited league to localStorage */}
       <SaveLastLeague leagueId={leagueId} />
 
-      {/* Win/Loss Animation - Only show for non-admins */}
-      {isLocked && userLegWithResult && !canManage && (
+      {/* Win/loss confetti — fires once when graded results land for the
+          current user. */}
+      {(parlayState === 'won' || parlayState === 'lost') && myLeg && !canManage && (
         <ParlayResultAnimation
-          result={userLegWithResult.result as 'win' | 'loss' | 'push' | null}
-          userParlay={{ legs: [userLegWithResult] }}
+          result={myLeg.result}
+          userParlay={{ legs: [{ result: myLeg.result }] }}
         />
       )}
 
-      <LiveWeekStatus weekId={weekId} initialStatus={week.status} />
-      <Header />
+      <LeagueBar
+        leagueId={league.id}
+        leagueName={league.name}
+        memberCount={members.length}
+        season={week.season}
+        inviteCode={league.inviteCode}
+        canManage={canManage}
+        weeks={[]}
+        currentWeekIndex={-1}
+        members={members.map((m) => ({
+          userId: m.userId,
+          fullName: m.fullName,
+          email: m.email,
+          avatarUrl: m.avatarUrl,
+          role: m.role,
+        }))}
+        currentUserId={me.id}
+        leaderboard={[]}
+        availableSeasons={[week.season]}
+      />
 
-      <main className="container mx-auto px-4 py-8 pt-24">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-8">
+      <main className="container mx-auto px-4 py-8 pt-24 pb-24">
+        {/* Header — back arrow, title, status pill */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6">
           <Link href={`/leagues/${leagueId}`}>
             <Button variant="outline" size="icon" className="glass border-primary/30">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
           <div className="flex-1">
-            <div className="flex items-center gap-3">
-              <h1 className="text-4xl font-bold">Week {week.week_number}</h1>
-              <Badge variant="outline" className={`flex items-center gap-1.5 ${getStatusColor(week.status)}`}>
-                {getStatusIcon(week.status)}
-                {week.status.toUpperCase()}
-              </Badge>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-3xl sm:text-4xl font-bold">Week {week.weekNumber}</h1>
+              <StatusPill state={submissionsOpen ? 'open' : parlayState} />
             </div>
-            <div className="flex items-center gap-3 mt-1">
-              <p className="text-muted-foreground text-lg">
-                Deadline: <DeadlineDisplay deadline={week.deadline} />
+            {week.startDate && (
+              <p className="text-muted-foreground text-sm sm:text-base mt-1">
+                Kickoff: <DeadlineDisplay deadline={week.startDate} />
               </p>
-              {canManage && week.status === 'open' && (
-                <EditDeadlineDialog
-                  leagueId={leagueId}
-                  weekId={weekId}
-                  currentDeadline={week.deadline}
-                  weekNumber={week.week_number}
-                />
-              )}
-            </div>
+            )}
           </div>
-          {canManage && week.status === 'locked' && (
-            <CloseWeekButton
-              leagueId={leagueId}
-              weekId={weekId}
-              weekNumber={week.week_number}
-            />
-          )}
         </div>
 
-        {/* User's Leg - Show when submitted */}
-        {week.status === 'open' && userLeg && (
-          <Card className="glass-card mb-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                Your Leg
-              </CardTitle>
-              <CardDescription>
-                Your submission for Week {week.week_number}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <SubmitLegForm
-                weekId={weekId}
-                leagueId={leagueId}
-                existingLeg={{
-                  description: userLeg.description,
-                  odds: userLeg.odds,
-                }}
-              />
-            </CardContent>
-          </Card>
+        {/* State dispatch */}
+        {submissionsOpen && !myLeg && (
+          <OpenNotSubmittedView
+            weekId={parlayId}
+            leagueId={leagueId}
+            canManage={canManage}
+            members={members}
+            submittedMembers={submittedMembers}
+            notSubmittedMembers={notSubmittedMembers}
+            existingLegUserIds={legs.map((l) => l.user.id)}
+          />
         )}
 
-        {/* Submission Form - Only show if user hasn't submitted yet */}
-        {week.status === 'open' && !userLeg && (
-          <div className="mb-6">
-            {isPastDeadline && !canManage && (
-              <Card className="glass-intense border-gold/50 mb-4">
-                <CardContent className="pt-6 pb-4 text-center">
-                  <p className="text-sm text-gold">
-                    ⏰ Deadline has passed. Waiting for admin to lock the week.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-            <SubmitLegForm
-              weekId={weekId}
-              leagueId={leagueId}
-              existingLeg={undefined}
-            />
-            {canManage && isPastDeadline && (
-              <Card className="glass-intense border-primary/30 mt-4">
-                <CardContent className="pt-6 pb-4 text-center">
-                  <p className="text-xs text-muted-foreground">
-                    💡 As an admin, you can still submit even after the deadline. You can also extend the deadline above.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+        {submissionsOpen && myLeg && (
+          <OpenSubmittedView
+            weekId={parlayId}
+            leagueId={leagueId}
+            canManage={canManage}
+            myLeg={myLeg}
+            me={me}
+            members={members}
+            submittedMembers={submittedMembers}
+            notSubmittedMembers={notSubmittedMembers}
+            existingLegUserIds={legs.map((l) => l.user.id)}
+          />
         )}
 
-        {/* Add Leg for Member Button */}
-        {canManage && week.status === 'open' && (
-          <div className="mb-6">
-            <AddLegForUserDialog
-              weekId={weekId}
-              leagueId={leagueId}
-              members={leagueMembers}
-              existingLegUserIds={allLegs.map(leg => leg.user_id)}
-            />
-          </div>
+        {!submissionsOpen && (
+          <TheLay
+            weekId={parlayId}
+            leagueId={leagueId}
+            legs={legs}
+            notSubmittedMembers={notSubmittedMembers}
+            currentUserId={me.id}
+            canManage={canManage}
+            parlayState={parlayState}
+            parlayResult={parlayResult}
+            totalOdds={totalOdds}
+          />
         )}
+      </main>
+    </div>
+  )
+}
 
-        {/* The Lay - Unified component for all legs (locked and unlocked) */}
-        <TheLay
+function StatusPill({ state }: { state: ParlayState }) {
+  switch (state) {
+    case 'open':
+      return (
+        <Badge
+          variant="outline"
+          className="flex items-center gap-1.5 text-neon-blue bg-[#00D9FF]/10 border-[#00D9FF]/30"
+        >
+          <Clock className="h-3.5 w-3.5" />
+          OPEN
+        </Badge>
+      )
+    case 'locked':
+      return (
+        <Badge
+          variant="outline"
+          className="flex items-center gap-1.5 text-neon-blue bg-[#00D9FF]/10 border-[#00D9FF]/30"
+        >
+          <Lock className="h-3.5 w-3.5" />
+          LOCKED
+        </Badge>
+      )
+    case 'graded':
+      return (
+        <Badge
+          variant="outline"
+          className="flex items-center gap-1.5 text-muted-foreground bg-white/5 border-white/20"
+        >
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          GRADING
+        </Badge>
+      )
+    case 'won':
+      return (
+        <Badge
+          variant="outline"
+          className="flex items-center gap-1.5 text-neon-blue bg-[#00D9FF]/10 border-[#00D9FF]/30"
+        >
+          <Trophy className="h-3.5 w-3.5" />
+          WON
+        </Badge>
+      )
+    case 'lost':
+      return (
+        <Badge
+          variant="outline"
+          className="flex items-center gap-1.5 text-destructive bg-destructive/10 border-destructive/30"
+        >
+          <Skull className="h-3.5 w-3.5" />
+          LOST
+        </Badge>
+      )
+  }
+}
+
+// ─── State 1: open, you haven't submitted ────────────────────────────────
+
+function OpenNotSubmittedView({
+  weekId,
+  leagueId,
+  canManage,
+  members,
+  submittedMembers,
+  notSubmittedMembers,
+  existingLegUserIds,
+}: {
+  weekId: string
+  leagueId: string
+  canManage: boolean
+  members: { userId: string; fullName: string | null; email: string; avatarUrl: string | null }[]
+  submittedMembers: { userId: string; fullName: string | null; email: string; avatarUrl: string | null }[]
+  notSubmittedMembers: { userId: string; fullName: string | null; email: string; avatarUrl: string | null }[]
+  existingLegUserIds: string[]
+}) {
+  // Adapter shape for the legacy AddLegForUserDialog
+  const legacyMembers = members.map((m) => ({
+    user_id: m.userId,
+    user: {
+      id: m.userId,
+      email: m.email,
+      raw_user_meta_data: {
+        full_name: m.fullName ?? undefined,
+        avatar_url: m.avatarUrl ?? undefined,
+      },
+    },
+  }))
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+      <div className="space-y-6">
+        <SubmitLegForm weekId={weekId} leagueId={leagueId} existingLeg={undefined} />
+        {canManage && (
+          <AddLegForUserDialog
+            weekId={weekId}
+            leagueId={leagueId}
+            members={legacyMembers}
+            existingLegUserIds={existingLegUserIds}
+          />
+        )}
+      </div>
+      <div>
+        <SubmissionProgress
+          total={members.length}
+          submittedMembers={submittedMembers}
+          notSubmittedMembers={notSubmittedMembers}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ─── State 2: open, you've submitted ──────────────────────────────────────
+
+function OpenSubmittedView({
+  weekId,
+  leagueId,
+  canManage,
+  myLeg,
+  me,
+  members,
+  submittedMembers,
+  notSubmittedMembers,
+  existingLegUserIds,
+}: {
+  weekId: string
+  leagueId: string
+  canManage: boolean
+  myLeg: { id: string; description: string; odds: number; lockedAt: string | null }
+  me: { id: string; email: string; fullName: string | null; avatarUrl: string | null }
+  members: { userId: string; fullName: string | null; email: string; avatarUrl: string | null }[]
+  submittedMembers: { userId: string; fullName: string | null; email: string; avatarUrl: string | null }[]
+  notSubmittedMembers: { userId: string; fullName: string | null; email: string; avatarUrl: string | null }[]
+  existingLegUserIds: string[]
+}) {
+  const legacyMembers = members.map((m) => ({
+    user_id: m.userId,
+    user: {
+      id: m.userId,
+      email: m.email,
+      raw_user_meta_data: {
+        full_name: m.fullName ?? undefined,
+        avatar_url: m.avatarUrl ?? undefined,
+      },
+    },
+  }))
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+      <div className="space-y-6">
+        <YourLockedLeg
           weekId={weekId}
           leagueId={leagueId}
-          weekNumber={week.week_number}
-          initialLegs={isLocked ? finalParlayLegs : allLegs}
-          members={leagueMembers}
-          currentUserId={user?.id || ''}
-          canManage={canManage}
-          isLocked={isLocked}
-          parlayId={finalParlay?.id}
-          totalOdds={finalParlay?.total_odds}
+          leg={myLeg}
+          user={{
+            fullName: me.fullName,
+            email: me.email,
+            avatarUrl: me.avatarUrl,
+          }}
         />
-      </main>
+        {canManage && (
+          <AddLegForUserDialog
+            weekId={weekId}
+            leagueId={leagueId}
+            members={legacyMembers}
+            existingLegUserIds={existingLegUserIds}
+          />
+        )}
+      </div>
+      <div>
+        <SubmissionProgress
+          total={members.length}
+          submittedMembers={submittedMembers}
+          notSubmittedMembers={notSubmittedMembers}
+        />
+      </div>
     </div>
   )
 }

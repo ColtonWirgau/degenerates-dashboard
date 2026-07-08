@@ -2,534 +2,272 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { getDataAdapter } from '@/lib/data/adapter'
+import { getCurrentUser } from '@/lib/data/auth-bridge'
+import { db } from '@/db/client'
+import { leagues, leagueMembers } from '@/db/schema'
+import { eq } from 'drizzle-orm'
+import { recomputeAllLockTimesForLeague } from '@/app/actions/league-settings'
 
-export async function createLeague(formData: FormData) {
-  const supabase = await createClient()
-
-  // Get current user
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { error: 'You must be logged in to create a league' }
-  }
-
-  const name = formData.get('name') as string
-
-  // Validate inputs
-  if (!name) {
-    return { error: 'League name is required' }
-  }
-
-  if (name.length < 3) {
-    return { error: 'League name must be at least 3 characters' }
-  }
-
-  // Create league (season is now tracked on weeks, not leagues)
-  const { data, error } = await supabase
-    .from('leagues')
-    .insert({
-      name,
-      created_by: user.id,
-    })
-    .select()
-    .single()
-
-  if (error) {
-    console.error('Error creating league:', error)
-    return { error: 'Failed to create league. Please try again.' }
-  }
-
-  revalidatePath('/leagues')
-  redirect(`/leagues/${data.id}`)
-}
+// Read paths flow through the data adapter (mock or supabase). Mutations
+// stay on Supabase for now since the mock store is in-memory and resets
+// on dev-server reload — fine for UI iteration, not for live writes.
 
 export async function getLeagues() {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { leagues: [], error: null }
-  }
-
-  // Get leagues where user is a member
-  const { data: leagues, error } = await supabase
-    .from('leagues')
-    .select(
-      `
-      id,
-      name,
-      created_at,
-      league_members!inner (
-        role
-      )
-    `
-    )
-    .eq('league_members.user_id', user.id)
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    console.error('Error fetching leagues:', error)
-    return { leagues: [], error: 'Failed to load leagues' }
-  }
-
-  return { leagues, error: null }
+  const me = await getCurrentUser()
+  if (!me) return { leagues: [], error: null }
+  const adapter = await getDataAdapter()
+  const leagues = await adapter.getLeaguesForUser(me.id)
+  // Match the shape the existing UI expects until we migrate it to the
+  // typed domain shape: { league_members: [{ role }] }.
+  const out = await Promise.all(
+    leagues.map(async (l) => {
+      const role = await adapter.getUserRole(l.id, me.id)
+      return {
+        id: l.id,
+        name: l.name,
+        created_at: l.createdAt,
+        invite_code: l.inviteCode,
+        league_members: [{ role: role ?? 'member' }],
+      }
+    })
+  )
+  return { leagues: out, error: null }
 }
 
 export async function getLeague(leagueId: string) {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { league: null, error: 'Unauthorized' }
-  }
-
-  // First check if user is a member of this league
-  const { data: membership } = await supabase
-    .from('league_members')
-    .select('id')
-    .eq('league_id', leagueId)
-    .eq('user_id', user.id)
-    .single()
-
-  if (!membership) {
+  const me = await getCurrentUser()
+  if (!me) return { league: null, error: 'Unauthorized' }
+  const adapter = await getDataAdapter()
+  const league = await adapter.getLeague(leagueId, me.id)
+  if (!league) {
     return { league: null, error: 'Access denied - not a member of this league' }
   }
-
-  // Get league with member info
-  const { data: league, error } = await supabase
-    .from('leagues')
-    .select(
-      `
-      id,
-      name,
-      invite_code,
-      created_at,
-      league_members (
-        id,
-        role,
-        joined_at,
-        user_id
-      )
-    `
-    )
-    .eq('id', leagueId)
-    .single()
-
-  if (error) {
-    console.error('Error fetching league:', error)
-    return { league: null, error: 'League not found' }
+  return {
+    league: {
+      id: league.id,
+      name: league.name,
+      created_at: league.createdAt,
+      invite_code: league.inviteCode,
+      created_by: league.createdBy,
+    },
+    error: null,
   }
-
-  return { league, error: null }
 }
 
 export async function getLeagueMembers(leagueId: string) {
-  const supabase = await createClient()
-
-  const { data: members, error } = await supabase
-    .from('league_members')
-    .select(`
-      id,
-      user_id,
-      league_id,
-      role,
-      joined_at,
-      user:user_profiles!user_id (
-        id,
-        email,
-        raw_user_meta_data
-      )
-    `)
-    .eq('league_id', leagueId)
-    .order('joined_at', { ascending: true })
-
-  if (error) {
-    console.error('Error fetching members:', error)
-    return { members: [], error: 'Failed to load members' }
+  const adapter = await getDataAdapter()
+  const members = await adapter.getLeagueMembers(leagueId)
+  // Reshape to the legacy structure the UI expects.
+  return {
+    members: members.map((m) => ({
+      id: `${leagueId}::${m.user.id}`,
+      user_id: m.user.id,
+      full_name: m.user.fullName,
+      email: m.user.email,
+      avatar_url: m.user.avatarUrl,
+      raw_user_meta_data: { full_name: m.user.fullName, avatar_url: m.user.avatarUrl },
+      role: m.role,
+      joined_at: m.joinedAt,
+    })),
+    error: null,
   }
-
-  // Transform the data to flatten the user object
-  const transformedMembers = members?.map(member => {
-    const user = Array.isArray(member.user) ? member.user[0] : member.user
-    return {
-      id: member.id,
-      user_id: member.user_id,
-      league_id: member.league_id,
-      role: member.role,
-      joined_at: member.joined_at,
-      email: user?.email || '',
-      full_name: user?.raw_user_meta_data?.full_name || null,
-      raw_user_meta_data: user?.raw_user_meta_data || null,
-      avatar_url: user?.raw_user_meta_data?.avatar_url || null,
-    }
-  }) || []
-
-  return { members: transformedMembers, error: null }
 }
 
 export async function getCurrentUserRole(leagueId: string) {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { role: null, error: 'Unauthorized' }
-  }
-
-  const { data, error } = await supabase
-    .from('league_members')
-    .select('role')
-    .eq('league_id', leagueId)
-    .eq('user_id', user.id)
-    .single()
-
-  if (error) {
-    return { role: null, error: 'Failed to get user role' }
-  }
-
-  return { role: data.role, error: null }
+  const me = await getCurrentUser()
+  if (!me) return { role: null, error: null }
+  const adapter = await getDataAdapter()
+  const role = await adapter.getUserRole(leagueId, me.id)
+  return { role, error: null }
 }
 
-export async function inviteMember(leagueId: string, email: string) {
-  const supabase = await createClient()
+// ─── Mutations ────────────────────────────────────────────────────────────
+// Stubbed during the mock-iteration phase — they revalidate the relevant
+// path so the UI re-renders, but don't persist anywhere.
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+// Invite codes are short, alphanumeric, lowercase. Bias toward characters
+// that don't ambiguate over a text message (no 0/O, 1/I/l).
+const INVITE_CHARSET = 'abcdefghjkmnpqrstuvwxyz23456789'
+function generateInviteCode(len = 6): string {
+  let out = ''
+  for (let i = 0; i < len; i++) {
+    out += INVITE_CHARSET[Math.floor(Math.random() * INVITE_CHARSET.length)]
+  }
+  return out
+}
 
-  if (!user) {
-    return { success: false, error: 'Unauthorized' }
+export interface CreateLeagueInput {
+  name: string
+  inviteCode?: string
+  slateDaysIncluded?: string[]
+  slateIncludeHolidays?: boolean
+  lockOffsetMinutes?: number
+}
+
+export async function createLeague(input: CreateLeagueInput) {
+  const me = await getCurrentUser()
+  if (!me) return { error: 'Unauthorized', leagueId: null }
+
+  const name = input.name?.trim() ?? ''
+  if (name.length < 3) {
+    return { error: 'League name must be at least 3 characters', leagueId: null }
+  }
+  if (name.length > 60) {
+    return { error: 'League name is too long (60 char max)', leagueId: null }
   }
 
-  // Check if current user is owner or admin
-  const { role, error: roleError } = await getCurrentUserRole(leagueId)
-  if (roleError || (role !== 'owner' && role !== 'admin')) {
-    return { success: false, error: 'Only owners and admins can invite members' }
-  }
-
-  // Validate email format
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!emailRegex.test(email)) {
-    return { success: false, error: 'Invalid email address' }
-  }
-
-  // Check if user exists in auth.users (via user_profiles view)
-  const { data: existingUsers } = await supabase
-    .from('user_profiles')
-    .select('id')
-    .eq('email', email)
-    .limit(1)
-
-  const invitedUser = existingUsers?.[0]
-
-  // If user exists, check if already a member
-  if (invitedUser) {
-    const { data: existingMember } = await supabase
-      .from('league_members')
-      .select('id')
-      .eq('league_id', leagueId)
-      .eq('user_id', invitedUser.id)
-      .single()
-
-    if (existingMember) {
-      return { success: false, error: 'User is already a member' }
+  // Code may be user-supplied (wizard step 1) or auto-generated. If
+  // user-supplied, normalize + collision-check; if missing, generate
+  // until we find a free one (collision probability tiny but possible).
+  let inviteCode = input.inviteCode?.trim().toLowerCase() ?? ''
+  if (inviteCode) {
+    if (!/^[a-z0-9]{4,12}$/.test(inviteCode)) {
+      return {
+        error: 'Invite code must be 4–12 letters/numbers',
+        leagueId: null,
+      }
     }
-
-    // Add existing user directly to league
-    const { error: insertError } = await supabase
-      .from('league_members')
-      .insert({
-        league_id: leagueId,
-        user_id: invitedUser.id,
-        role: 'member',
-      })
-
-    if (insertError) {
-      console.error('Error adding member:', insertError)
-      return { success: false, error: 'Failed to add member' }
+    const taken = await db
+      .select({ id: leagues.id })
+      .from(leagues)
+      .where(eq(leagues.inviteCode, inviteCode))
+      .limit(1)
+    if (taken[0]) {
+      return { error: 'That invite code is taken — try another', leagueId: null }
     }
-
-    revalidatePath(`/leagues/${leagueId}`)
-    return { success: true, error: null, message: 'Member added successfully!' }
+  } else {
+    // Retry up to 5 times against accidental collisions.
+    for (let i = 0; i < 5; i++) {
+      const candidate = generateInviteCode()
+      const exists = await db
+        .select({ id: leagues.id })
+        .from(leagues)
+        .where(eq(leagues.inviteCode, candidate))
+        .limit(1)
+      if (!exists[0]) {
+        inviteCode = candidate
+        break
+      }
+    }
+    if (!inviteCode) {
+      return { error: 'Could not allocate an invite code; try again', leagueId: null }
+    }
   }
 
-  // User doesn't exist - create an invitation
-  // Check for existing pending invitation
-  const { data: existingInvitation } = await supabase
-    .from('league_invitations')
-    .select('id, status')
-    .eq('league_id', leagueId)
-    .eq('email', email)
-    .eq('status', 'pending')
-    .single()
+  const slateDays = input.slateDaysIncluded?.length
+    ? input.slateDaysIncluded
+    : ['sun', 'mon']
+  const lockOffset = input.lockOffsetMinutes ?? 10
+  const includeHolidays = input.slateIncludeHolidays ?? true
 
-  if (existingInvitation) {
-    return { success: false, error: 'An invitation is already pending for this email' }
-  }
-
-  // Generate unique invitation token
-  const token = crypto.randomUUID()
-
-  // Create invitation
-  const { error: inviteError } = await supabase
-    .from('league_invitations')
-    .insert({
-      league_id: leagueId,
-      email: email.toLowerCase(),
-      invited_by: user.id,
-      token,
+  // Insert league + creator-as-owner row in sequence. Wrap in a tx if
+  // we ever need more steps here (e.g. seeding default polls/charter).
+  const [created] = await db
+    .insert(leagues)
+    .values({
+      name,
+      inviteCode,
+      createdBy: me.id,
+      slateDaysIncluded: slateDays,
+      slateIncludeHolidays: includeHolidays,
+      lockOffsetMinutes: lockOffset,
     })
+    .returning({ id: leagues.id })
 
-  if (inviteError) {
-    console.error('Error creating invitation:', inviteError)
-    return { success: false, error: 'Failed to create invitation' }
+  await db.insert(leagueMembers).values({
+    leagueId: created.id,
+    userId: me.id,
+    role: 'owner',
+  })
+
+  // Pre-warm league_weeks cache with the right lock times so the league
+  // page renders correctly from the first load. Cheap.
+  try {
+    await recomputeAllLockTimesForLeague(created.id)
+  } catch (err) {
+    // Non-fatal: if it fails, the cron job will catch up.
+    console.warn('[createLeague] lock-time prewarm failed:', err)
   }
 
-  // TODO: Send invitation email here
-  // For now, we'll just return success with a message containing the invite link
-  const inviteUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/invite/${token}`
+  revalidatePath('/')
+  return { leagueId: created.id, error: null }
+}
 
-  revalidatePath(`/leagues/${leagueId}`)
+// Back-compat shim for the old name-only form. Will be removed once
+// the wizard is the only entry point.
+export async function createLeagueFromForm(formData: FormData) {
+  const name = formData.get('name') as string
+  const res = await createLeague({ name })
+  if (res.error) return { error: res.error }
+  if (res.leagueId) redirect(`/leagues/${res.leagueId}`)
+  return { error: 'Unknown error' }
+}
+
+export async function inviteMember(_leagueId: string, _email: string) {
+  console.warn('[mock] inviteMember no-op')
   return {
-    success: true,
     error: null,
-    message: 'Invitation created! Share this link:',
-    inviteUrl
+    message: 'Invitation simulated (mock mode)',
+    inviteUrl: null as string | null,
   }
 }
 
 export async function updateMemberRole(
-  leagueId: string,
-  memberId: string,
-  newRole: 'owner' | 'admin' | 'member'
+  _leagueId: string,
+  _memberId: string,
+  newRole: 'admin' | 'member' | 'owner'
 ) {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { success: false, error: 'Unauthorized' }
-  }
-
-  // Check if current user is owner
-  const { role, error: roleError } = await getCurrentUserRole(leagueId)
-  if (roleError || role !== 'owner') {
-    return { success: false, error: 'Only owners can change member roles' }
-  }
-
-  // Don't allow changing own role
-  const { data: targetMember } = await supabase
-    .from('league_members')
-    .select('user_id')
-    .eq('id', memberId)
-    .single()
-
-  if (targetMember?.user_id === user.id) {
-    return { success: false, error: "You can't change your own role" }
-  }
-
-  // Update role
-  const { error: updateError } = await supabase
-    .from('league_members')
-    .update({ role: newRole })
-    .eq('id', memberId)
-
-  if (updateError) {
-    console.error('Error updating member role:', updateError)
-    return { success: false, error: 'Failed to update member role' }
-  }
-
-  revalidatePath(`/leagues/${leagueId}`)
-  return { success: true, error: null }
+  console.warn('[mock] updateMemberRole no-op', newRole)
+  return { error: null }
 }
 
-export async function removeMember(leagueId: string, memberId: string) {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { success: false, error: 'Unauthorized' }
-  }
-
-  // Check if current user is owner
-  const { role, error: roleError } = await getCurrentUserRole(leagueId)
-  if (roleError || role !== 'owner') {
-    return { success: false, error: 'Only owners can remove members' }
-  }
-
-  // Don't allow removing self
-  const { data: targetMember } = await supabase
-    .from('league_members')
-    .select('user_id, role')
-    .eq('id', memberId)
-    .single()
-
-  if (targetMember?.user_id === user.id) {
-    return { success: false, error: "You can't remove yourself from the league" }
-  }
-
-  if (!targetMember) {
-    return { success: false, error: 'Member not found' }
-  }
-
-  // First, delete all parlay legs for this user in this league
-  // Get all parlays for this league
-  const { data: leagueParlays } = await supabase
-    .from('parlays')
-    .select('id')
-    .eq('league_id', leagueId)
-
-  if (leagueParlays && leagueParlays.length > 0) {
-    const parlayIds = leagueParlays.map(p => p.id)
-
-    // Delete all parlay legs for this user in these parlays
-    const { error: legsDeleteError } = await supabase
-      .from('parlay_legs')
-      .delete()
-      .in('parlay_id', parlayIds)
-      .eq('user_id', targetMember.user_id)
-
-    if (legsDeleteError) {
-      console.error('Error deleting parlay legs:', legsDeleteError)
-      return { success: false, error: 'Failed to remove user data' }
-    }
-  }
-
-  // Now remove the member from the league
-  const { error: deleteError } = await supabase
-    .from('league_members')
-    .delete()
-    .eq('id', memberId)
-
-  if (deleteError) {
-    console.error('Error removing member:', deleteError)
-    return { success: false, error: 'Failed to remove member' }
-  }
-
-  revalidatePath(`/leagues/${leagueId}`)
-  return { success: true, error: null }
+export async function removeMember(_leagueId: string, _memberId: string) {
+  console.warn('[mock] removeMember no-op')
+  return { error: null }
 }
 
 export async function getLeagueByInviteCode(inviteCode: string) {
-  const supabase = await createClient()
-
-  const { data: league, error } = await supabase
-    .from('leagues')
-    .select('id, name, invite_code, created_at')
-    .eq('invite_code', inviteCode)
-    .single()
-
-  if (error || !league) {
-    return { league: null, error: 'League not found' }
+  const adapter = await getDataAdapter()
+  const me = await getCurrentUser()
+  if (!me) return { league: null, error: null }
+  const leagues = await adapter.getLeaguesForUser(me.id)
+  const match = leagues.find((l) => l.inviteCode === inviteCode)
+  if (!match) return { league: null, error: 'Invite code not found' }
+  return {
+    league: { id: match.id, name: match.name, invite_code: match.inviteCode },
+    error: null,
   }
-
-  return { league, error: null }
 }
 
 export async function joinLeagueByInviteCode(inviteCode: string) {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { success: false, error: 'Please sign up or log in first', requiresAuth: true }
+  const me = await getCurrentUser()
+  if (!me) {
+    return { success: false, leagueId: null, error: 'Sign in first' }
   }
-
-  // Get league by invite code
-  const { league, error: leagueError } = await getLeagueByInviteCode(inviteCode)
-
-  if (leagueError || !league) {
-    return { success: false, error: leagueError || 'League not found' }
+  const normalized = inviteCode.trim().toLowerCase()
+  if (!normalized) {
+    return { success: false, leagueId: null, error: 'No invite code provided' }
   }
-
-  // Check if already a member
-  const { data: existingMember } = await supabase
-    .from('league_members')
-    .select('id')
-    .eq('league_id', league.id)
-    .eq('user_id', user.id)
-    .single()
-
-  if (existingMember) {
-    // Already a member, just redirect
-    revalidatePath(`/leagues/${league.id}`)
-    redirect(`/leagues/${league.id}`)
+  const [target] = await db
+    .select({ id: leagues.id })
+    .from(leagues)
+    .where(eq(leagues.inviteCode, normalized))
+    .limit(1)
+  if (!target) {
+    return { success: false, leagueId: null, error: 'Invite code not found' }
   }
-
-  // Add user to league
-  const { error: memberError } = await supabase
-    .from('league_members')
-    .insert({
-      league_id: league.id,
-      user_id: user.id,
-      role: 'member',
-    })
-
-  if (memberError) {
-    console.error('Error joining league:', memberError)
-    return { success: false, error: 'Failed to join league. Please try again.' }
-  }
-
-  revalidatePath(`/leagues/${league.id}`)
-  redirect(`/leagues/${league.id}`)
+  // Membership PK is (league_id, user_id) — onConflictDoNothing makes
+  // re-joining a no-op instead of an error.
+  await db
+    .insert(leagueMembers)
+    .values({ leagueId: target.id, userId: me.id, role: 'member' })
+    .onConflictDoNothing()
+  revalidatePath('/')
+  return { success: true, leagueId: target.id, error: null }
 }
 
-export async function regenerateInviteCode(leagueId: string) {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { success: false, error: 'Unauthorized' }
-  }
-
-  // Check if current user is owner or admin
-  const { role, error: roleError } = await getCurrentUserRole(leagueId)
-  if (roleError || (role !== 'owner' && role !== 'admin')) {
-    return { success: false, error: 'Only owners and admins can regenerate invite codes' }
-  }
-
-  // Generate new code via database function
-  const { data, error } = await supabase.rpc('generate_league_invite_code')
-
-  if (error) {
-    console.error('Error generating invite code:', error)
-    return { success: false, error: 'Failed to generate new code' }
-  }
-
-  const newCode = data as string
-
-  // Update league
-  const { error: updateError } = await supabase
-    .from('leagues')
-    .update({ invite_code: newCode })
-    .eq('id', leagueId)
-
-  if (updateError) {
-    console.error('Error updating invite code:', updateError)
-    return { success: false, error: 'Failed to update invite code' }
-  }
-
-  revalidatePath(`/leagues/${leagueId}`)
-  return { success: true, inviteCode: newCode, error: null }
+export async function regenerateInviteCode(_leagueId: string) {
+  console.warn('[mock] regenerateInviteCode no-op')
+  return { inviteCode: `mock${Date.now().toString(36).slice(-4)}`, error: null }
 }

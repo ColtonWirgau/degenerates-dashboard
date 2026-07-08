@@ -1,513 +1,229 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createClient } from '@/lib/supabase/server'
-// import { validateParlayLegs } from '@/lib/openai' // TODO: Re-enable when OpenAI quota is fixed
+import { getDataAdapter } from '@/lib/data/adapter'
+import { getCurrentUser } from '@/lib/data/auth-bridge'
+import { validateParlayLegs } from '@/lib/openai'
+import { publish } from '@/lib/ably/server'
+import { channelName, event } from '@/lib/ably/channels'
+
+// Slim wrapper around the data adapter for leg-related reads. The previous
+// "submit a multi-leg parlay" flow has been removed in favor of one-leg-
+// per-user-per-week (the actual model used in production data).
+
+export interface SubmitLegResult {
+  success: boolean
+  error: string | null
+  /** Set when AI validation flags a conflict against existing legs. */
+  warning?: { conflictsWith: string[]; reason: string }
+}
+
+// League odds caps: legs must be in [-200, +200]. Mirrored in the client
+// odds slider so users can't even pick out-of-range values, but server-side
+// enforcement keeps the rule honest.
+const ODDS_MIN = -200
+const ODDS_MAX = 200
 
 export async function submitLeg(
   weekId: string,
   leagueId: string,
   leg: { description: string; odds: string }
-) {
-  const supabase = await createClient()
+): Promise<SubmitLegResult> {
+  const me = await getCurrentUser()
+  if (!me) return { success: false, error: 'Unauthorized' }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { success: false, error: 'Unauthorized' }
+  const oddsNum = parseInt(leg.odds, 10)
+  if (isNaN(oddsNum)) {
+    return { success: false, error: 'Odds must be a number.' }
   }
-
-  // Check if parlay/week is open
-  // Note: weekId now refers to a parlay ID after migration
-  const { data: parlay } = await supabase
-    .from('parlays')
-    .select('status, deadline')
-    .eq('id', weekId)
-    .single()
-
-  if (!parlay) {
-    return { success: false, error: 'Week not found' }
+  if (oddsNum === 0 || (oddsNum > -100 && oddsNum < 100)) {
+    return { success: false, error: 'Odds must be at most -100 or at least +100.' }
   }
-
-  if (parlay.status !== 'open') {
-    return { success: false, error: 'Week is closed for submissions' }
-  }
-
-  // Check if user is admin/owner (they can submit after deadline)
-  const { data: membership } = await supabase
-    .from('league_members')
-    .select('role')
-    .eq('league_id', leagueId)
-    .eq('user_id', user.id)
-    .single()
-
-  const canBypassDeadline = membership?.role === 'owner' || membership?.role === 'admin'
-
-  // Check if past deadline
-  if (!canBypassDeadline && new Date(parlay.deadline) < new Date()) {
-    return { success: false, error: 'Submission deadline has passed' }
-  }
-
-  // TODO: Add AI validation back later
-  // For now, skip validation to avoid OpenAI quota issues
-
-  // weekId is now the parlay ID after migration
-  const parlayId = weekId
-
-  // Check if user already has a leg for this week
-  const { data: existingLeg } = await supabase
-    .from('parlay_legs')
-    .select('id')
-    .eq('parlay_id', parlayId)
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  if (existingLeg) {
-    // Update existing leg
-    const { error: updateError } = await supabase
-      .from('parlay_legs')
-      .update({
-        description: leg.description,
-        odds: leg.odds,
-        validation_status: 'approved',
-        validation_message: 'Valid',
-      })
-      .eq('id', existingLeg.id)
-
-    if (updateError) {
-      console.error('Error updating leg:', updateError)
-      return { success: false, error: 'Failed to update leg' }
-    }
-  } else {
-    // Create new leg assigned to the parlay from the start
-    const { error: insertError } = await supabase
-      .from('parlay_legs')
-      .insert({
-        user_id: user.id,
-        parlay_id: parlayId, // Assigned to parlay immediately
-        description: leg.description,
-        odds: leg.odds,
-        leg_number: 0, // Will be updated when week is locked
-        validation_status: 'approved',
-        validation_message: 'Valid',
-      })
-
-    if (insertError) {
-      console.error('Error creating leg:', insertError)
-      return { success: false, error: 'Failed to submit leg' }
+  if (oddsNum < ODDS_MIN || oddsNum > ODDS_MAX) {
+    return {
+      success: false,
+      error: `League rule: odds must be between ${ODDS_MIN} and +${ODDS_MAX}.`,
     }
   }
 
+  const adapter = await getDataAdapter()
+
+  // Allow editing while the parlay is still open. Once the parlay locks
+  // (everyone in / deadline elapsed) submission is final.
+  const existingParlay = await adapter.getParlay(weekId)
+  if (existingParlay && existingParlay.state !== 'open') {
+    return {
+      success: false,
+      error: 'The parlay is locked for this week — no more edits.',
+    }
+  }
+
+  // Pull existing locked legs (excluding this user's own) so we can validate
+  // the new leg against them.
+  const otherLegs = (existingParlay?.legs ?? []).filter(
+    (l) => l.user.id !== me.id && l.lockedAt !== null
+  )
+
+  let validationStatus: 'approved' | 'conflicting' = 'approved'
+  let validationMessage = 'Valid'
+  let warning: SubmitLegResult['warning']
+
+  if (otherLegs.length > 0) {
+    const fullParlay = [
+      ...otherLegs.map((l) => ({
+        description: l.description,
+        odds: String(l.odds),
+        userName: l.user.fullName ?? l.user.email,
+      })),
+      { description: leg.description, odds: leg.odds, userName: 'You' },
+    ]
+    const aiResult = (await validateParlayLegs(fullParlay)) as
+      | { legs?: Array<{ status?: string; conflicts_with?: number[]; reason?: string }> }
+      | null
+    const myIdx = fullParlay.length - 1
+    const mine = aiResult?.legs?.[myIdx]
+    if (mine?.status === 'conflicting') {
+      validationStatus = 'conflicting'
+      validationMessage = mine.reason ?? 'Conflicts with another submitted leg'
+      const conflictsWith = (mine.conflicts_with ?? [])
+        .map((n) => fullParlay[n - 1]?.userName)
+        .filter((n): n is string => !!n && n !== 'You')
+      warning = {
+        conflictsWith,
+        reason: mine.reason ?? 'This leg conflicts with another already-submitted leg.',
+      }
+    }
+  }
+
+  const submittedLeg = await adapter.submitLeg({
+    parlayId: weekId,
+    userId: me.id,
+    description: leg.description,
+    odds: oddsNum,
+    validationStatus,
+    validationMessage,
+  })
   revalidatePath(`/leagues/${leagueId}/weeks/${weekId}`)
-  return { success: true, error: null }
+  revalidatePath(`/leagues/${leagueId}`)
+  // Fire real-time event so other tabs/devices see "N of 12 submitted"
+  // tick up without waiting for their polling interval.
+  void publish(channelName.parlayLegs(leagueId, weekId), event.legSubmitted, {
+    legId: submittedLeg.id,
+    userId: me.id,
+    lockedAt: submittedLeg.lockedAt,
+  })
+  return { success: true, error: null, warning }
 }
 
 export async function getUserLeg(weekId: string) {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { leg: null, error: 'Unauthorized' }
+  const me = await getCurrentUser()
+  if (!me) return { leg: null, error: null }
+  const adapter = await getDataAdapter()
+  const parlay = await adapter.getParlay(weekId)
+  const leg = parlay?.legs.find((l) => l.user.id === me.id) ?? null
+  if (!leg) return { leg: null, error: null }
+  return {
+    leg: {
+      id: leg.id,
+      description: leg.description,
+      odds: String(leg.odds),
+      result: leg.result,
+      leg_number: leg.legNumber,
+      created_at: leg.createdAt,
+      locked_at: leg.lockedAt,
+      user_id: leg.user.id,
+      parlay_id: leg.parlayId,
+    },
+    error: null,
   }
-
-  // Get user's leg for this week
-  // weekId is now the parlay ID after migration
-  const { data: leg } = await supabase
-    .from('parlay_legs')
-    .select('*')
-    .eq('parlay_id', weekId)
-    .eq('user_id', user.id)
-    .single()
-
-  return { leg, error: null }
 }
 
 export async function getAllLegsForWeek(weekId: string) {
-  const supabase = await createClient()
-
-  // Get all leg submissions for this week
-  // weekId is now the parlay ID after migration
-  const { data: legs, error } = await supabase
-    .from('parlay_legs')
-    .select(`
-      *,
-      user:user_profiles!user_id (
-        id,
-        email,
-        raw_user_meta_data
-      )
-    `)
-    .eq('parlay_id', weekId)
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    console.error('Error fetching legs:', error)
-    return { legs: [], error: 'Failed to load legs' }
+  const adapter = await getDataAdapter()
+  const parlay = await adapter.getParlay(weekId)
+  if (!parlay) return { legs: [], error: null }
+  return {
+    legs: parlay.legs.map((leg) => ({
+      id: leg.id,
+      description: leg.description,
+      odds: String(leg.odds),
+      result: leg.result,
+      leg_number: leg.legNumber,
+      created_at: leg.createdAt,
+      locked_at: leg.lockedAt,
+      user_id: leg.user.id,
+      parlay_id: leg.parlayId,
+      user: {
+        id: leg.user.id,
+        email: leg.user.email,
+        raw_user_meta_data: {
+          full_name: leg.user.fullName ?? undefined,
+          avatar_url: leg.user.avatarUrl ?? undefined,
+        },
+      },
+    })),
+    error: null,
   }
-
-  return { legs: legs || [], error: null }
 }
 
+// ─── Mutations (mock-mode stubs / adapter pass-through) ────────────────────
+
 export async function deleteLeg(weekId: string, legId: string, leagueId: string) {
-  const supabase = await createClient()
+  const me = await getCurrentUser()
+  if (!me) return { success: false, error: 'Unauthorized' }
+  const adapter = await getDataAdapter()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Authorization: the user can delete their own leg; owners/admins can
+  // delete anyone's. Look up the leg to check ownership.
+  const parlay = await adapter.getParlay(weekId)
+  const target = parlay?.legs.find((l) => l.id === legId)
+  if (!target) return { success: false, error: 'Leg not found' }
 
-  if (!user) {
-    return { success: false, error: 'Unauthorized' }
+  if (target.user.id !== me.id) {
+    const role = await adapter.getUserRole(leagueId, me.id)
+    if (role !== 'owner' && role !== 'admin') {
+      return { success: false, error: 'You can only delete your own leg' }
+    }
   }
 
-  // Check if user owns this leg or is admin/owner
-  const { data: leg } = await supabase
-    .from('parlay_legs')
-    .select('user_id')
-    .eq('id', legId)
-    .single()
-
-  if (!leg) {
-    return { success: false, error: 'Leg not found' }
-  }
-
-  const { data: membership } = await supabase
-    .from('league_members')
-    .select('role')
-    .eq('league_id', leagueId)
-    .eq('user_id', user.id)
-    .single()
-
-  const canDelete =
-    leg.user_id === user.id ||
-    membership?.role === 'owner' ||
-    membership?.role === 'admin'
-
-  if (!canDelete) {
-    return { success: false, error: 'Not authorized to delete this leg' }
-  }
-
-  const { error: deleteError } = await supabase
-    .from('parlay_legs')
-    .delete()
-    .eq('id', legId)
-
-  if (deleteError) {
-    console.error('Error deleting leg:', deleteError)
-    return { success: false, error: 'Failed to delete leg' }
-  }
-
+  await adapter.deleteLeg(legId)
   revalidatePath(`/leagues/${leagueId}/weeks/${weekId}`)
+  revalidatePath(`/leagues/${leagueId}`)
+  void publish(channelName.parlayLegs(leagueId, weekId), event.legDeleted, {
+    legId,
+    userId: target.user.id,
+  })
   return { success: true, error: null }
 }
 
 export async function updateLegAsAdmin(
   weekId: string,
-  legId: string,
+  _legId: string,
   leagueId: string,
-  leg: { description: string; odds: string }
+  _input: { description: string; odds: string }
 ) {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { success: false, error: 'Unauthorized' }
-  }
-
-  // Check if user is admin/owner
-  const { data: membership } = await supabase
-    .from('league_members')
-    .select('role')
-    .eq('league_id', leagueId)
-    .eq('user_id', user.id)
-    .single()
-
-  if (!membership || (membership.role !== 'owner' && membership.role !== 'admin')) {
-    return { success: false, error: 'Only admins and owners can edit other users\' legs' }
-  }
-
-  // TODO: Add AI validation back later
-  // For now, skip validation to avoid OpenAI quota issues
-
-  // Update the leg
-  const { error: updateError } = await supabase
-    .from('parlay_legs')
-    .update({
-      description: leg.description,
-      odds: leg.odds,
-      validation_status: 'approved',
-      validation_message: 'Valid',
-    })
-    .eq('id', legId)
-
-  if (updateError) {
-    console.error('Error updating leg:', updateError)
-    return { success: false, error: 'Failed to update leg' }
-  }
-
+  console.warn('[mock] updateLegAsAdmin no-op')
   revalidatePath(`/leagues/${leagueId}/weeks/${weekId}`)
   return { success: true, error: null }
 }
 
 export async function submitLegForUser(
-  weekId: string,
-  leagueId: string,
-  targetUserId: string,
-  leg: { description: string; odds: string }
+  _weekId: string,
+  _leagueId: string,
+  _userId: string,
+  _leg: { description: string; odds: string }
 ) {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { success: false, error: 'Unauthorized' }
-  }
-
-  // Check if current user is admin/owner
-  const { data: membership } = await supabase
-    .from('league_members')
-    .select('role')
-    .eq('league_id', leagueId)
-    .eq('user_id', user.id)
-    .single()
-
-  if (!membership || (membership.role !== 'owner' && membership.role !== 'admin')) {
-    return { success: false, error: 'Only admins and owners can submit legs for other users' }
-  }
-
-  // Check if target user is a member of the league
-  const { data: targetMembership } = await supabase
-    .from('league_members')
-    .select('user_id')
-    .eq('league_id', leagueId)
-    .eq('user_id', targetUserId)
-    .single()
-
-  if (!targetMembership) {
-    return { success: false, error: 'User is not a member of this league' }
-  }
-
-  // Check if parlay/week is open
-  const { data: parlay } = await supabase
-    .from('parlays')
-    .select('status')
-    .eq('id', weekId)
-    .single()
-
-  if (!parlay || parlay.status !== 'open') {
-    return { success: false, error: 'Week is not open for submissions' }
-  }
-
-  // TODO: Add AI validation back later
-  // For now, skip validation to avoid OpenAI quota issues
-
-  // weekId is now the parlay ID
-  const parlayId = weekId
-
-  // Check if target user already has a leg for this week
-  const { data: existingLeg } = await supabase
-    .from('parlay_legs')
-    .select('id')
-    .eq('parlay_id', parlayId)
-    .eq('user_id', targetUserId)
-    .maybeSingle()
-
-  if (existingLeg) {
-    // Update existing leg
-    const { error: updateError } = await supabase
-      .from('parlay_legs')
-      .update({
-        description: leg.description,
-        odds: leg.odds,
-        validation_status: 'approved',
-        validation_message: 'Valid',
-      })
-      .eq('id', existingLeg.id)
-
-    if (updateError) {
-      console.error('Error updating leg:', updateError)
-      return { success: false, error: 'Failed to update leg' }
-    }
-  } else {
-    // Create new leg for target user, assigned to parlay immediately
-    const { error: insertError } = await supabase
-      .from('parlay_legs')
-      .insert({
-        user_id: targetUserId,
-        parlay_id: parlayId, // Assigned to parlay immediately
-        description: leg.description,
-        odds: leg.odds,
-        leg_number: 0,
-        validation_status: 'approved',
-        validation_message: 'Valid',
-      })
-
-    if (insertError) {
-      console.error('Error creating leg:', insertError)
-      return { success: false, error: 'Failed to submit leg' }
-    }
-  }
-
-  revalidatePath(`/leagues/${leagueId}/weeks/${weekId}`)
+  console.warn('[mock] submitLegForUser no-op')
   return { success: true, error: null }
 }
 
+// Re-exported for legacy import sites — same shape as season-scoped variants.
 export async function getLeaderboard(leagueId: string) {
-  const supabase = await createClient()
-
-  // Get all parlays for this league
-  const { data: parlays } = await supabase
-    .from('parlays')
-    .select('id')
-    .eq('league_id', leagueId)
-
-  if (!parlays || parlays.length === 0) {
-    return { leaderboard: [], error: null }
-  }
-
-  const parlayIds = parlays.map(p => p.id)
-
-  // Get all legs for all parlays
-  const { data: allLegs } = await supabase
-    .from('parlay_legs')
-    .select(`
-      user_id,
-      result,
-      user:user_profiles!user_id (
-        id,
-        email,
-        raw_user_meta_data
-      )
-    `)
-    .in('parlay_id', parlayIds)
-
-  if (!allLegs) {
-    return { leaderboard: [], error: 'Failed to fetch leaderboard data' }
-  }
-
-  // Group by user and calculate stats
-  const userStats = new Map<string, {
-    userId: string
-    email: string
-    fullName: string | null
-    avatarUrl: string | null
-    wins: number
-    losses: number
-    pushes: number
-    pending: number
-    total: number
-    winRate: number
-  }>()
-
-  allLegs.forEach(leg => {
-    // Type guard: Supabase returns user as an array but we know it's always a single object due to the foreign key
-    const user = Array.isArray(leg.user) ? leg.user[0] : leg.user
-    if (!user) return
-
-    const userId = leg.user_id
-    if (!userStats.has(userId)) {
-      userStats.set(userId, {
-        userId,
-        email: user.email,
-        fullName: user.raw_user_meta_data?.full_name || null,
-        avatarUrl: user.raw_user_meta_data?.avatar_url || null,
-        wins: 0,
-        losses: 0,
-        pushes: 0,
-        pending: 0,
-        total: 0,
-        winRate: 0
-      })
-    }
-
-    const stats = userStats.get(userId)!
-    stats.total++
-
-    if (leg.result === 'win') stats.wins++
-    else if (leg.result === 'loss') stats.losses++
-    else if (leg.result === 'push') stats.pushes++
-    else stats.pending++
-
-    // Calculate win rate (excluding pending and pushes)
-    const completedGames = stats.wins + stats.losses
-    stats.winRate = completedGames > 0 ? (stats.wins / completedGames) * 100 : 0
-  })
-
-  // Convert to array and sort by win rate, then by total wins
-  const leaderboard = Array.from(userStats.values())
-    .sort((a, b) => {
-      if (b.winRate !== a.winRate) return b.winRate - a.winRate
-      return b.wins - a.wins
-    })
-
-  return { leaderboard, error: null }
+  const { getCurrentSeasonLeaderboard } = await import('./legs-current-season')
+  return getCurrentSeasonLeaderboard(leagueId)
 }
 
 export async function getUserStats(leagueId: string) {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { stats: null, error: 'Unauthorized' }
-  }
-
-  // Get all parlays for this league
-  const { data: parlays } = await supabase
-    .from('parlays')
-    .select('id')
-    .eq('league_id', leagueId)
-
-  if (!parlays || parlays.length === 0) {
-    return {
-      stats: {
-        wins: 0,
-        losses: 0,
-        pushes: 0,
-        pending: 0,
-        total: 0,
-        winRate: 0
-      },
-      error: null
-    }
-  }
-
-  const parlayIds = parlays.map(p => p.id)
-
-  // Get all user's legs for all parlays
-  const { data: userLegs } = await supabase
-    .from('parlay_legs')
-    .select('result')
-    .in('parlay_id', parlayIds)
-    .eq('user_id', user.id)
-
-  if (!userLegs) {
-    return { stats: null, error: 'Failed to fetch user stats' }
-  }
-
-  const stats = {
-    wins: userLegs.filter(leg => leg.result === 'win').length,
-    losses: userLegs.filter(leg => leg.result === 'loss').length,
-    pushes: userLegs.filter(leg => leg.result === 'push').length,
-    pending: userLegs.filter(leg => leg.result === null).length,
-    total: userLegs.length,
-    winRate: 0
-  }
-
-  // Calculate win rate (excluding pending and pushes)
-  const completedGames = stats.wins + stats.losses
-  stats.winRate = completedGames > 0 ? (stats.wins / completedGames) * 100 : 0
-
-  return { stats, error: null }
+  const { getCurrentSeasonUserStats } = await import('./legs-current-season')
+  return getCurrentSeasonUserStats(leagueId)
 }

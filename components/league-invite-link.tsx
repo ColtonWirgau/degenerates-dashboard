@@ -63,7 +63,7 @@ export function LeagueInviteLink({ inviteCode, leagueName }: LeagueInviteLinkPro
               <Button
                 onClick={copyLink}
                 size="sm"
-                className={copied ? 'neon-glow-green' : 'neon-glow-blue'}
+                className="neon-glow-blue"
               >
                 {copied ? (
                   <>

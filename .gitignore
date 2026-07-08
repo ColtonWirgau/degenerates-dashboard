@@ -12,6 +12,9 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
+/playwright/.cache/
 
 # next.js
 /.next/
@@ -68,3 +71,6 @@ cleanup-*.ts
 APPLY_*.sql
 *_INSTRUCTIONS.md
 CLAUDE.md
+
+# Real-data snapshot for Neon migration (PII — never commit)
+lib/data/fixtures/real-snapshot/

@@ -1,0 +1,1 @@
+ALTER TYPE "public"."poll_kind" ADD VALUE 'multi' BEFORE 'ranked';

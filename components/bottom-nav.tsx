@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { Home, Trophy, User, TrendingUp } from 'lucide-react'
+import { Home, Trophy, TrendingUp } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 export function BottomNav({ leagueId }: { leagueId?: string }) {
@@ -28,27 +28,21 @@ export function BottomNav({ leagueId }: { leagueId?: string }) {
   const tabs = [
     {
       name: 'Home',
-      href: '/dashboard',
+      href: '/',
       icon: Home,
-      active: pathname === '/dashboard',
+      active: pathname === '/',
     },
     {
       name: 'League',
-      href: leagueId ? `/leagues/${leagueId}` : '/dashboard',
+      href: leagueId ? `/leagues/${leagueId}` : '/',
       icon: Trophy,
-      active: pathname?.includes('/leagues/') && !pathname?.includes('/users/'),
+      active: !!pathname?.includes('/leagues/') && !pathname?.includes('/users/'),
     },
     {
       name: 'Stats',
-      href: leagueId ? `/leagues/${leagueId}` : '/dashboard',
+      href: leagueId ? `/leagues/${leagueId}` : '/',
       icon: TrendingUp,
-      active: false, // We can add a stats page later
-    },
-    {
-      name: 'Profile',
-      href: '/profile',
-      icon: User,
-      active: pathname === '/profile',
+      active: false,
     },
   ]
 

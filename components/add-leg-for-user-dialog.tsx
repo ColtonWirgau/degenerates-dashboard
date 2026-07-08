@@ -172,6 +172,8 @@ export function AddLegForUserDialog({
               value={odds}
               onChange={(e) => setOdds(e.target.value)}
               className="glass border-primary/30 mt-1"
+              inputMode="tel"
+              autoComplete="off"
               required
             />
           </div>

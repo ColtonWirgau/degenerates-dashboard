@@ -59,11 +59,11 @@ export function ParlayRevealCard({
   const getResultIcon = (result: string | null) => {
     switch (result) {
       case 'win':
-        return <TrendingUp className="h-4 w-4 text-neon-green" />
+        return <TrendingUp className="h-4 w-4 text-neon-blue" />
       case 'loss':
         return <TrendingDown className="h-4 w-4 text-destructive" />
       case 'push':
-        return <Minus className="h-4 w-4 text-gold" />
+        return <Minus className="h-4 w-4 text-foreground/70" />
       default:
         return null
     }
@@ -72,11 +72,11 @@ export function ParlayRevealCard({
   const getResultColor = (result: string | null) => {
     switch (result) {
       case 'win':
-        return 'text-neon-green bg-[#39FF14]/10 border-[#39FF14]/30'
+        return 'text-neon-blue bg-[#00D9FF]/10 border-[#00D9FF]/30'
       case 'loss':
         return 'text-destructive bg-destructive/10 border-destructive/30'
       case 'push':
-        return 'text-gold bg-[#FFD700]/10 border-[#FFD700]/30'
+        return 'text-foreground/70 bg-white/10 border-white/30'
       default:
         return 'text-muted-foreground bg-white/5 border-white/10'
     }
@@ -105,14 +105,13 @@ export function ParlayRevealCard({
                 {legs.length} Legs Locked In
               </p>
             </div>
-            <div className="text-4xl">🔒</div>
           </CardContent>
         </Card>
 
         {/* Card Front (Revealed State) */}
         <Card
           className={`absolute inset-0 glass-intense border-primary/30 backface-hidden rotate-y-180 ${
-            parlayResult === 'win' ? 'neon-glow-green border-neon-green/50' : ''
+            parlayResult === 'win' ? 'neon-glow-blue border-neon-blue/50' : ''
           } ${parlayResult === 'loss' ? 'border-destructive/50' : ''} ${
             isFlipped ? 'visible' : 'invisible'
           }`}
@@ -126,7 +125,7 @@ export function ParlayRevealCard({
                 <CardTitle className="text-xl">{userName}</CardTitle>
               </div>
               {parlayResult === 'win' && (
-                <Trophy className="h-6 w-6 text-neon-green animate-bounce" />
+                <Trophy className="h-6 w-6 text-neon-blue animate-bounce" />
               )}
             </div>
           </CardHeader>

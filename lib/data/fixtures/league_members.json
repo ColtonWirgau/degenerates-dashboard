@@ -1,0 +1,142 @@
+[
+  {
+    "id": "da941112-a08a-4d4e-bcec-7f5fef86b5da",
+    "league_id": "367cb29d-de7a-4b4d-948c-412cdc0a0420",
+    "user_id": "03d43c3e-0fc0-4ce7-ac13-2f57f121831b",
+    "role": "owner",
+    "joined_at": "2025-10-13T16:03:38.010173+00:00"
+  },
+  {
+    "id": "c7fc105d-86f4-4d50-bdbf-8fde65d0e49f",
+    "league_id": "367cb29d-de7a-4b4d-948c-412cdc0a0420",
+    "user_id": "6ecfee90-4e4b-4566-ad0f-9acb17c10f76",
+    "role": "member",
+    "joined_at": "2025-10-13T16:03:38.010173+00:00"
+  },
+  {
+    "id": "9eb77391-b087-4ea9-8792-21aec6fb9350",
+    "league_id": "367cb29d-de7a-4b4d-948c-412cdc0a0420",
+    "user_id": "a7185a34-dacd-426c-8909-99572f174062",
+    "role": "member",
+    "joined_at": "2025-10-13T16:03:38.010173+00:00"
+  },
+  {
+    "id": "e7c3593e-bb68-49ba-9cd4-a6d3b5f368ab",
+    "league_id": "367cb29d-de7a-4b4d-948c-412cdc0a0420",
+    "user_id": "a5202d95-e6d6-4e72-ad95-4bbad2c6d9cd",
+    "role": "member",
+    "joined_at": "2025-10-13T16:03:38.010173+00:00"
+  },
+  {
+    "id": "bca95c4a-c955-4ce2-a017-c156ba22f94a",
+    "league_id": "367cb29d-de7a-4b4d-948c-412cdc0a0420",
+    "user_id": "b0a8b47a-9e7d-4262-9d41-ca7e1cfbd4a4",
+    "role": "member",
+    "joined_at": "2025-10-13T16:03:38.010173+00:00"
+  },
+  {
+    "id": "4c843303-564e-4e3c-9377-a63dbda54826",
+    "league_id": "367cb29d-de7a-4b4d-948c-412cdc0a0420",
+    "user_id": "c03e521e-8b2c-4aa0-af6c-b6203e93b299",
+    "role": "member",
+    "joined_at": "2025-10-13T16:03:38.010173+00:00"
+  },
+  {
+    "id": "525ad1b2-8d75-403a-bed2-0ac0681f6cb2",
+    "league_id": "367cb29d-de7a-4b4d-948c-412cdc0a0420",
+    "user_id": "3f9d6924-ab35-44b0-b9f9-b38757f0f92f",
+    "role": "member",
+    "joined_at": "2025-10-13T16:03:38.010173+00:00"
+  },
+  {
+    "id": "7aff643b-3323-4ecd-89d7-aab9377eabcc",
+    "league_id": "367cb29d-de7a-4b4d-948c-412cdc0a0420",
+    "user_id": "22b15153-3f6a-4af9-95e3-7bd54f7ed3e5",
+    "role": "member",
+    "joined_at": "2025-10-13T16:03:38.010173+00:00"
+  },
+  {
+    "id": "89249100-4ab0-4e44-97b9-8484b104b199",
+    "league_id": "367cb29d-de7a-4b4d-948c-412cdc0a0420",
+    "user_id": "87835452-911e-4fc9-a1de-2e5330d78544",
+    "role": "member",
+    "joined_at": "2025-10-13T16:03:38.010173+00:00"
+  },
+  {
+    "id": "209d9091-2d10-488e-9126-d95200f0f288",
+    "league_id": "367cb29d-de7a-4b4d-948c-412cdc0a0420",
+    "user_id": "fe03a870-b4cf-4a51-b4ae-a7d034343481",
+    "role": "member",
+    "joined_at": "2025-10-13T17:33:11.36663+00:00"
+  },
+  {
+    "id": "b53bdaa9-810a-4f56-a769-35f860b75133",
+    "league_id": "367cb29d-de7a-4b4d-948c-412cdc0a0420",
+    "user_id": "2d82c481-fe7d-44ca-9d9a-0cee4bc4f140",
+    "role": "member",
+    "joined_at": "2025-10-13T17:33:12.020676+00:00"
+  },
+  {
+    "id": "267e7700-4a28-4182-bd9b-8557ce262bf5",
+    "league_id": "367cb29d-de7a-4b4d-948c-412cdc0a0420",
+    "user_id": "cc29ff41-b4c6-414e-a6c7-e00ed8f04f55",
+    "role": "member",
+    "joined_at": "2025-10-13T17:33:12.633408+00:00"
+  },
+  {
+    "id": "4b56fe0e-0d04-45e6-a5c7-3e427b22cf6d",
+    "league_id": "c2f68db3-f0ba-4f6d-9724-dcaaf148d049",
+    "user_id": "03d43c3e-0fc0-4ce7-ac13-2f57f121831b",
+    "role": "owner",
+    "joined_at": "2025-10-13T21:51:14.482277+00:00"
+  },
+  {
+    "id": "6bc6a467-2db5-4b05-a5bb-6b4c68e3f2f2",
+    "league_id": "c2f68db3-f0ba-4f6d-9724-dcaaf148d049",
+    "user_id": "07b9ea5f-be1c-428b-adbe-5cc5a51f5704",
+    "role": "member",
+    "joined_at": "2025-10-14T19:39:08.921825+00:00"
+  },
+  {
+    "id": "2cb0f053-ad12-49d6-a016-26178a2b9979",
+    "league_id": "c2f68db3-f0ba-4f6d-9724-dcaaf148d049",
+    "user_id": "677c22ec-08c3-427a-86a8-d0e8491b43d2",
+    "role": "member",
+    "joined_at": "2025-10-14T19:44:33.078207+00:00"
+  },
+  {
+    "id": "4cf502c3-926f-4e2e-9601-95a8d641c521",
+    "league_id": "c2f68db3-f0ba-4f6d-9724-dcaaf148d049",
+    "user_id": "2d6a619a-8215-469e-aaa2-9eba85f4e0c9",
+    "role": "member",
+    "joined_at": "2025-10-14T19:47:26.030093+00:00"
+  },
+  {
+    "id": "93ac641a-57a6-4d16-b21f-153bd80e5298",
+    "league_id": "c2f68db3-f0ba-4f6d-9724-dcaaf148d049",
+    "user_id": "70b106a1-cebc-4030-9e6e-014166191534",
+    "role": "member",
+    "joined_at": "2025-10-18T11:37:19.368043+00:00"
+  },
+  {
+    "id": "f2745938-f53c-4dfb-a7ef-503cdb6c1ea6",
+    "league_id": "c2f68db3-f0ba-4f6d-9724-dcaaf148d049",
+    "user_id": "8763048b-4460-49ff-98b7-967db0fdfa37",
+    "role": "member",
+    "joined_at": "2025-10-19T17:16:50.947281+00:00"
+  },
+  {
+    "id": "75c385df-706c-4c45-a2cb-85f6b7247241",
+    "league_id": "c2f68db3-f0ba-4f6d-9724-dcaaf148d049",
+    "user_id": "63cdf8b7-6893-46c4-bd69-491b8996cd23",
+    "role": "member",
+    "joined_at": "2025-10-19T18:25:46.535004+00:00"
+  },
+  {
+    "id": "d72de3a7-5a90-44fe-9dde-d6d19dac846e",
+    "league_id": "eff427d9-cad1-4c89-8822-1769b51b29e8",
+    "user_id": "03d43c3e-0fc0-4ce7-ac13-2f57f121831b",
+    "role": "owner",
+    "joined_at": "2025-11-07T03:31:18.11236+00:00"
+  }
+]

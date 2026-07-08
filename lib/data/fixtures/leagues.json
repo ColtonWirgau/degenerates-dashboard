@@ -1,0 +1,23 @@
+[
+  {
+    "id": "367cb29d-de7a-4b4d-948c-412cdc0a0420",
+    "name": "T-Mart's Cheatin' Ahh Parlays",
+    "invite_code": "mock0001",
+    "created_at": "2025-10-12T18:12:51.759144+00:00",
+    "created_by": "03d43c3e-0fc0-4ce7-ac13-2f57f121831b"
+  },
+  {
+    "id": "c2f68db3-f0ba-4f6d-9724-dcaaf148d049",
+    "name": "Journey to Mordor",
+    "invite_code": "mock0002",
+    "created_at": "2025-10-13T21:51:14.482277+00:00",
+    "created_by": "03d43c3e-0fc0-4ce7-ac13-2f57f121831b"
+  },
+  {
+    "id": "eff427d9-cad1-4c89-8822-1769b51b29e8",
+    "name": "The League",
+    "invite_code": "mock0003",
+    "created_at": "2025-11-07T03:31:18.11236+00:00",
+    "created_by": "03d43c3e-0fc0-4ce7-ac13-2f57f121831b"
+  }
+]
