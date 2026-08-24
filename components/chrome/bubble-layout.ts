@@ -9,10 +9,10 @@
  * its anchor edge (top or bottom of the card) — PageSheetCard resolves
  * them against the measured card height.
  *
- * The split-spring machinery from the source shell is kept intact but
- * DORMANT: this app currently has ONE action bite (SUBMIT / VOTE). If the
- * action ever grows a second verb, wire setSplit and the extra ranks are
- * already plumbed through resolveBites.
+ * The split springs drive the ACTION POD: the resting slot holds ACTIONS,
+ * and the week's two verbs spring up out of it into ranks 2 and 3. The
+ * card's bites follow the same numbers frame by frame, so the holes and
+ * the discs can't disagree mid-flight.
  */
 
 import { BITE_FILLET, BITE_R, type Bite } from '@/components/chrome/bite-geometry'
@@ -37,7 +37,7 @@ export function railC(index: number): number {
 }
 
 /* The action group, bottom-anchored on the right. HOME is the resting
- * SUBMIT bubble; the upper ranks are the dormant split slots (91px
+ * ACTIONS bubble; the two ranks above it are where its verbs land (91px
  * rhythm, matching the rail). */
 export const ACTION_HOME_C = 153
 export const ACTION_RANK2_C = 244
@@ -69,7 +69,7 @@ export function setActionBite(on: boolean) {
   frameListeners.forEach((l) => l(t, w))
 }
 
-/* ---------- The split springs (dormant, kept intact) ---------- */
+/* ---------- The split springs ---------- */
 
 let target = 0 // 0 = folded, 1 = split
 let t = 0 // animated split progress (can overshoot past 1)
@@ -90,7 +90,11 @@ function thirdTarget(): number {
 }
 
 function tick(now: number) {
-  raf = null
+  // NOTE: `raf` is deliberately NOT cleared here. Clearing it up front
+  // opens a window where a listener firing below can see raf === null,
+  // call animate(), and schedule a second loop — and the handle we
+  // overwrite on the way out leaks the first one. Two loops become four.
+  // It stays set until the spring actually settles.
   const dt = Math.min(0.05, (now - last) / 1000)
   last = now
   // An underdamped spring: the arriving bubble overshoots its slot a hair
@@ -114,6 +118,7 @@ function tick(now: number) {
     v = 0
     w = tw
     vw = 0
+    raf = null
   } else {
     raf = requestAnimationFrame(tick)
   }
@@ -203,8 +208,8 @@ export function resolveBites(cardHeight: number, progress: number, third = 0): B
   }
   // You, on the right.
   resolved.push({ edge: 'right', y: PROFILE_C, r: PROFILE_R, fillet: 5 })
-  // The action bubble is the WEEK's verb (submit your leg). The preseason
-  // week has no slate, so the bite goes with it.
+  // The action pod is the WEEK's verbs. The preseason week has no slate,
+  // so the bites go with it.
   if (!actionBite) return resolved
   resolved.push({
     edge: 'right',

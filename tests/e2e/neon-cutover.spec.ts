@@ -91,7 +91,7 @@ test('picking a week swaps the stage without navigating', async ({ page }) => {
   // A week with a slate carries the scope switch and the SUBMIT bubble;
   // week 0 carries neither.
   await expect(page.getByText(/Betting slate · \d+/i)).toBeVisible()
-  await expect(page.getByRole('button', { name: 'submit' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'actions' })).toBeVisible()
 })
 
 test('the lay is a reveal off the rail, not a modal', async ({ page }) => {
@@ -121,16 +121,19 @@ test('a finished season is closed, not still taking legs', async ({ page }) => {
   await page.getByRole('button', { name: 'Season and league' }).first().click()
   await page.getByRole('button', { name: /2025-2026/ }).click()
 
-  // Its last week has a lock time in the past, so it reads LOCKED — the
-  // "not everyone's in yet" rule must not reopen it — and the week's one
-  // verb is gone, because there's nothing left to submit.
+  // Its last week was closed long ago — the "not everyone's in yet" rule
+  // must not reopen it.
   await expect(page.getByRole('heading', { name: 'Week 18', level: 1 })).toBeVisible({
     timeout: 20_000,
   })
-  await expect(page.getByText('Locked', { exact: true }).first()).toBeVisible({
-    timeout: 15_000,
-  })
-  await expect(page.getByRole('button', { name: 'submit' })).toHaveCount(0)
+
+  // The pod still opens, because a verb that vanishes leaves you
+  // wondering where it went. Both of its verbs wear a padlock and refuse
+  // to move instead: nothing can be entered, and the games have long
+  // since kicked off so it can't be reopened either.
+  await page.getByRole('button', { name: 'actions' }).click()
+  await expect(page.getByRole('button', { name: 'locked' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'closed' })).toBeDisabled()
 
   // Week 0 of a finished season is closed too, even though a preseason
   // week has no lock of its own to be past.

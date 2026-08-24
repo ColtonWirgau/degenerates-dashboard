@@ -86,7 +86,12 @@ export function Masthead() {
 /**
  * The masthead's other lockup: "{year} SEASON ⌄" in the wordmark's own
  * duotone grammar — the year in electric blue, SEASON in hot pink — so
- * the strip's right end answers DEGENERATES DASHBOARD on its left. It
+ * the strip's right end answers DEGENERATES DASHBOARD on its left.
+ *
+ * It has to ASK for the display face: the wordmark is an <h1> and picks
+ * up Anton from the base heading rule in globals, while this is a
+ * button, which doesn't. Same face, size, tracking and gap, or the two
+ * ends of the band stop rhyming. It
  * opens the league sheet: the year, the members, the settings, the
  * history — everything the league is, as opposed to what you are.
  */
@@ -109,25 +114,27 @@ function SeasonLockup({
       aria-expanded={open}
       aria-label="Season and league"
       className={cn(
-        'group inline-flex shrink-0 items-center gap-1.5 leading-none font-bold whitespace-nowrap transition-opacity hover:opacity-80',
+        'group font-display inline-flex shrink-0 items-center gap-1.5 leading-none font-bold uppercase whitespace-nowrap transition-opacity hover:opacity-80',
         className
       )}
     >
-      <span
-        className={cn(
-          'text-neon-blue tracking-tight',
-          compact ? 'text-xl' : 'text-2xl'
-        )}
-      >
-        {seasonLabel(season)}
-      </span>
-      <span
-        className={cn(
-          'text-neon-pink tracking-tight',
-          compact ? 'text-xl' : 'text-2xl'
-        )}
-      >
-        SEASON
+      <span className={cn('flex items-center', compact ? 'gap-1.5' : 'gap-2')}>
+        <span
+          className={cn(
+            'text-neon-blue tracking-tight',
+            compact ? 'text-xl' : 'text-2xl'
+          )}
+        >
+          {seasonLabel(season)}
+        </span>
+        <span
+          className={cn(
+            'text-neon-pink tracking-tight',
+            compact ? 'text-xl' : 'text-2xl'
+          )}
+        >
+          SEASON
+        </span>
       </span>
       <ChevronDown
         className={cn(

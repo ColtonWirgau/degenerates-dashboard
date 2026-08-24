@@ -1,8 +1,7 @@
 'use client'
 
-import { Clock, Lock } from 'lucide-react'
+import { Lock } from 'lucide-react'
 import { SubmitLegForm } from '@/components/submit-leg-form'
-import { DeadlineDisplay } from '@/components/deadline-display'
 import { useViewedWeek } from '@/components/chrome/league-chrome-context'
 
 export interface SubmitRevealLeg {
@@ -40,17 +39,12 @@ export function SubmitReveal({
 
   return (
     <div className="scrollbar-hide flex min-h-0 flex-1 flex-col overflow-y-auto">
-      <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
-        <p className="text-muted-foreground text-[10px] font-bold tracking-[0.3em] uppercase">
-          Week {week.weekNumber} · Your leg
-        </p>
-        {week.lockAt && (
-          <span className="text-muted-foreground inline-flex items-center gap-1 text-[10px] tabular-nums">
-            <Clock className="h-3 w-3" />
-            <DeadlineDisplay deadline={week.lockAt} />
-          </span>
-        )}
-      </div>
+      {/* Which week, and nothing else. "Your leg" is what the bubble you
+          just pressed said, and the form underneath is plainly a leg —
+          repeating it in a heading is the third telling. */}
+      <p className="text-muted-foreground mb-3 shrink-0 text-[10px] font-bold tracking-[0.3em] uppercase">
+        Week {week.weekNumber}
+      </p>
 
       {myLeg ? (
         <div className="space-y-3">

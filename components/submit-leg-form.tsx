@@ -106,7 +106,7 @@ export function SubmitLegForm({ weekId, leagueId, existingLeg }: SubmitLegFormPr
       <div className="space-y-4">
         <div>
           <Label htmlFor="description" className="text-sm font-medium">
-            Bet Description
+            Selection
           </Label>
           <Textarea
             id="description"
@@ -117,9 +117,6 @@ export function SubmitLegForm({ weekId, leagueId, existingLeg }: SubmitLegFormPr
             rows={3}
             required
           />
-          <p className="text-xs text-muted-foreground mt-1">
-            Be specific! Include teams, spread/ML, and any important details.
-          </p>
         </div>
 
         <div>
@@ -150,13 +147,13 @@ export function SubmitLegForm({ weekId, leagueId, existingLeg }: SubmitLegFormPr
         {submitting
           ? 'Submitting...'
           : existingLeg
-          ? 'Update Your Leg'
+          ? 'Update'
           : 'Lock It In'}
       </Button>
 
       {existingLeg && (
         <p className="text-xs text-center text-muted-foreground">
-          You can update your leg anytime before the deadline
+          Change it any time before the week closes
         </p>
       )}
     </form>

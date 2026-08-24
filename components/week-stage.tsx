@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { getWeekStage, type WeekStagePayload } from '@/app/actions/week-stage'
 import { useLeagueChrome, useViewedWeek } from '@/components/chrome/league-chrome-context'
+import { setWeekActions, subscribeWeekDirty } from '@/components/chrome/canvas-store'
 import { WeekHeader } from '@/components/week-header'
 import { WeekSlate } from '@/components/week-slate'
 
@@ -79,6 +80,34 @@ export function WeekStage({
     [leagueId]
   )
 
+  // Something in the shell changed this week — go and look again.
+  useEffect(
+    () => subscribeWeekDirty(() => { if (targetId) void reload(targetId) }),
+    [targetId, reload]
+  )
+
+  // The action pod lives in the shell and can't see what we just
+  // fetched — hand it the week's verbs as they change.
+  useEffect(() => {
+    if (isPreseason || !stage) {
+      setWeekActions({
+        hasSlate: false,
+        locked: false,
+        reopenable: false,
+        canLock: false,
+        submitted: false,
+      })
+      return
+    }
+    setWeekActions({
+      hasSlate: stage.kind !== 'preseason',
+      locked: stage.locked,
+      reopenable: stage.reopenable,
+      canLock: stage.canLock,
+      submitted: stage.legs.some((l) => l.userId === chrome?.me.id),
+    })
+  }, [isPreseason, stage, chrome?.me.id])
+
   if (isPreseason) return <>{preseason}</>
 
   if (!stage) {
@@ -96,18 +125,13 @@ export function WeekStage({
           message announcing it a third time is just something to dismiss
           before you can look at the thing you came for. */}
       <WeekHeader
-        leagueId={leagueId}
-        nflWeekId={stage.nflWeekId}
         weekNumber={stage.weekNumber}
         state={stage.submissionsOpen ? 'open' : stage.parlayState}
         locked={stage.locked}
-        reopenable={stage.reopenable}
-        canLock={stage.canLock}
         firstKickoff={stage.firstKickoff}
         lockAt={stage.lockAt}
         kickoff={stage.kickoff}
         scopeCounts={stage.scopeCounts}
-        onLockChanged={() => reload(stage.nflWeekId)}
       />
 
       <WeekSlate

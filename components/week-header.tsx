@@ -3,9 +3,7 @@
 import { CheckCircle2, Skull, Trophy } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { DeadlineDisplay } from '@/components/deadline-display'
-import { useEffect, useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
-import { setWeekLock } from '@/app/actions/week-lock'
+import { useEffect } from 'react'
 import {
   resetSlateScope,
   SlateScopePill,
@@ -24,29 +22,18 @@ import { cn } from '@/lib/utils'
  * 1" bar under "Week 1" was the same sentence twice.
  */
 export function WeekHeader({
-  leagueId,
-  nflWeekId,
   weekNumber,
   state,
   locked,
-  reopenable,
-  canLock,
   firstKickoff,
   lockAt,
   kickoff,
   scopeCounts,
-  onLockChanged,
 }: {
-  leagueId: string
-  nflWeekId: string
   weekNumber: number
   state: ParlayState
   /** Somebody has closed this week to new entries. */
   locked: boolean
-  /** That can still be undone — the first game we bet hasn't started. */
-  reopenable: boolean
-  /** The viewer runs the league. */
-  canLock: boolean
   /** First kickoff among the games we bet. */
   firstKickoff: string | null
   /** When the week was closed, if it was. */
@@ -54,8 +41,6 @@ export function WeekHeader({
   kickoff: string | null
   /** How many games each scope would show. Null hides the switch. */
   scopeCounts: Record<SlateScope, number> | null
-  /** Tell the stage its cached copy of this week is out of date. */
-  onLockChanged: () => void
 }) {
   const postLock = state !== 'open'
   const actionCount = scopeCounts?.action ?? 0
@@ -78,14 +63,7 @@ export function WeekHeader({
             of the row, where the week's last word belongs. */}
         <div className="ml-auto flex items-end gap-2">
           {scopeCounts && <SlateScopePill counts={scopeCounts} />}
-          <WeekLock
-            leagueId={leagueId}
-            nflWeekId={nflWeekId}
-            weekNumber={weekNumber}
-            locked={locked}
-            canToggle={canLock && (!locked || reopenable)}
-            onChanged={onLockChanged}
-          />
+          <LockMark locked={locked} weekNumber={weekNumber} />
         </div>
       </div>
       <WeekTiming locked={locked} lockAt={lockAt} firstKickoff={firstKickoff ?? kickoff} />
@@ -121,87 +99,29 @@ function WeekTiming({
 }
 
 /**
- * THE PADLOCK — the week's one irreversible-ish act, as a physical
- * object rather than a word.
- *
- * Pressing it swings the shackle down and shuts the body; pressing a
- * closed one springs it open again. That the control IS the state is the
- * point: there's no separate badge saying "OPEN" next to a button
- * offering to close it, which was two things saying one thing.
- *
- * People who don't run the league get the same padlock, minus the
- * pointer — it still tells them whether the week is taking entries.
+ * Whether the week is still taking entries, said once, where the week is
+ * named. It doesn't do anything: closing a week is the ACTIONS pod's
+ * job, and a padlock you can press in two different places is two
+ * things claiming the same verb.
  */
-function WeekLock({
-  leagueId,
-  nflWeekId,
-  weekNumber,
-  locked,
-  canToggle,
-  onChanged,
-}: {
-  leagueId: string
-  nflWeekId: string
-  weekNumber: number
-  locked: boolean
-  canToggle: boolean
-  onChanged: () => void
-}) {
-  const router = useRouter()
-  const [pending, start] = useTransition()
-  const [error, setError] = useState<string | null>(null)
-  // Optimistic: the shackle should move on the press, not after the
-  // round trip — a lock that hesitates doesn't feel like a lock.
-  const [shut, setShut] = useState(locked)
-  useEffect(() => setShut(locked), [locked])
-
-  const label = shut
-    ? `Week ${weekNumber} is closed to new entries${canToggle ? ' — press to reopen' : ''}`
-    : `Close week ${weekNumber} to new entries`
-
-  const toggle = () => {
-    if (!canToggle || pending) return
-    const next = !shut
-    setShut(next)
-    start(async () => {
-      setError(null)
-      const res = await setWeekLock(leagueId, nflWeekId, next)
-      if (res.error) {
-        setShut(!next) // put it back; the server said no
-        setError(res.error)
-        return
-      }
-      onChanged() // the stage's cached week
-      router.refresh() // the rail, the week list, the standings
-    })
-  }
-
+function LockMark({ locked, weekNumber }: { locked: boolean; weekNumber: number }) {
+  const label = locked
+    ? `Week ${weekNumber} is closed to new entries`
+    : `Week ${weekNumber} is open for entries`
   return (
-    <div className="relative">
-      <button
-        type="button"
-        disabled={!canToggle || pending}
-        aria-pressed={shut}
-        aria-label={label}
-        title={label}
-        onClick={toggle}
-        className={cn(
-          'flex size-9 items-center justify-center rounded-full border transition-colors',
-          shut
-            ? 'border-neon-blue/40 bg-neon-blue/10 text-neon-blue'
-            : 'text-muted-foreground border-white/12 bg-white/[0.03]',
-          canToggle && 'hover:border-neon-blue/60 hover:text-neon-blue cursor-pointer',
-          pending && 'opacity-70'
-        )}
-      >
-        <Padlock shut={shut} />
-      </button>
-      {error && (
-        <p className="text-destructive absolute top-full right-0 mt-1 text-[11px] whitespace-nowrap">
-          {error}
-        </p>
+    <span
+      role="img"
+      aria-label={label}
+      title={label}
+      className={cn(
+        'flex size-9 items-center justify-center rounded-full border',
+        locked
+          ? 'border-neon-blue/40 bg-neon-blue/10 text-neon-blue'
+          : 'text-muted-foreground/70 border-white/10 bg-white/[0.02]'
       )}
-    </div>
+    >
+      <Padlock shut={locked} />
+    </span>
   )
 }
 

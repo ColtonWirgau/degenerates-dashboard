@@ -68,6 +68,73 @@ export function subscribeViewedWeek(
   return () => viewedWeekListeners.delete(listener)
 }
 
+/* ---------- What the viewed week lets you do ---------- */
+
+/* The action pod lives in the shell, but everything it needs to know —
+ * is the week closed, can it be reopened, is your leg already in — is
+ * what the STAGE just fetched. Rather than have the shell re-query it,
+ * the stage publishes it here as it swaps weeks. Same shape of seam as
+ * the viewed week itself. */
+export interface WeekActions {
+  /** The week has a slate to bet at all. */
+  hasSlate: boolean
+  /** Somebody has closed it to new entries. */
+  locked: boolean
+  /** Closing it can still be undone — no game we bet has started. */
+  reopenable: boolean
+  /** The viewer may close or reopen it. */
+  canLock: boolean
+  /** The viewer's leg is already in. */
+  submitted: boolean
+}
+
+const NO_ACTIONS: WeekActions = {
+  hasSlate: false,
+  locked: false,
+  reopenable: false,
+  canLock: false,
+  submitted: false,
+}
+
+let weekActions: WeekActions = NO_ACTIONS
+const weekActionListeners = new Set<(a: WeekActions) => void>()
+
+export function setWeekActions(next: WeekActions) {
+  const same =
+    weekActions.hasSlate === next.hasSlate &&
+    weekActions.locked === next.locked &&
+    weekActions.reopenable === next.reopenable &&
+    weekActions.canLock === next.canLock &&
+    weekActions.submitted === next.submitted
+  if (same) return
+  weekActions = next
+  weekActionListeners.forEach((l) => l(weekActions))
+}
+
+export function subscribeWeekActions(
+  listener: (a: WeekActions) => void
+): () => void {
+  weekActionListeners.add(listener)
+  listener(weekActions)
+  return () => weekActionListeners.delete(listener)
+}
+
+/* A week changed under us. The pod closes a week from the shell, but the
+ * week's content is cached in the stage — this is how the shell tells it
+ * to go and look again. */
+let weekDirty = 0
+const weekDirtyListeners = new Set<(n: number) => void>()
+
+export function markWeekDirty() {
+  weekDirty++
+  weekDirtyListeners.forEach((l) => l(weekDirty))
+}
+
+export function subscribeWeekDirty(listener: (n: number) => void): () => void {
+  weekDirtyListeners.add(listener)
+  return () => weekDirtyListeners.delete(listener)
+}
+
 /* ---------- The league sheet ---------- */
 
 /* The two league surfaces that need real width — the full standings
