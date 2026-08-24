@@ -156,6 +156,8 @@ export interface CreateCharterEntryInput {
   threshold?: number | null;
   pollId?: string | null;
   proposedBy: string;
+  /** Free-form payload (jsonb) — custom entries carry `{ group }`. */
+  metadata?: CharterEntry['metadata'] | null;
 }
 
 // ─── Adapter selection ──────────────────────────────────────────────────────

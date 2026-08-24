@@ -87,7 +87,10 @@ export default async function InvitePage({
 
   async function handleAccept() {
     'use server'
-    await acceptInvitation(token)
+    const result = await acceptInvitation(token)
+    if (result.success && result.leagueId) {
+      redirect(`/leagues/${result.leagueId}`)
+    }
   }
 
   return (

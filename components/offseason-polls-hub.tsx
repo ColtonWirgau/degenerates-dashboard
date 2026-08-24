@@ -8,7 +8,7 @@ import {
   addPollOption as addPollOptionAction,
   reactToPollOption as reactToPollOptionAction,
 } from '@/app/actions/polls'
-import { approveCharter } from '@/app/actions/charter'
+import { approveCharter, createCharter } from '@/app/actions/charter'
 import { getAblyClient } from '@/lib/ably/client'
 import { channelName } from '@/lib/ably/channels'
 import {
@@ -254,6 +254,7 @@ export function OffseasonPollsHub({
 
   return (
     <SeasonSetup
+      leagueId={leagueId}
       charter={charter}
       polls={polls}
       membersById={membersById}
@@ -403,6 +404,7 @@ const APPROVAL_LABEL: Record<CharterApprovalRule, string> = {
 // a "Pitch an idea" affordance that feeds the suggestion pool for that
 // topic. Entries with no natural suggestion mapping (logistics) skip it.
 function SeasonSetup({
+  leagueId,
   charter,
   polls,
   membersById,
@@ -418,6 +420,7 @@ function SeasonSetup({
   approvals,
   onApprove,
 }: {
+  leagueId: string
   charter: CharterEntry[]
   polls: LeaguePoll[]
   membersById: Map<string, PollMember>
@@ -443,37 +446,111 @@ function SeasonSetup({
     const m = new Map<EntryGroup, CharterEntry[]>()
     for (const g of ENTRY_GROUP_ORDER) m.set(g, [])
     for (const e of charter) {
+      // User-added entries render in their own named groups below.
+      if (e.category === 'custom') continue
       const arr = m.get(groupFor(e))
       if (arr) arr.push(e)
     }
     return m
   }, [charter])
 
-  // User-added groups + entries. Lives in session state — mock-only
-  // until a real schema lands. Each group is named freely; entries are
-  // built into full CharterEntry shape via `makeCustomEntry`.
-  const [customGroups, setCustomGroups] = useState<CustomGroupState[]>([])
+  // User-added groups + entries. The server truth is charter entries with
+  // category 'custom' carrying their group name in metadata.group; local
+  // state holds just-created empty groups and optimistic entries until the
+  // refresh brings the real rows back.
+  const router = useRouter()
+  const [localGroups, setLocalGroups] = useState<CustomGroupState[]>([])
+  const [customError, setCustomError] = useState<string | null>(null)
+
+  const serverCustomGroups = useMemo(() => {
+    const m = new Map<string, CharterEntry[]>()
+    for (const e of charter) {
+      if (e.category !== 'custom') continue
+      const g = e.metadata?.group ?? 'Custom'
+      const arr = m.get(g) ?? []
+      arr.push(e)
+      m.set(g, arr)
+    }
+    return m
+  }, [charter])
+
+  const customGroups: CustomGroupState[] = useMemo(() => {
+    const out: CustomGroupState[] = []
+    const seen = new Set<string>()
+    for (const [name, entries] of serverCustomGroups) {
+      const local = localGroups.find(
+        (g) => g.name.toLowerCase() === name.toLowerCase()
+      )
+      // Optimistic entries drop out once the server row with the same key
+      // arrives via refresh.
+      const extra =
+        local?.entries.filter((le) => !entries.some((se) => se.key === le.key)) ?? []
+      out.push({ name, entries: [...entries, ...extra] })
+      seen.add(name.toLowerCase())
+    }
+    for (const g of localGroups) {
+      if (!seen.has(g.name.toLowerCase())) out.push(g)
+    }
+    return out
+  }, [serverCustomGroups, localGroups])
+
   const addCustomGroup = (name: string) => {
-    setCustomGroups((prev) => {
-      // Dedupe by case-insensitive name match.
-      if (prev.some((g) => g.name.toLowerCase() === name.toLowerCase())) {
+    setLocalGroups((prev) => {
+      if (
+        prev.some((g) => g.name.toLowerCase() === name.toLowerCase()) ||
+        [...serverCustomGroups.keys()].some(
+          (n) => n.toLowerCase() === name.toLowerCase()
+        )
+      ) {
         return prev
       }
       return [...prev, { name, entries: [] }]
     })
   }
+
   const addCustomEntry = (
     groupName: string,
     label: string,
     rule: CharterApprovalRule
   ) => {
-    setCustomGroups((prev) =>
-      prev.map((g) =>
-        g.name === groupName
-          ? { ...g, entries: [...g.entries, makeCustomEntry(groupName, label, rule)] }
-          : g
-      )
-    )
+    setCustomError(null)
+    const entry = makeCustomEntry(groupName, label, rule, season)
+    // Optimistic: show it immediately; the server row (same key) replaces
+    // it on refresh.
+    setLocalGroups((prev) => {
+      const existing = prev.find((g) => g.name.toLowerCase() === groupName.toLowerCase())
+      if (existing) {
+        return prev.map((g) =>
+          g.name.toLowerCase() === groupName.toLowerCase()
+            ? { ...g, entries: [...g.entries, entry] }
+            : g
+        )
+      }
+      return [...prev, { name: groupName, entries: [entry] }]
+    })
+    void createCharter({
+      leagueId,
+      season,
+      key: entry.key,
+      label,
+      category: 'custom',
+      approvalRule: rule,
+      threshold: rule === 'supermajority' ? 0.75 : undefined,
+      metadata: { group: groupName },
+    }).then((res) => {
+      if (res.error) {
+        // Roll the optimistic entry back and say why.
+        setLocalGroups((prev) =>
+          prev.map((g) => ({
+            ...g,
+            entries: g.entries.filter((e) => e.key !== entry.key),
+          }))
+        )
+        setCustomError(res.error)
+      } else {
+        router.refresh()
+      }
+    })
   }
 
   // Which group's sheet is open (built-in or custom). Null = list view
@@ -611,6 +688,12 @@ function SeasonSetup({
         </div>
       ))}
 
+      {customError && (
+        <p className="mb-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          {customError}
+        </p>
+      )}
+
       {/* Add-a-topic affordance — lives at the very bottom now that
           the masonry is gone. */}
       <div>
@@ -644,28 +727,38 @@ function SeasonSetup({
   )
 }
 
-// Session-state container for custom user-added Charter groups + their
-// entries. Mock-only — real persistence lands with the schema. Entries
-// are built into full `CharterEntry` shapes so they render identically
-// to the built-in ones.
+// Local container for custom user-added Charter groups + their entries —
+// just-created empty groups and optimistic adds; the server rows (category
+// 'custom', metadata.group) are the durable truth.
 interface CustomGroupState {
   name: string
   entries: CharterEntry[]
 }
 
+const slugify = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+
 function makeCustomEntry(
   groupName: string,
   label: string,
-  rule: CharterApprovalRule
+  rule: CharterApprovalRule,
+  season: string
 ): CharterEntry {
-  const id = `custom::${groupName}::${Date.now()}::${Math.random().toString(36).slice(2, 6)}`
+  // The key is generated up front and shared with the server insert, so
+  // the optimistic copy dedupes away when the real row arrives.
+  const key = `custom:${slugify(groupName)}:${slugify(label)}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`
   return {
-    id,
-    key: id,
+    id: key,
+    key,
     label,
     category: 'custom',
     value: null,
-    season: '',
+    season,
     source: 'manual',
     pollId: null,
     approvalRule: rule,
@@ -675,6 +768,7 @@ function makeCustomEntry(
     proposedAt: null,
     lockedAt: null,
     pending: null,
+    metadata: { group: groupName },
   }
 }
 

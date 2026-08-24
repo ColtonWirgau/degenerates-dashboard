@@ -5,9 +5,11 @@ import { redirect } from 'next/navigation'
 import { getDataAdapter } from '@/lib/data/adapter'
 import { getCurrentUser } from '@/lib/data/auth-bridge'
 import { db } from '@/db/client'
-import { leagues, leagueMembers } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { leagues, leagueMembers, leagueInvitations } from '@/db/schema'
+import { and, eq } from 'drizzle-orm'
+import { randomBytes } from 'crypto'
 import { recomputeAllLockTimesForLeague } from '@/app/actions/league-settings'
+import { sendLeagueInviteEmail } from '@/lib/email'
 
 // Read paths flow through the data adapter (mock or supabase). Mutations
 // stay on Supabase for now since the mock store is in-memory and resets
@@ -204,35 +206,131 @@ export async function createLeagueFromForm(formData: FormData) {
   return { error: 'Unknown error' }
 }
 
-export async function inviteMember(_leagueId: string, _email: string) {
-  console.warn('[mock] inviteMember no-op')
-  return {
-    error: null,
-    message: 'Invitation simulated (mock mode)',
-    inviteUrl: null as string | null,
+/** Caller's role, or null — the mutation guards below all start here. */
+async function callerRole(leagueId: string) {
+  const me = await getCurrentUser()
+  if (!me) return { me: null, role: null }
+  const adapter = await getDataAdapter()
+  const role = await adapter.getUserRole(leagueId, me.id)
+  return { me, role }
+}
+
+export async function inviteMember(leagueId: string, email: string) {
+  const { me, role } = await callerRole(leagueId)
+  if (!me) return { error: 'Unauthorized', message: null, inviteUrl: null as string | null }
+  if (role !== 'owner' && role !== 'admin') {
+    return { error: 'Only owners and admins can invite members', message: null, inviteUrl: null }
+  }
+
+  const normalized = email.trim().toLowerCase()
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+    return { error: 'That does not look like an email address', message: null, inviteUrl: null }
+  }
+
+  const adapter = await getDataAdapter()
+  const members = await adapter.getLeagueMembers(leagueId)
+  if (members.some((m) => m.user.email.toLowerCase() === normalized)) {
+    return { error: 'That person is already in the league', message: null, inviteUrl: null }
+  }
+
+  const [league] = await db
+    .select({ name: leagues.name })
+    .from(leagues)
+    .where(eq(leagues.id, leagueId))
+    .limit(1)
+  if (!league) return { error: 'League not found', message: null, inviteUrl: null }
+
+  const token = randomBytes(24).toString('base64url')
+  await db.insert(leagueInvitations).values({
+    leagueId,
+    email: normalized,
+    invitedBy: me.id,
+    token,
+    expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
+  })
+
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? process.env.AUTH_URL ?? 'http://localhost:3001'
+  const inviteUrl = `${base.replace(/\/$/, '')}/invite/${token}`
+
+  // Email is best-effort: the link is returned either way so the sheet's
+  // copy button works even when SMTP hiccups.
+  try {
+    await sendLeagueInviteEmail({
+      to: normalized,
+      leagueName: league.name,
+      inviterName: me.fullName ?? me.email,
+      inviteUrl,
+    })
+    return { error: null, message: `Invitation sent to ${normalized}`, inviteUrl }
+  } catch (err) {
+    console.error('[inviteMember] email send failed:', err)
+    return {
+      error: null,
+      message: `Couldn't send the email — copy the invite link instead`,
+      inviteUrl,
+    }
   }
 }
 
 export async function updateMemberRole(
-  _leagueId: string,
-  _memberId: string,
+  leagueId: string,
+  memberId: string,
   newRole: 'admin' | 'member' | 'owner'
 ) {
-  console.warn('[mock] updateMemberRole no-op', newRole)
+  const { me, role } = await callerRole(leagueId)
+  if (!me) return { error: 'Unauthorized' }
+  // Ownership transfer is deliberately out of scope — one owner, always.
+  if (newRole === 'owner') return { error: 'Ownership cannot be transferred here' }
+  if (role !== 'owner') return { error: 'Only the owner can change roles' }
+
+  const adapter = await getDataAdapter()
+  const target = await adapter.getUserRole(leagueId, memberId)
+  if (!target) return { error: 'Not a member of this league' }
+  if (target === 'owner') return { error: "The owner's role cannot be changed" }
+
+  await db
+    .update(leagueMembers)
+    .set({ role: newRole })
+    .where(and(eq(leagueMembers.leagueId, leagueId), eq(leagueMembers.userId, memberId)))
+  revalidatePath(`/leagues/${leagueId}`)
   return { error: null }
 }
 
-export async function removeMember(_leagueId: string, _memberId: string) {
-  console.warn('[mock] removeMember no-op')
+export async function removeMember(leagueId: string, memberId: string) {
+  const { me, role } = await callerRole(leagueId)
+  if (!me) return { error: 'Unauthorized' }
+  if (role !== 'owner' && role !== 'admin') {
+    return { error: 'Only owners and admins can remove members' }
+  }
+  if (memberId === me.id) {
+    return { error: 'You cannot remove yourself' }
+  }
+
+  const adapter = await getDataAdapter()
+  const target = await adapter.getUserRole(leagueId, memberId)
+  if (!target) return { error: 'Not a member of this league' }
+  if (target === 'owner') return { error: 'The owner cannot be removed' }
+  if (target === 'admin' && role !== 'owner') {
+    return { error: 'Only the owner can remove an admin' }
+  }
+
+  // Their past legs stay — the ledger is history, membership is not.
+  await db
+    .delete(leagueMembers)
+    .where(and(eq(leagueMembers.leagueId, leagueId), eq(leagueMembers.userId, memberId)))
+  revalidatePath(`/leagues/${leagueId}`)
   return { error: null }
 }
 
 export async function getLeagueByInviteCode(inviteCode: string) {
-  const adapter = await getDataAdapter()
-  const me = await getCurrentUser()
-  if (!me) return { league: null, error: null }
-  const leagues = await adapter.getLeaguesForUser(me.id)
-  const match = leagues.find((l) => l.inviteCode === inviteCode)
+  // Deliberately NO membership filter: the whole point of a join link is
+  // that a non-member holds it. Only name + code are exposed.
+  const normalized = inviteCode.trim().toLowerCase()
+  const [match] = await db
+    .select({ id: leagues.id, name: leagues.name, inviteCode: leagues.inviteCode })
+    .from(leagues)
+    .where(eq(leagues.inviteCode, normalized))
+    .limit(1)
   if (!match) return { league: null, error: 'Invite code not found' }
   return {
     league: { id: match.id, name: match.name, invite_code: match.inviteCode },
@@ -267,7 +365,25 @@ export async function joinLeagueByInviteCode(inviteCode: string) {
   return { success: true, leagueId: target.id, error: null }
 }
 
-export async function regenerateInviteCode(_leagueId: string) {
-  console.warn('[mock] regenerateInviteCode no-op')
-  return { inviteCode: `mock${Date.now().toString(36).slice(-4)}`, error: null }
+export async function regenerateInviteCode(leagueId: string) {
+  const { me, role } = await callerRole(leagueId)
+  if (!me) return { inviteCode: null, error: 'Unauthorized' }
+  if (role !== 'owner' && role !== 'admin') {
+    return { inviteCode: null, error: 'Only owners and admins can regenerate the code' }
+  }
+
+  for (let i = 0; i < 5; i++) {
+    const candidate = generateInviteCode()
+    const exists = await db
+      .select({ id: leagues.id })
+      .from(leagues)
+      .where(eq(leagues.inviteCode, candidate))
+      .limit(1)
+    if (!exists[0]) {
+      await db.update(leagues).set({ inviteCode: candidate }).where(eq(leagues.id, leagueId))
+      revalidatePath(`/leagues/${leagueId}`)
+      return { inviteCode: candidate, error: null }
+    }
+  }
+  return { inviteCode: null, error: 'Could not allocate a new code; try again' }
 }

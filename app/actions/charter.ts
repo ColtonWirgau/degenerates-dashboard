@@ -63,6 +63,8 @@ export async function createCharter(input: {
   description?: string
   approvalRule: CharterApprovalRule
   threshold?: number
+  /** Custom entries carry their display group name: `{ group: 'Side Bets' }`. */
+  metadata?: { group?: string }
 }) {
   const me = await getCurrentUser()
   if (!me) return { success: false, error: 'Unauthorized' }
@@ -84,6 +86,7 @@ export async function createCharter(input: {
     approvalRule: input.approvalRule,
     threshold: input.threshold ?? null,
     proposedBy: me.id,
+    metadata: input.metadata ?? null,
   })
   revalidatePath(`/leagues/${input.leagueId}`)
   void publish(channelName.charter(input.leagueId), event.charterEntryProposed, {

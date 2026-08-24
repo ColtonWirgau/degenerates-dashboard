@@ -22,6 +22,7 @@ import {
   uniqueIndex,
   index,
   pgEnum,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 import type { AdapterAccountType } from 'next-auth/adapters'
@@ -435,7 +436,8 @@ export const polls = pgTable(
     // For ranked polls (typical: 3). Null for single-choice.
     maxRanks: integer('max_ranks'),
     // Two-phase flow: derived vote-poll points back at the submission poll.
-    parentPollId: uuid('parent_poll_id').references((): any => polls.id),
+    // (Self-reference needs the explicit return type to break the cycle.)
+    parentPollId: uuid('parent_poll_id').references((): AnyPgColumn => polls.id),
     // Stable identifier tying a seeded poll to its template (e.g.
     // 'tie-breaker', 'commish-2026'). Lets the seed-on-first-load path
     // stay idempotent + lets charter entries link back via FK lookup.

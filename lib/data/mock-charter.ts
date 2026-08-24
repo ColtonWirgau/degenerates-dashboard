@@ -89,9 +89,11 @@ export interface CharterEntry {
   pending: CharterPending | null;
   /** Custom payload for entries with special rendering. E.g. the
    *  `eligible-keepers` entry attaches the keeper roster here so the
-   *  EntryDock's expanded action panel can render it as a table. */
+   *  EntryDock's expanded action panel can render it as a table. User-added
+   *  custom entries carry their display group name in `group`. */
   metadata?: {
     keeperRoster?: KeeperRosterRow[];
+    group?: string;
   };
 }
 

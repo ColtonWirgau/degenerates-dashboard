@@ -7,7 +7,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 // calls `auth()`.
 const AUTHJS_COOKIES = ['authjs.session-token', '__Secure-authjs.session-token']
 
-const PROTECTED_PREFIXES = ['/dashboard', '/leagues', '/profile']
+// Just /leagues — the old /dashboard and /profile routes no longer exist.
+const PROTECTED_PREFIXES = ['/leagues']
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl

@@ -905,6 +905,7 @@ export const neonAdapter: DataAdapter = {
         status: 'draft',
         proposedBy: input.proposedBy,
         proposedAt: new Date(),
+        metadata: input.metadata ?? null,
       })
       .returning()
 
@@ -925,6 +926,7 @@ export const neonAdapter: DataAdapter = {
       proposedAt: row!.proposedAt?.toISOString() ?? null,
       lockedAt: row!.lockedAt?.toISOString() ?? null,
       pending: null,
+      ...(row!.metadata ? { metadata: row!.metadata as CharterEntry['metadata'] } : {}),
     }
   },
 
