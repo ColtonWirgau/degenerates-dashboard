@@ -1,4 +1,9 @@
 import { defineConfig, devices } from '@playwright/test'
+import { config as loadEnv } from 'dotenv'
+
+// The dev server loads .env.local via Next; specs that talk to the DB
+// directly (session injection) need it in the runner process too.
+loadEnv({ path: '.env.local', quiet: true })
 
 export default defineConfig({
   testDir: './tests/e2e',
