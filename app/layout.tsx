@@ -31,7 +31,9 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  themeColor: "#3b82f6",
+  // The canvas ground — the browser chrome should read as the same
+  // surface the neon wash sits on, not legacy blue.
+  themeColor: "#0A0A0A",
 };
 
 export default function RootLayout({

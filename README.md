@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Degenerates Dashboard
 
-## Getting Started
+A private parlay-league tracker for a 12-person fantasy football group. Every
+week the league assembles **one combined parlay** where each member contributes
+exactly **one leg**. The app also runs the league's off-field business — polls
+and a season "charter" (draft date, buy-in, punishment, keeper rules) with real
+approval thresholds.
 
-First, run the development server:
+> Getting 12 grown men to agree on one draft date without one of them getting
+> killed by his wife.
+
+## Stack
+
+| Piece | What |
+|---|---|
+| Framework | Next.js 15 (App Router, Turbopack), React 19, TypeScript |
+| Data | Neon Postgres + Drizzle ORM (`db/schema.ts`, migrations in `db/migrations/`) |
+| Auth | Auth.js v5, database sessions — Google OAuth + Brevo SMTP magic links |
+| Realtime | Ably (`lib/ably/*`) |
+| AI | OpenAI — per-leg conflict validation on submit (`lib/openai.ts`) |
+| UI | Tailwind v4 (CSS-first, no config file), shadcn primitives, framer-motion |
+
+Dev runs on **port 3001** (`AUTH_URL` is pinned there so magic links match).
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev          # http://localhost:3001
+npm run build
+npx playwright test  # e2e (needs the dev server; it starts one if absent)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Required env in `.env.local`: `DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL`,
+`AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET`, `BREVO_SMTP_USER`/`BREVO_SMTP_KEY`,
+`EMAIL_FROM`, `ABLY_API_KEY`, `OPENAI_API_KEY`, `CRON_SECRET`,
+`NEXT_PUBLIC_DATA_SOURCE=neon`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Data sources
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+All reads go through the `DataAdapter` seam (`lib/data/adapter.ts`):
 
-## Learn More
+- `NEXT_PUBLIC_DATA_SOURCE=neon` → `neon-adapter.ts` (production; real Drizzle)
+- `NEXT_PUBLIC_DATA_SOURCE=mock` → `mock-adapter.ts` + fixtures, kept
+  permanently as a dev/demo tool with scenario switching
 
-To learn more about Next.js, take a look at the following resources:
+## The NFL schedule
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+`nfl_teams` / `nfl_games` are seeded from the public ESPN API:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npx tsx scripts/load-nfl-schedule.ts               # current season + teams
+npx tsx scripts/load-nfl-schedule.ts --teams-only  # refresh teams/logos
+```
 
-## Deploy on Vercel
+`/api/cron/refresh-schedule` re-pulls nightly (Vercel cron, `Bearer $CRON_SECRET`)
+and recomputes each league's lock times.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Docs
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `ARCHITECTURE.md` — how the app is put together (shell, data flow, lock times)
+- `PLAN.md` — the running product/phase plan and status snapshot

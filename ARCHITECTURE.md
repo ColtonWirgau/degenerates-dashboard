@@ -1,346 +1,93 @@
-# Degenerates Dashboard - Architecture Guide
+# Architecture
 
-## Overview
+## Routes
 
-This document outlines the architectural decisions and patterns used in the Degenerates Dashboard project.
+| Route | What |
+|---|---|
+| `/` | Marketing hero + sign-in dock; signed-in users redirect to their first league |
+| `/leagues/new` | 4-step create wizard (name/code → slate days → lock offset → review) |
+| `/leagues/[id]` | The league screen — branches on season state (off/preseason → polls + charter hub; in-season → week slate + performance) |
+| `/leagues/[id]/weeks/[weekId]` | Week detail; `weekId` in the URL is the **parlay id**. Dispatches on derived `ParlayState` into 5 views |
+| `/join/[code]` · `/invite/[token]` | Join by code / accept an emailed invitation |
+| `/api/cron/refresh-schedule` | Nightly ESPN re-pull + lock-time recompute |
 
-## Tech Stack Rationale
+## The shell (`app/leagues/[id]/layout.tsx`)
 
-### Next.js 14+ (App Router)
-- **Server Components**: Default server rendering for better performance
-- **Server Actions**: Type-safe server mutations without API routes
-- **File-based routing**: Intuitive routing structure
-- **Built-in optimizations**: Image optimization, code splitting, etc.
-
-### Supabase
-- **Postgres database**: Robust, scalable SQL database
-- **Built-in auth**: No need to roll our own authentication
-- **Row Level Security (RLS)**: Database-level access control
-- **Real-time capabilities**: Future feature for live parlay updates
-- **Free tier**: Generous limits for getting started
-
-### TypeScript
-- **Type safety**: Catch errors at compile time
-- **Better DX**: Autocomplete and IntelliSense
-- **Self-documenting**: Types serve as documentation
-
-### Tailwind CSS
-- **Utility-first**: Rapid UI development
-- **Consistent design**: Design system built-in
-- **Mobile-first**: Responsive by default
-- **Small bundle**: Only used classes are included
-
-### shadcn/ui
-- **Copy-paste components**: Full control over component code
-- **Accessible**: Built on Radix UI primitives
-- **Customizable**: Easy to modify to your needs
-- **No package lock-in**: Components live in your codebase
-
-## Project Structure
-
-### App Directory (`/app`)
-Next.js App Router structure with file-based routing.
+League routes render inside a **canvas-reveal shell** ported from RoarTracker
+and reskinned in the neon palette. It's a *segment* layout on purpose: the
+league id is in the URL so it can fetch panel data per-league, and Next keeps
+layouts mounted across navigations within the segment — the chrome holds
+perfectly still while only the card content swaps.
 
 ```
-app/
-├── actions/          # Server Actions (mutations)
-│   └── auth.ts
-├── login/           # Auth pages
-├── signup/
-├── dashboard/       # Protected app pages
-├── layout.tsx       # Root layout
-├── page.tsx         # Landing page
-└── globals.css      # Global styles
+Masthead                         (on the canvas; holds still)
+└── CanvasSheet                  (the reveal engine)
+    ├── panels: slate/board/polls (left)  ·  submit (right)
+    └── sheet-track
+        └── PageSheet            (the transform target)
+            ├── AvatarNotch · PanelBubbles · ActionBubble   (edge chrome)
+            └── PageSheetCard → .page-sheet-scroll → {children}
+MobileDock · LeagueSheetHost     (portaled; outside the transform)
 ```
 
-### Components (`/components`)
-Reusable React components.
+**How it works.** Opening a panel doesn't float it over the page — the card
+scales back (0.75) toward a top corner, revealing a panel printed on the canvas
+beneath. Navigation is a module-scope pub/sub store
+(`components/chrome/canvas-store.ts`), not routing.
 
-```
-components/
-├── ui/              # shadcn/ui base components
-└── [feature]/       # Feature-specific components (future)
-```
+The edge **bubbles** sit in real holes: `bubble-layout.ts` owns the geometry
+(and a dormant split spring), `bite-geometry.ts` traces the whole card
+perimeter as one `path()`, and `page-sheet-card.tsx` applies it as a clip-path
+via ref on resize and every animation frame. A bubble and its bite can never
+drift because they read the same numbers.
 
-### Lib (`/lib`)
-Utility functions and configuration.
+Below `lg`, the edge chrome is hidden and the same panels render as portaled
+`ResponsiveSheet`s (`components/chrome/panel-reveal.tsx`), driven by the
+floating **MobileDock** pill.
 
-```
-lib/
-├── supabase/
-│   ├── client.ts    # Browser client
-│   └── server.ts    # Server client
-└── utils.ts         # Helper functions
-```
+### Constraints worth knowing
 
-## Authentication Flow
+- **No `backdrop-filter` on `.page-sheet-card`.** It's clip-pathed per frame;
+  backdrop resampling is compositor poison, Safari mis-clips it, and it would
+  capture `position: fixed` descendants. Panels (not clipped) *are* real glass.
+- **Nothing `position: fixed` inside `.page-sheet`** — the transform becomes
+  its containing block. Portal it (see `parlay-result-animation.tsx`).
+- z-order: bubbles 40 < masthead 50 < portaled sheets 50/60.
+- Palette: **blue = good/pass, pink = bad/destructive**, purple = polls. Don't
+  introduce new hues.
 
-### Middleware Pattern
-The `middleware.ts` file handles:
-1. Session refresh (extends user session)
-2. Protected route checks (redirect to login if not authenticated)
-3. Auth page redirects (redirect to dashboard if already logged in)
+## Data flow
 
-### Server Actions
-Authentication mutations are handled via Server Actions:
-- `login()` - Email/password sign in
-- `signup()` - New user registration
-- `logout()` - Sign out and clear session
+Reads go through `DataAdapter` (`lib/data/adapter.ts` → `neon-adapter.ts`).
+Two composite reads back the pages: `getLeagueOverview` (wrapped in React
+`cache()` at `lib/data/league-overview-cached.ts` so layout + page dedupe) and
+`getWeekOverview`. Mutations are server actions in `app/actions/*`, each
+revalidating its path and publishing to Ably.
 
-### Client vs Server Supabase Clients
-- **Browser client** (`lib/supabase/client.ts`): Used in Client Components
-- **Server client** (`lib/supabase/server.ts`): Used in Server Components and Server Actions
+`lib/data/week-slate.ts` is a direct-db read model (not on the adapter) that
+shapes `nfl_games` + `nfl_teams` into the slate UI's props, flagging each game
+`inSlate` per the league's config.
 
-## Data Architecture (Planned)
+## Lock times — the season's deadline
 
-### Multi-Tenancy Model
-- **User-centric**: Users can belong to multiple leagues
-- **League isolation**: Each league's data is independent
-- **Flexible membership**: Users can have different roles per league
+1. A league configures `slate_days_included` (default sun+mon),
+   `slate_include_holidays`, `lock_offset_minutes` (default 10).
+2. `lib/lock-time.ts` derives `lockAt = min(in-slate kickoff) − offset` and
+   caches it in `league_weeks.lock_at_cached`. Written by league creation, the
+   settings action, and the nightly cron.
+3. `getCachedLockAt()` reads it (self-healing: computes + persists on a missing
+   row; a row with `null` is a legitimate "TBD" and is left alone).
+4. It rides on `Parlay.lockAt` → becomes `week.deadline` everywhere, and
+   `submitLeg`/`deleteLeg` **enforce it server-side**. `isInSlate()` is shared
+   by the derivation and the slate UI so they can't disagree.
 
-### Database Schema (To Be Implemented)
+**Parlays are created lazily.** `ensureWeekParlay(leagueId, nflWeekId)` is
+called from `getLeagueOverview` for the active week only — race-safe via the
+`(league_id, nfl_week_id)` unique constraint. Nothing backfills past weeks.
 
-```sql
--- Core entities
-users (extends auth.users)
-  - id
-  - email
-  - full_name
-  - avatar_url
-  - created_at
+## Still illustrative
 
-leagues
-  - id
-  - name
-  - season (e.g., "2024")
-  - year
-  - created_by
-  - created_at
-
-league_members
-  - id
-  - league_id
-  - user_id
-  - role (owner/admin/member)
-  - joined_at
-
-weeks
-  - id
-  - league_id
-  - week_number
-  - status (open/closed/completed)
-  - deadline
-  - result (win/loss)
-
-parlay_legs
-  - id
-  - week_id
-  - user_id
-  - bet_description
-  - odds
-  - status (pending/won/lost)
-  - submitted_at
-
-parlays
-  - id
-  - week_id
-  - combined_odds
-  - result (pending/won/lost)
-  - payout_amount
-  - completed_at
-```
-
-### Row Level Security (RLS)
-Supabase RLS policies will enforce:
-- Users can only see leagues they belong to
-- Only league members can view that league's data
-- Only admins/owners can modify league settings
-- Members can only submit their own parlay legs
-
-## Routing Strategy
-
-### Public Routes
-- `/` - Landing page
-- `/login` - Sign in
-- `/signup` - Register
-
-### Protected Routes (Require Auth)
-- `/dashboard` - Main dashboard/home
-- `/leagues` - League list
-- `/leagues/[id]` - League detail
-- `/leagues/[id]/week/[weekId]` - Week detail with parlay
-- `/profile` - User profile/settings
-
-### Middleware Protection
-Middleware automatically redirects:
-- Unauthenticated users accessing `/dashboard/*` → `/login`
-- Authenticated users accessing `/login` or `/signup` → `/dashboard`
-
-## State Management
-
-### Server State (Primary)
-- **Server Components**: Fetch data directly in components
-- **Server Actions**: Mutate data via forms or client actions
-- **Automatic revalidation**: Next.js handles cache invalidation
-
-### Client State (Minimal)
-- **React state**: Only for UI-specific state (form inputs, modals)
-- **URL state**: Use query params for filters, pagination
-- **No global state library needed**: Server components handle most data
-
-## API Pattern
-
-### Server Actions Instead of API Routes
-Why:
-- Type-safe by default (TypeScript end-to-end)
-- Automatic code-splitting
-- Built-in request deduplication
-- Simpler error handling
-- No need to define API routes
-
-Example:
-```typescript
-// app/actions/leagues.ts
-'use server'
-
-export async function createLeague(formData: FormData) {
-  const supabase = await createClient()
-  // ... mutation logic
-  revalidatePath('/leagues')
-  redirect('/leagues')
-}
-```
-
-## Mobile-First Design Approach
-
-### Responsive Breakpoints (Tailwind)
-- `sm`: 640px (small tablets)
-- `md`: 768px (tablets)
-- `lg`: 1024px (laptops)
-- `xl`: 1280px (desktops)
-
-### Mobile Optimizations
-- Touch-friendly button sizes (min 44x44px)
-- Large text for readability
-- Bottom navigation for thumb-friendly access
-- Swipe gestures where appropriate
-- Minimal data loading (paginate/infinite scroll)
-
-## Performance Considerations
-
-### Image Optimization
-- Use Next.js `<Image>` component
-- Lazy loading by default
-- Automatic format selection (WebP, AVIF)
-
-### Code Splitting
-- Automatic per-route splitting
-- Dynamic imports for heavy components
-- Lazy load modals and non-critical UI
-
-### Database Query Optimization
-- Select only needed columns
-- Use database indexes
-- Implement pagination
-- Cache expensive queries
-
-## Security Best Practices
-
-### Authentication
-- Secure HTTP-only cookies (handled by Supabase)
-- Session refresh in middleware
-- CSRF protection via Server Actions
-
-### Database Access
-- Row Level Security (RLS) policies
-- Never expose service role key
-- Validate all inputs in Server Actions
-
-### Environment Variables
-- All secrets in `.env.local`
-- Never commit `.env.local`
-- Use `NEXT_PUBLIC_*` prefix only for client-safe values
-
-## Development Workflow
-
-### Feature Development
-1. Design database schema changes
-2. Create/update tables in Supabase
-3. Generate TypeScript types
-4. Create Server Actions
-5. Build UI components
-6. Add routing/pages
-7. Test auth and permissions
-
-### Testing Strategy (Future)
-- **Unit tests**: Utility functions
-- **Integration tests**: Server Actions
-- **E2E tests**: Critical user flows
-- Use Supabase local development for testing
-
-## Deployment Strategy
-
-### Vercel (Recommended)
-- Automatic deployments on git push
-- Preview deployments for PRs
-- Edge functions for middleware
-- Built-in analytics
-
-### Environment Setup
-- **Development**: Local with Supabase project
-- **Production**: Vercel with production Supabase project
-- Use separate Supabase projects for dev/prod
-
-## Future Enhancements
-
-### PWA Support (Phase 2)
-- Service worker for offline support
-- Install prompt
-- Push notifications for:
-  - Week opening/closing
-  - Parlay results
-  - League invites
-
-### Real-time Features (Phase 3)
-- Live parlay updates using Supabase Realtime
-- Live member status (who's submitted)
-- Chat/comments per week
-
-### Advanced Stats (Phase 4)
-- Historical performance tracking
-- Win rate analysis
-- Best/worst performers
-- Trend analysis
-
-## Helpful Patterns
-
-### Loading States
-```typescript
-// Use Suspense boundaries
-<Suspense fallback={<LoadingSkeleton />}>
-  <DataComponent />
-</Suspense>
-```
-
-### Error Handling
-```typescript
-// Use error.tsx files for error boundaries
-// app/dashboard/error.tsx
-'use client'
-export default function Error({ error, reset }) {
-  return <ErrorDisplay error={error} onReset={reset} />
-}
-```
-
-### Form Handling
-```typescript
-// Progressive enhancement with Server Actions
-<form action={serverAction}>
-  <input name="field" />
-  <button type="submit">Submit</button>
-</form>
-```
-
----
-
-This architecture supports rapid iteration while maintaining scalability and best practices. As the project grows, we can refine and extend these patterns.
+Betting odds, in-progress quarter/clock, and which game a leg "belongs to" are
+labeled mock in the UI. Real schedule, kickoffs, team colors/logos, statuses and
+final scores are live. Odds/live-score provider is not chosen yet; real
+leg→game association needs a `parlay_legs.nfl_game_id` column.
