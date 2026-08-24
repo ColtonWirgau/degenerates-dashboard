@@ -8,7 +8,14 @@ import {
   addPollOption as addPollOptionAction,
   reactToPollOption as reactToPollOptionAction,
 } from '@/app/actions/polls'
-import { approveCharter, createCharter } from '@/app/actions/charter'
+import {
+  addCharterItem,
+  approveCharter,
+  deleteCharter,
+  deleteCharterGroup,
+  renameCharterGroup,
+  updateCharter,
+} from '@/app/actions/charter'
 import { getAblyClient } from '@/lib/ably/client'
 import { channelName } from '@/lib/ably/channels'
 import {
@@ -22,11 +29,14 @@ import {
   Hourglass,
   Layers,
   Lock,
+  Pencil,
+  Plus,
   ScrollText,
   Skull,
   Sparkles,
   ThumbsDown,
   ThumbsUp,
+  Trash2,
   Vote,
   X,
 } from 'lucide-react'
@@ -70,6 +80,12 @@ interface OffseasonPollsHubProps {
   membersCount: number
   /** Roster — drives avatars on chart bars and open-text responses. */
   members: PollMember[]
+  /** Owners and admins run the charter — they get the add/edit/remove
+   *  controls; everyone else reads and votes. */
+  canManage: boolean
+  /** The week new polls attach to — the preseason week, since this hub
+   *  IS the preseason week's content. */
+  nflWeekId: string
 }
 
 // In-session vote overlay. Keys are poll IDs. Each entry replaces the
@@ -110,11 +126,6 @@ function hasAnyAnswer(v: SessionVote | null): boolean {
 // Ranked-choice tally — plurality-weighted (3 pts for 1st, 2 for 2nd, 1
 // for 3rd). Same shape regardless of `maxRanks`; we just slice the
 // `RANK_POINTS` table.
-const RANK_POINTS: Record<number, number> = { 1: 3, 2: 2, 3: 1, 4: 0.5, 5: 0.25 }
-
-const fmtDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-
 // ─── Hub ────────────────────────────────────────────────────────────────────
 
 /**
@@ -132,6 +143,8 @@ export function OffseasonPollsHub({
   currentUserId,
   membersCount,
   members,
+  canManage,
+  nflWeekId,
 }: OffseasonPollsHubProps) {
   void seasonState
   void membersCount
@@ -259,6 +272,8 @@ export function OffseasonPollsHub({
       membersCount={membersCount}
       currentUserId={currentUserId}
       season={charter[0]?.season ?? ''}
+      canManage={canManage}
+      nflWeekId={nflWeekId}
       sessionPollVotes={sessionVotes}
       onPollVote={recordVote}
       sessionOptionReactions={sessionOptionReactions}
@@ -339,7 +354,25 @@ const ENTRY_GROUP: Record<string, EntryGroup> = {
   trophy: 'Logistics',
 }
 
+/** Which built-in category maps to which charter category on write. */
+const GROUP_CATEGORY: Record<EntryGroup, CharterCategory> = {
+  Draft: 'format',
+  Stakes: 'stakes',
+  Trading: 'trading',
+  Playoffs: 'playoffs',
+  Punishment: 'punishment',
+  Rules: 'rules',
+  Logistics: 'logistics',
+}
+
 function groupFor(entry: CharterEntry): EntryGroup {
+  // An entry added by hand carries its group; the seeded ones are known
+  // by key. Without the first clause a new "Draft" item would silently
+  // file itself under Rules.
+  const named = entry.metadata?.group
+  if (named && (ENTRY_GROUP_ORDER as string[]).includes(named)) {
+    return named as EntryGroup
+  }
   return ENTRY_GROUP[entry.key] ?? 'Rules'
 }
 
@@ -362,22 +395,6 @@ const GROUP_META: Record<
   Rules: { icon: ScrollText, palette: ['#00D9FF', '#FF69B4'] },
   Logistics: { icon: Hourglass, palette: ['#FF69B4', '#00D9FF'] },
 }
-
-// 1–2-line preview shown on each group card. Prefers the first two locked
-// values; falls back to a pending proposal; otherwise muted placeholder.
-function groupPreview(entries: CharterEntry[]): string {
-  const locked = entries.filter((e) => e.status === 'locked' && e.value)
-  if (locked.length === 0) {
-    const pending = entries.find((e) => e.status === 'pending' && e.pending)
-    if (pending && pending.pending) return `Proposed: ${pending.pending.value}`
-    return 'Nothing locked yet'
-  }
-  return locked
-    .slice(0, 2)
-    .map((e) => e.value!)
-    .join(' · ')
-}
-
 const CHARTER_ICON: Record<CharterCategory, React.ComponentType<{ className?: string }>> = {
   logistics: Hourglass,
   rules: ScrollText,
@@ -417,6 +434,8 @@ function SeasonSetup({
   onAddOption,
   approvals,
   onApprove,
+  canManage,
+  nflWeekId,
 }: {
   leagueId: string
   charter: CharterEntry[]
@@ -433,6 +452,8 @@ function SeasonSetup({
   onAddOption: (pollId: string, label: string, policy: PollOptionPolicy) => void
   approvals: Map<string, boolean>
   onApprove: (entryId: string) => void
+  canManage: boolean
+  nflWeekId: string
 }) {
   const pollsById = useMemo(() => {
     const m = new Map<string, LeaguePoll>()
@@ -506,48 +527,68 @@ function SeasonSetup({
     })
   }
 
-  const addCustomEntry = (
+  /**
+   * ADD ONE ITEM — to any topic, built-in or your own. Give it options
+   * and it becomes a vote the league settles together; give it none and
+   * it's a line the commish rules on. Same object either way, so it's
+   * one control rather than two features that drift apart.
+   */
+  const addItem = (
     groupName: string,
     label: string,
-    rule: CharterApprovalRule
+    rule: CharterApprovalRule,
+    options: string[]
   ) => {
     setCustomError(null)
-    const entry = makeCustomEntry(groupName, label, rule, season)
-    // Optimistic: show it immediately; the server row (same key) replaces
-    // it on refresh.
-    setLocalGroups((prev) => {
-      const existing = prev.find((g) => g.name.toLowerCase() === groupName.toLowerCase())
-      if (existing) {
-        return prev.map((g) =>
-          g.name.toLowerCase() === groupName.toLowerCase()
-            ? { ...g, entries: [...g.entries, entry] }
-            : g
-        )
-      }
-      return [...prev, { name: groupName, entries: [entry] }]
-    })
-    void createCharter({
+    const builtIn = (ENTRY_GROUP_ORDER as string[]).includes(groupName)
+    void addCharterItem({
       leagueId,
       season,
-      key: entry.key,
+      nflWeekId,
+      group: groupName,
+      category: builtIn ? GROUP_CATEGORY[groupName as EntryGroup] : 'custom',
       label,
-      category: 'custom',
       approvalRule: rule,
-      threshold: rule === 'supermajority' ? 0.75 : undefined,
-      metadata: { group: groupName },
+      options,
     }).then((res) => {
-      if (res.error) {
-        // Roll the optimistic entry back and say why.
-        setLocalGroups((prev) =>
-          prev.map((g) => ({
-            ...g,
-            entries: g.entries.filter((e) => e.key !== entry.key),
-          }))
-        )
-        setCustomError(res.error)
-      } else {
-        router.refresh()
-      }
+      if (res.error) setCustomError(res.error)
+      else router.refresh()
+    })
+  }
+
+  const editItem = (entryId: string, label: string) => {
+    setCustomError(null)
+    void updateCharter({ leagueId, entryId, label }).then((res) => {
+      if (res.error) setCustomError(res.error)
+      else router.refresh()
+    })
+  }
+
+  const removeItem = (entryId: string, pollId: string | null) => {
+    setCustomError(null)
+    void deleteCharter(leagueId, entryId, pollId).then((res) => {
+      if (res.error) setCustomError(res.error)
+      else router.refresh()
+    })
+  }
+
+  const renameGroup = (from: string, to: string) => {
+    setCustomError(null)
+    setLocalGroups((prev) =>
+      prev.map((g) => (g.name === from ? { ...g, name: to } : g))
+    )
+    void renameCharterGroup(leagueId, season, from, to).then((res) => {
+      if (res.error) setCustomError(res.error)
+      else router.refresh()
+    })
+  }
+
+  const removeGroup = (name: string) => {
+    setCustomError(null)
+    setLocalGroups((prev) => prev.filter((g) => g.name !== name))
+    void deleteCharterGroup(leagueId, season, name).then((res) => {
+      if (res.error) setCustomError(res.error)
+      else router.refresh()
     })
   }
 
@@ -571,9 +612,9 @@ function SeasonSetup({
         name: openGroup.group as string,
         icon: GROUP_META[openGroup.group].icon,
         entries,
-        onAddCustomEntry: null as
-          | ((label: string, rule: CharterApprovalRule) => void)
-          | null,
+        custom: false,
+        onAddItem: (label: string, rule: CharterApprovalRule, options: string[]) =>
+          addItem(openGroup.group, label, rule, options),
       }
     }
     const cg = customGroups.find((g) => g.name === openGroup.name)
@@ -582,8 +623,9 @@ function SeasonSetup({
       name: cg.name,
       icon: Sparkles,
       entries: cg.entries,
-      onAddCustomEntry: (label: string, rule: CharterApprovalRule) =>
-        addCustomEntry(cg.name, label, rule),
+      custom: true,
+      onAddItem: (label: string, rule: CharterApprovalRule, options: string[]) =>
+        addItem(cg.name, label, rule, options),
     }
   })()
 
@@ -692,9 +734,11 @@ function SeasonSetup({
 
       {/* Add-a-topic affordance — lives at the very bottom now that
           the masonry is gone. */}
-      <div>
-        <AddTopicCard onAdd={addCustomGroup} />
-      </div>
+      {canManage && (
+        <div>
+          <AddTopicCard onAdd={addCustomGroup} />
+        </div>
+      )}
 
       {sheetData && (
         <GroupSheet
@@ -716,7 +760,21 @@ function SeasonSetup({
           onAddOption={onAddOption}
           approvals={approvals}
           onApprove={onApprove}
-          onAddCustomEntry={sheetData.onAddCustomEntry}
+          canManage={canManage}
+          onAddItem={sheetData.onAddItem}
+          onEditEntry={editItem}
+          onDeleteEntry={removeItem}
+          onRenameGroup={
+            sheetData.custom ? (to: string) => renameGroup(sheetData.name, to) : null
+          }
+          onDeleteGroup={
+            sheetData.custom
+              ? () => {
+                  removeGroup(sheetData.name)
+                  setOpenGroup(null)
+                }
+              : null
+          }
         />
       )}
     </section>
@@ -729,43 +787,6 @@ function SeasonSetup({
 interface CustomGroupState {
   name: string
   entries: CharterEntry[]
-}
-
-const slugify = (s: string) =>
-  s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-
-function makeCustomEntry(
-  groupName: string,
-  label: string,
-  rule: CharterApprovalRule,
-  season: string
-): CharterEntry {
-  // The key is generated up front and shared with the server insert, so
-  // the optimistic copy dedupes away when the real row arrives.
-  const key = `custom:${slugify(groupName)}:${slugify(label)}-${Math.random()
-    .toString(36)
-    .slice(2, 8)}`
-  return {
-    id: key,
-    key,
-    label,
-    category: 'custom',
-    value: null,
-    season,
-    source: 'manual',
-    pollId: null,
-    approvalRule: rule,
-    threshold: rule === 'supermajority' ? 0.75 : null,
-    status: 'draft',
-    proposedBy: null,
-    proposedAt: null,
-    lockedAt: null,
-    pending: null,
-    metadata: { group: groupName },
-  }
 }
 
 // ─── Charter row ──────────────────────────────────────────────────────
@@ -961,176 +982,6 @@ function CharterRow({
     </li>
   )
 }
-
-// One card per group in the Season Setup grid. Tappable surface that
-// summarizes the group at a glance and opens the GroupSheet for full
-// detail + actions.
-//
-// Layout (matches the betting-slate cards' vocabulary below):
-//   1. Slanted dual-color header — visual identity for the category.
-//      Big faded category icon sits across the diagonal. Halftone
-//      texture overlay adds grain.
-//   2. Body — list of every charter entry with a status chip
-//      (locked / pending / awaiting), label, and current value.
-//   3. Footer — locked count + progress bar.
-//
-// Heights vary by entry count; consumer wraps in a CSS-columns masonry
-// so tall cards (Draft, 10 entries) don't force short cards (Punishment,
-// 1 entry) to leave empty space.
-function GroupCard({
-  groupName,
-  icon: Icon,
-  palette,
-  entries,
-  pendingCount,
-  onOpen,
-}: {
-  groupName: string
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number | string }>
-  palette: [string, string]
-  entries: CharterEntry[]
-  pendingCount: number
-  onOpen: () => void
-}) {
-  const total = entries.length
-  const locked = entries.filter((e) => e.status === 'locked').length
-  const pct = total === 0 ? 0 : (locked / total) * 100
-  const done = total > 0 && locked === total
-  const [colorA, colorB] = palette
-
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="group relative w-full text-left rounded-xl overflow-hidden border border-white/10 bg-charcoal-panel/40 hover:border-white/25 transition-colors focus:outline-none focus:ring-2 focus:ring-white/20"
-    >
-      {/* Slanted dual-color header */}
-      <div className="relative h-16 sm:h-[72px]">
-        <div
-          aria-hidden
-          className="absolute inset-0"
-          style={{
-            background: `linear-gradient(110deg, ${colorA} 0%, ${colorA} 48%, ${colorB} 52%, ${colorB} 100%)`,
-          }}
-        />
-        {/* Halftone dot texture for tactile grain */}
-        <div
-          aria-hidden
-          className="absolute inset-0 opacity-25 mix-blend-overlay"
-          style={{
-            backgroundImage:
-              'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.9) 1px, transparent 0)',
-            backgroundSize: '6px 6px',
-          }}
-        />
-        {/* Big faded category icon — spans the diagonal */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <Icon className="h-9 w-9 sm:h-11 sm:w-11 text-black/35" strokeWidth={2.5} />
-        </div>
-        {/* Bottom inset shadow for separation from body */}
-        <div
-          aria-hidden
-          className="absolute inset-x-0 bottom-0 h-3 bg-gradient-to-b from-transparent to-black/40"
-        />
-        {/* Pending badge */}
-        {pendingCount > 0 && (
-          <span className="absolute top-2 right-2 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-black px-1.5 text-[10px] font-black text-white ring-2 ring-white/80 tabular-nums">
-            {pendingCount}
-          </span>
-        )}
-      </div>
-
-      {/* Title row */}
-      <div className="flex items-baseline justify-between gap-2 px-3.5 pt-3 pb-1.5">
-        <h3 className="text-[13px] font-black tracking-[0.28em] uppercase text-foreground truncate">
-          {groupName}
-        </h3>
-        <span
-          className={cn(
-            'shrink-0 text-[10px] font-bold tabular-nums tracking-[0.2em] uppercase',
-            done ? 'text-neon-blue' : 'text-muted-foreground'
-          )}
-        >
-          {locked}/{total}
-        </span>
-      </div>
-
-      {/* Item list — every entry with status chip + value */}
-      <ul className="px-3.5 pb-3 space-y-1.5">
-        {entries.length === 0 ? (
-          <li className="text-[11px] italic text-muted-foreground/70">
-            Nothing here yet.
-          </li>
-        ) : (
-          entries.map((entry) => {
-            const isLocked = entry.status === 'locked'
-            const isPending = entry.status === 'pending'
-            const valueText = isLocked && entry.value
-              ? entry.value
-              : isPending && entry.pending
-                ? entry.pending.value
-                : 'Awaiting'
-            return (
-              <li key={entry.id} className="flex items-center gap-2 text-[11px] min-w-0">
-                <span
-                  className={cn(
-                    'inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full',
-                    isLocked
-                      ? 'bg-neon-blue ring-1 ring-neon-blue/40'
-                      : isPending
-                        ? 'bg-neon-pink ring-1 ring-neon-pink/40'
-                        : 'bg-white/[0.08] ring-1 ring-white/15'
-                  )}
-                >
-                  {isLocked ? (
-                    <Check className="h-2 w-2 text-black" strokeWidth={4} />
-                  ) : isPending ? (
-                    <Hourglass className="h-2 w-2 text-black" strokeWidth={3} />
-                  ) : null}
-                </span>
-                <span className="shrink-0 font-medium text-muted-foreground/90 tracking-wide max-w-[40%] truncate">
-                  {entry.label}:
-                </span>
-                <span
-                  className={cn(
-                    'flex-1 min-w-0 truncate text-right tabular-nums',
-                    isLocked
-                      ? 'text-foreground/95'
-                      : isPending
-                        ? 'italic text-neon-pink/70'
-                        : 'italic text-muted-foreground/55'
-                  )}
-                >
-                  {valueText}
-                </span>
-              </li>
-            )
-          })
-        )}
-      </ul>
-
-      {/* Progress footer */}
-      <div className="px-3.5 pb-3 pt-1 border-t border-white/5">
-        <div className="mt-2 h-0.5 w-full overflow-hidden rounded-full bg-white/5">
-          <div
-            className={cn(
-              'h-full transition-[width] duration-500',
-              done ? 'bg-neon-blue' : 'bg-neon-pink'
-            )}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-      </div>
-    </button>
-  )
-}
-
-// Sheet shown when a charter row is tapped. Multi-page: 'main' lists the
-// group's entries as nav rows; each entry gets its own SheetPage hosting
-// the action UI (vote, approve, propose). `defaultEntryId` deep-links
-// straight to an entry's page — the sheet seeds history as
-// ['main', entry] so Back still returns to the group list. Custom groups
-// also get an AddEntryControl on main.
 function GroupSheet({
   open,
   onClose,
@@ -1150,7 +1001,12 @@ function GroupSheet({
   onAddOption,
   approvals,
   onApprove,
-  onAddCustomEntry,
+  canManage,
+  onAddItem,
+  onEditEntry,
+  onDeleteEntry,
+  onRenameGroup,
+  onDeleteGroup,
 }: {
   open: boolean
   onClose: () => void
@@ -1170,7 +1026,13 @@ function GroupSheet({
   onAddOption: (pollId: string, label: string, policy: PollOptionPolicy) => void
   approvals: Map<string, boolean>
   onApprove: (entryId: string) => void
-  onAddCustomEntry: ((label: string, rule: CharterApprovalRule) => void) | null
+  canManage: boolean
+  onAddItem: (label: string, rule: CharterApprovalRule, options: string[]) => void
+  onEditEntry: (entryId: string, label: string) => void
+  onDeleteEntry: (entryId: string, pollId: string | null) => void
+  /** Custom topics can be renamed and removed; the built-in ones can't. */
+  onRenameGroup: ((to: string) => void) | null
+  onDeleteGroup: (() => void) | null
 }) {
   const total = entries.length
   const locked = entries.filter((e) => e.status === 'locked').length
@@ -1244,7 +1106,7 @@ function GroupSheet({
     >
       <SheetPage name="main">
         <ul className="space-y-1.5 px-5 pb-6 pt-3">
-          {entries.length === 0 && !onAddCustomEntry && (
+          {entries.length === 0 && !canManage && (
             <li className="rounded-lg border border-dashed border-white/10 bg-white/[0.015] px-4 py-6 text-center text-xs text-muted-foreground">
               Nothing here yet.
             </li>
@@ -1262,9 +1124,18 @@ function GroupSheet({
               />
             )
           })}
-          {onAddCustomEntry && (
+          {canManage && (
             <li className="pt-1">
-              <AddEntryControl onSubmit={onAddCustomEntry} />
+              <AddEntryControl onSubmit={onAddItem} />
+            </li>
+          )}
+          {canManage && onRenameGroup && onDeleteGroup && (
+            <li className="pt-2">
+              <TopicControls
+                name={groupName}
+                onRename={onRenameGroup}
+                onDelete={onDeleteGroup}
+              />
             </li>
           )}
         </ul>
@@ -1296,6 +1167,16 @@ function GroupSheet({
               sessionAddedOptions={sessionAddedOptions}
               onAddOption={onAddOption}
             />
+            {canManage && (
+              <EntryControls
+                entry={entry}
+                onRename={(label) => onEditEntry(entry.id, label)}
+                onDelete={() => {
+                  onDeleteEntry(entry.id, entry.pollId)
+                  onClose()
+                }}
+              />
+            )}
           </div>
         </SheetPage>
       ))}
@@ -1373,14 +1254,24 @@ function AddTopicCard({ onAdd }: { onAdd: (name: string) => void }) {
   )
 }
 
+/**
+ * ADD AN ITEM — the one add control, wherever you are in the charter.
+ *
+ * The question is always the same ("what are we deciding?"); the only
+ * fork is HOW it gets decided. Leave the options empty and the commish
+ * rules on it; type two or more and the league votes. That's why this is
+ * one form with an optional list rather than an "add entry" button and
+ * an "add poll" button that both make the same row.
+ */
 function AddEntryControl({
   onSubmit,
 }: {
-  onSubmit: (label: string, rule: CharterApprovalRule) => void
+  onSubmit: (label: string, rule: CharterApprovalRule, options: string[]) => void
 }) {
   const [open, setOpen] = useState(false)
   const [label, setLabel] = useState('')
   const [rule, setRule] = useState<CharterApprovalRule>('majority')
+  const [options, setOptions] = useState<string[]>([])
 
   if (!open) {
     return (
@@ -1389,17 +1280,19 @@ function AddEntryControl({
         onClick={() => setOpen(true)}
         className="group flex w-full items-center gap-2 rounded-lg border border-dashed border-white/10 bg-white/[0.015] px-4 py-2.5 text-[11px] font-bold tracking-widest uppercase text-muted-foreground hover:border-neon-pink/30 hover:text-neon-pink hover:bg-white/[0.03] transition-colors"
       >
-        <Sparkles className="h-3 w-3" />
-        Add an entry
+        <Plus className="h-3 w-3" />
+        Add an item
       </button>
     )
   }
+  const filled = options.map((o) => o.trim()).filter(Boolean)
+  const canSubmit = label.trim().length > 0 && filled.length !== 1
   const submit = () => {
-    const text = label.trim()
-    if (!text) return
-    onSubmit(text, rule)
+    if (!canSubmit) return
+    onSubmit(label.trim(), rule, filled)
     setLabel('')
     setRule('majority')
+    setOptions([])
     setOpen(false)
   }
 
@@ -1409,9 +1302,48 @@ function AddEntryControl({
         type="text"
         value={label}
         onChange={(e) => setLabel(e.target.value)}
-        placeholder="Entry label (e.g. 'Side bet ledger')"
+        placeholder="What are we deciding? (e.g. 'Side bet ledger')"
         className="w-full rounded-md bg-black/30 border border-white/10 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-white/30"
       />
+
+      {/* The options ARE the fork: none means the commish decides, two
+          or more means the league votes on it. */}
+      <div className="space-y-1.5">
+        {options.map((opt, i) => (
+          <div key={i} className="flex items-center gap-1.5">
+            <input
+              type="text"
+              value={opt}
+              autoFocus={i === options.length - 1}
+              onChange={(e) =>
+                setOptions((prev) => prev.map((o, j) => (j === i ? e.target.value : o)))
+              }
+              placeholder={`Option ${i + 1}`}
+              className="w-full rounded-md bg-black/30 border border-white/10 px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-white/30"
+            />
+            <button
+              type="button"
+              onClick={() => setOptions((prev) => prev.filter((_, j) => j !== i))}
+              aria-label={`Remove option ${i + 1}`}
+              className="text-muted-foreground hover:text-destructive shrink-0 p-1 transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => setOptions((prev) => [...prev, ''])}
+          className="text-muted-foreground hover:text-neon-blue inline-flex items-center gap-1.5 text-[10px] font-bold tracking-widest uppercase transition-colors"
+        >
+          <Plus className="h-3 w-3" />
+          {options.length === 0 ? 'Put it to a vote' : 'Another option'}
+        </button>
+        {filled.length === 1 && (
+          <p className="text-destructive text-[10px]">A vote needs at least two.</p>
+        )}
+      </div>
+
       <div className="flex flex-wrap gap-1.5">
         {(['commish', 'majority', 'supermajority', 'unanimous'] as const).map(
           (r) => (
@@ -1437,6 +1369,7 @@ function AddEntryControl({
           onClick={() => {
             setOpen(false)
             setLabel('')
+            setOptions([])
           }}
           className="px-3 py-1.5 text-[11px] font-bold tracking-widest uppercase text-muted-foreground hover:text-foreground transition-colors"
         >
@@ -1445,12 +1378,161 @@ function AddEntryControl({
         <button
           type="button"
           onClick={submit}
-          disabled={label.trim().length === 0}
+          disabled={!canSubmit}
           className="px-3 py-1.5 rounded-md text-[11px] font-bold tracking-widest uppercase text-primary-foreground bg-neon-blue disabled:opacity-40 disabled:cursor-not-allowed hover:bg-neon-blue/90 transition-colors"
         >
-          Add entry
+          {filled.length >= 2 ? 'Add vote' : 'Add item'}
         </button>
       </div>
+    </div>
+  )
+}
+
+/** Rename or remove one item. Sits at the foot of its own page, so the
+ *  destructive control is never next to the thing you came here to do. */
+function EntryControls({
+  entry,
+  onRename,
+  onDelete,
+}: {
+  entry: CharterEntry
+  onRename: (label: string) => void
+  onDelete: () => void
+}) {
+  const [renaming, setRenaming] = useState(false)
+  const [label, setLabel] = useState(entry.label)
+  const [confirming, setConfirming] = useState(false)
+
+  return (
+    <div className="mt-6 border-t border-dashed border-white/10 pt-3">
+      {renaming ? (
+        <div className="flex items-center gap-1.5">
+          <input
+            type="text"
+            value={label}
+            autoFocus
+            onChange={(e) => setLabel(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && label.trim()) {
+                onRename(label.trim())
+                setRenaming(false)
+              }
+              if (e.key === 'Escape') {
+                setLabel(entry.label)
+                setRenaming(false)
+              }
+            }}
+            className="w-full rounded-md border border-white/10 bg-black/30 px-3 py-1.5 text-sm focus:border-white/30 focus:outline-none"
+          />
+          <button
+            type="button"
+            disabled={!label.trim()}
+            onClick={() => {
+              onRename(label.trim())
+              setRenaming(false)
+            }}
+            className="bg-neon-blue text-primary-foreground shrink-0 rounded-md px-3 py-1.5 text-[11px] font-bold tracking-widest uppercase disabled:opacity-40"
+          >
+            Save
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setRenaming(true)}
+            className="text-muted-foreground hover:text-neon-blue inline-flex items-center gap-1.5 text-[10px] font-bold tracking-widest uppercase transition-colors"
+          >
+            <Pencil className="h-3 w-3" />
+            Rename
+          </button>
+          <button
+            type="button"
+            onClick={() => (confirming ? onDelete() : setConfirming(true))}
+            onBlur={() => setConfirming(false)}
+            className="text-muted-foreground hover:text-destructive ml-auto inline-flex items-center gap-1.5 text-[10px] font-bold tracking-widest uppercase transition-colors"
+          >
+            <Trash2 className="h-3 w-3" />
+            {confirming
+              ? entry.pollId
+                ? 'Delete item and its vote?'
+                : 'Sure?'
+              : 'Delete'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Rename or remove a whole topic — only the ones the league made up. */
+function TopicControls({
+  name,
+  onRename,
+  onDelete,
+}: {
+  name: string
+  onRename: (to: string) => void
+  onDelete: () => void
+}) {
+  const [renaming, setRenaming] = useState(false)
+  const [next, setNext] = useState(name)
+  const [confirming, setConfirming] = useState(false)
+
+  if (renaming) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <input
+          type="text"
+          value={next}
+          autoFocus
+          onChange={(e) => setNext(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && next.trim()) {
+              onRename(next.trim())
+              setRenaming(false)
+            }
+            if (e.key === 'Escape') {
+              setNext(name)
+              setRenaming(false)
+            }
+          }}
+          className="w-full rounded-md border border-white/10 bg-black/30 px-3 py-1.5 text-sm focus:border-white/30 focus:outline-none"
+        />
+        <button
+          type="button"
+          disabled={!next.trim()}
+          onClick={() => {
+            onRename(next.trim())
+            setRenaming(false)
+          }}
+          className="bg-neon-blue text-primary-foreground shrink-0 rounded-md px-3 py-1.5 text-[11px] font-bold tracking-widest uppercase disabled:opacity-40"
+        >
+          Save
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-2 border-t border-dashed border-white/10 pt-2.5">
+      <button
+        type="button"
+        onClick={() => setRenaming(true)}
+        className="text-muted-foreground hover:text-neon-blue inline-flex items-center gap-1.5 text-[10px] font-bold tracking-widest uppercase transition-colors"
+      >
+        <Pencil className="h-3 w-3" />
+        Rename topic
+      </button>
+      <button
+        type="button"
+        onClick={() => (confirming ? onDelete() : setConfirming(true))}
+        onBlur={() => setConfirming(false)}
+        className="text-muted-foreground hover:text-destructive ml-auto inline-flex items-center gap-1.5 text-[10px] font-bold tracking-widest uppercase transition-colors"
+      >
+        <Trash2 className="h-3 w-3" />
+        {confirming ? 'Delete topic and everything in it?' : 'Delete topic'}
+      </button>
     </div>
   )
 }
@@ -2632,68 +2714,6 @@ function VoterStack({
 }
 
 // ─── Per-option voter list (third-level disclosure) ────────────────────────
-
-function VoterList({
-  voters,
-  membersById,
-  currentUserId,
-  onCollapse,
-}: {
-  voters: Array<{ userId: string; rank?: number }>
-  membersById: Map<string, PollMember>
-  currentUserId: string
-  /** Tapping anywhere in the list collapses it. */
-  onCollapse: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onCollapse}
-      aria-label="Collapse voter list"
-      className="block w-full text-left rounded-md transition-colors hover:bg-white/[0.02]"
-    >
-    <ul className="mt-2 ml-1 space-y-1.5 border-l border-white/10 pl-2.5">
-      {voters.map((v) => {
-        const member = membersById.get(v.userId)
-        const name = displayNameOf(member, v.userId)
-        const isMine = v.userId === currentUserId
-        return (
-          <li
-            key={v.userId + (v.rank ?? '')}
-            className="flex items-center gap-2 text-[11px]"
-          >
-            <Avatar
-              className={cn(
-                'h-5 w-5',
-                isMine ? 'ring-2 ring-neon-blue' : 'ring-1 ring-black/60'
-              )}
-            >
-              <AvatarImage src={member?.avatarUrl ?? undefined} alt={name} />
-              <AvatarFallback className="bg-primary text-primary-foreground text-[8px] font-bold">
-                {getInitials(member?.fullName ?? null, member?.email ?? '')}
-              </AvatarFallback>
-            </Avatar>
-            <span
-              className={cn(
-                'truncate min-w-0 flex-1',
-                isMine ? 'text-neon-blue font-semibold' : 'text-foreground/85'
-              )}
-            >
-              {isMine ? 'You' : name}
-            </span>
-            {v.rank && (
-              <span className="inline-flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-white/[0.06] text-[9px] font-bold text-muted-foreground tabular-nums leading-none shrink-0">
-                #{v.rank}
-              </span>
-            )}
-          </li>
-        )
-      })}
-    </ul>
-    </button>
-  )
-}
-
 // ─── Ranked options (tap-to-cycle) ──────────────────────────────────────────
 
 function RankedOptions({

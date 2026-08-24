@@ -97,6 +97,13 @@ export interface DataAdapter {
   approveCharterEntry(entryId: string, userId: string, approved: boolean): Promise<void>;
   /** Create a custom charter entry (user-added group or one-off rule). */
   createCharterEntry(input: CreateCharterEntryInput): Promise<CharterEntry>;
+  /** Admin: edit an entry in place. Only the fields given change. */
+  updateCharterEntry(
+    entryId: string,
+    patch: UpdateCharterEntryInput
+  ): Promise<void>;
+  /** Admin: remove an entry and everything hanging off it. */
+  deleteCharterEntry(entryId: string): Promise<void>;
 
   // ─── Polls ───────────────────────────────────────────────────────────────
   /** Polls for a league. Filter by statuses (defaults to 'open' + 'closed'). */
@@ -125,6 +132,10 @@ export interface DataAdapter {
   closePoll(pollId: string): Promise<void>;
   reopenPoll(pollId: string): Promise<void>;
   archivePoll(pollId: string): Promise<void>;
+  /** Admin: remove a poll outright — for one added by mistake. Closing
+   *  is what you want for a poll that ran; this is for one that
+   *  shouldn't have existed. */
+  deletePoll(pollId: string): Promise<void>;
 }
 
 // ─── Mutation inputs ──────────────────────────────────────────────────────
@@ -150,6 +161,14 @@ export interface CreatePollInput {
   options: Array<{ label: string; hint?: string }>;
   closesAt?: Date | null;
   createdBy: string;
+}
+
+export interface UpdateCharterEntryInput {
+  label?: string;
+  description?: string | null;
+  approvalRule?: CharterApprovalRule;
+  threshold?: number | null;
+  metadata?: CharterEntry['metadata'] | null;
 }
 
 export interface CreateCharterEntryInput {

@@ -766,6 +766,12 @@ export const mockAdapter: DataAdapter = {
   async createCharterEntry() {
     throw new Error('mock-adapter.createCharterEntry: not implemented in mock mode')
   },
+  async updateCharterEntry() {
+    throw new Error('mock-adapter.updateCharterEntry: not implemented in mock mode')
+  },
+  async deleteCharterEntry() {
+    throw new Error('mock-adapter.deleteCharterEntry: not implemented in mock mode')
+  },
   async getPolls() {
     throw new Error('mock-adapter.getPolls: use generateMockPolls directly in mock mode')
   },
@@ -794,6 +800,9 @@ export const mockAdapter: DataAdapter = {
     /* no-op in mock */
   },
   async archivePoll() {
+    /* no-op in mock */
+  },
+  async deletePoll() {
     /* no-op in mock */
   },
 };

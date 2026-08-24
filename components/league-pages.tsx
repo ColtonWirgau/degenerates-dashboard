@@ -1,9 +1,14 @@
 'use client'
 
 /**
- * The league's WIDER pages — the full standings table, the slate
- * settings, the invite flow. Pages rather than a sheet because they all
- * live inside one, opened from the season panel.
+ * The league's own surfaces — how its slate is configured, the full
+ * standings table, the invite flow.
+ *
+ * SlateSettings renders inline on the season panel rather than behind a
+ * door: it's three rows of chips, the panel has the room, and a modal
+ * you have to open to change a toggle is a modal you'll forget exists.
+ * The other two are pages in a sheet, because a table and a flow need
+ * more width than a 19rem reveal has.
  *
  * The roster isn't here: who's in the league is a fact about the season
  * you're looking at, so it sits on the season panel beside the years.
@@ -81,7 +86,13 @@ const DAY_CHIPS: Array<{ id: 'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sa
 
 const LOCK_OFFSET_PRESETS = [5, 10, 15, 30, 60]
 
-export function SettingsPage({ canManage, leagueId }: { canManage: boolean; leagueId: string }) {
+export function SlateSettings({
+  canManage,
+  leagueId,
+}: {
+  canManage: boolean
+  leagueId: string
+}) {
   const [days, setDays] = useState<string[]>(['sun', 'mon'])
   const [includeHolidays, setIncludeHolidays] = useState(true)
   const [lockOffsetMin, setLockOffsetMin] = useState<number>(10)
@@ -117,9 +128,11 @@ export function SettingsPage({ canManage, leagueId }: { canManage: boolean; leag
   }, [leagueId])
 
   const disabled = !canManage
+  // Both sides sorted, or a league whose days came back as ['sun','mon']
+  // reads as permanently unsaved against the same set sorted.
   const dirty =
     !!initial &&
-    (initial.days.join(',') !== [...days].sort().join(',') ||
+    ([...initial.days].sort().join(',') !== [...days].sort().join(',') ||
       initial.includeHolidays !== includeHolidays ||
       initial.lockOffsetMin !== lockOffsetMin)
 
@@ -154,14 +167,14 @@ export function SettingsPage({ canManage, leagueId }: { canManage: boolean; leag
   }
 
   return (
-    <div className="px-5 sm:px-6 pb-24 pt-4 space-y-7">
+    <div className="space-y-5">
       {/* Slate days */}
       <div>
-        <p className="text-[10px] font-bold tracking-[0.25em] uppercase text-muted-foreground mb-1">
+        <p className="text-[10px] font-bold tracking-[0.3em] uppercase text-muted-foreground mb-1">
           Slate
         </p>
-        <p className="text-xs text-muted-foreground mb-3">
-          Which weekdays count toward this league&apos;s parlay each week.
+        <p className="text-[11px] text-muted-foreground mb-2.5">
+          Which weekdays count toward the parlay each week.
         </p>
         <div className="flex items-center gap-1.5">
           {DAY_CHIPS.map((d) => {
@@ -173,7 +186,7 @@ export function SettingsPage({ canManage, leagueId }: { canManage: boolean; leag
                 disabled={disabled}
                 onClick={() => toggleDay(d.id)}
                 className={cn(
-                  'flex-1 rounded-lg border h-11 font-mono text-sm font-bold uppercase transition-all',
+                  'flex-1 rounded-lg border h-9 font-mono text-xs font-bold uppercase transition-all',
                   active
                     ? 'border-neon-blue/60 bg-neon-blue/10 text-neon-blue'
                     : 'border-white/10 bg-white/[0.02] text-muted-foreground hover:border-white/20',
@@ -186,11 +199,11 @@ export function SettingsPage({ canManage, leagueId }: { canManage: boolean; leag
             )
           })}
         </div>
-        <div className="mt-3 flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5">
-          <div>
-            <p className="text-sm font-semibold text-foreground">Holiday games</p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">
-              Thanksgiving, Black Friday, Christmas Day always count.
+        <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-foreground">Holiday games</p>
+            <p className="mt-0.5 text-[10px] text-muted-foreground leading-snug">
+              Thanksgiving, Black Friday, Christmas always count.
             </p>
           </div>
           <button
@@ -217,11 +230,11 @@ export function SettingsPage({ canManage, leagueId }: { canManage: boolean; leag
       </div>
 
       {/* Lock offset */}
-      <div className="border-t border-white/10 pt-5">
-        <p className="text-[10px] font-bold tracking-[0.25em] uppercase text-muted-foreground mb-1">
+      <div>
+        <p className="text-[10px] font-bold tracking-[0.3em] uppercase text-muted-foreground mb-1">
           Lock offset
         </p>
-        <p className="text-xs text-muted-foreground mb-3">
+        <p className="text-[11px] text-muted-foreground mb-2.5">
           Minutes before the first in-slate kickoff that legs lock.
         </p>
         <div className="flex items-center gap-1.5">
@@ -234,7 +247,7 @@ export function SettingsPage({ canManage, leagueId }: { canManage: boolean; leag
                 disabled={disabled}
                 onClick={() => setLockOffsetMin(n)}
                 className={cn(
-                  'flex-1 rounded-lg border h-11 font-mono text-sm font-bold transition-all',
+                  'flex-1 rounded-lg border h-9 font-mono text-xs font-bold transition-all',
                   active
                     ? 'border-neon-pink/60 bg-neon-pink/10 text-neon-pink'
                     : 'border-white/10 bg-white/[0.02] text-muted-foreground hover:border-white/20',
@@ -254,38 +267,37 @@ export function SettingsPage({ canManage, leagueId }: { canManage: boolean; leag
         </div>
       )}
 
-      {/* Save button — sticky-ish, lives in the sheet padding */}
-      <div className="border-t border-white/10 pt-5">
-        <button
-          type="button"
-          disabled={disabled || !dirty || saving}
-          onClick={save}
-          className={cn(
-            'w-full rounded-full px-5 py-3 text-sm font-extrabold uppercase tracking-wide transition-all',
-            dirty
-              ? 'bg-neon-blue text-black neon-glow-blue hover:scale-[1.01]'
-              : 'border border-white/10 bg-white/[0.04] text-muted-foreground',
-            (disabled || !dirty || saving) && 'opacity-60 cursor-not-allowed'
-          )}
-        >
-          {saving ? (
-            <span className="inline-flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" /> Saving…
-            </span>
-          ) : dirty ? (
-            'Save changes'
-          ) : savedAt ? (
-            'Saved ✓'
-          ) : (
-            'No changes'
-          )}
-        </button>
-        {dirty && (
-          <p className="mt-2 text-center text-[10px] text-muted-foreground">
+      {/* Only offered once there's something to save — a permanently lit
+          Save button on a panel you scroll past is a permanent small nag. */}
+      {dirty && (
+        <div>
+          <button
+            type="button"
+            disabled={disabled || saving}
+            onClick={save}
+            className={cn(
+              'bg-neon-blue neon-glow-blue w-full rounded-full px-5 py-2.5 text-xs font-extrabold tracking-wide text-black uppercase transition-all hover:scale-[1.01]',
+              (disabled || saving) && 'cursor-not-allowed opacity-60'
+            )}
+          >
+            {saving ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" /> Saving…
+              </span>
+            ) : (
+              'Save changes'
+            )}
+          </button>
+          <p className="text-muted-foreground mt-1.5 text-center text-[10px]">
             Lock times for every week will be recomputed.
           </p>
-        )}
-      </div>
+        </div>
+      )}
+      {!dirty && savedAt && (
+        <p className="text-neon-blue text-center text-[10px] font-bold tracking-[0.2em] uppercase">
+          Saved
+        </p>
+      )}
     </div>
   )
 }

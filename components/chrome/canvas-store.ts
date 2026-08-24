@@ -70,18 +70,16 @@ export function subscribeViewedWeek(
 
 /* ---------- The league sheet ---------- */
 
-/* The league's wider pages — settings, the invite flow, the full table.
- * Too much for a 19rem reveal, so this one stays a portaled sheet; the
- * season panel is its doorway, and the control you press decides which
- * page it opens on. (The roster itself is NOT in here — it lives on the
- * season panel, because who's in the league is a fact about the season
- * you're looking at.) */
-export type LeaguePage = 'main' | 'settings' | 'invite' | 'standings'
+/* The two league surfaces that need real width — the full standings
+ * table and the invite flow. Everything else about the league is on the
+ * season panel, visible without opening anything. The board panel opens
+ * the standings; the roster's "+" opens the invite. */
+export type LeaguePage = 'standings' | 'invite'
 
 let leaguePage: LeaguePage | null = null
 const leagueListeners = new Set<(page: LeaguePage | null) => void>()
 
-export function openLeagueSheet(page: LeaguePage = 'main') {
+export function openLeagueSheet(page: LeaguePage = 'standings') {
   leaguePage = page
   leagueListeners.forEach((l) => l(leaguePage))
 }

@@ -1,6 +1,8 @@
 'use client'
 
+import { ArrowRight } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { openLeagueSheet } from '@/components/chrome/canvas-store'
 import { cn } from '@/lib/utils'
 
 export interface BoardPanelEntry {
@@ -26,6 +28,10 @@ const initials = (name: string | null, email: string) => {
 /**
  * The BOARD panel: the season leaderboard, you highlighted. Rows carry the
  * record and hit rate; rank comes from the given order.
+ *
+ * The full table — week-by-week dot traces, and a drill into any one
+ * member's season — needs more width than a 19rem column, so it lives in
+ * a sheet this panel opens.
  */
 export function BoardPanel({
   entries,
@@ -90,6 +96,16 @@ export function BoardPanel({
           </p>
         )}
       </div>
+      {entries.length > 0 && (
+        <button
+          type="button"
+          onClick={() => openLeagueSheet('standings')}
+          className="text-muted-foreground hover:border-neon-blue/30 hover:text-neon-blue mt-2 flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/10 px-3 py-2 text-[10px] font-bold tracking-[0.2em] uppercase transition-colors"
+        >
+          Week by week
+          <ArrowRight className="h-3 w-3" />
+        </button>
+      )}
     </div>
   )
 }

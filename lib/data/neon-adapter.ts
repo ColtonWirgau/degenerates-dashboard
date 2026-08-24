@@ -940,6 +940,23 @@ export const neonAdapter: DataAdapter = {
     }
   },
 
+  async updateCharterEntry(entryId, patch) {
+    const set: Partial<typeof charterEntries.$inferInsert> = {}
+    if (patch.label !== undefined) set.label = patch.label
+    if (patch.description !== undefined) set.description = patch.description
+    if (patch.approvalRule !== undefined) set.approvalRule = patch.approvalRule
+    if (patch.threshold !== undefined) set.threshold = patch.threshold
+    if (patch.metadata !== undefined) set.metadata = patch.metadata
+    if (Object.keys(set).length === 0) return
+    await db.update(charterEntries).set(set).where(eq(charterEntries.id, entryId))
+  },
+
+  async deleteCharterEntry(entryId) {
+    // Approvals cascade from the schema; the row itself is the only
+    // thing to clear.
+    await db.delete(charterEntries).where(eq(charterEntries.id, entryId))
+  },
+
   // ─── Polls ────────────────────────────────────────────────────────────
   async getPolls(leagueId, opts) {
     return loadPolls(leagueId, opts?.statuses ?? ['open', 'closed'], opts?.nflWeekId)
@@ -1078,6 +1095,17 @@ export const neonAdapter: DataAdapter = {
       .update(polls)
       .set({ status: 'archived', archivedAt: new Date() })
       .where(eq(polls.id, pollId))
+  },
+
+  async deletePoll(pollId) {
+    // Options, responses and reactions all cascade off the poll row.
+    // Any charter entry that was deriving its value from this poll goes
+    // back to being an ordinary manual entry rather than dangling.
+    await db
+      .update(charterEntries)
+      .set({ pollId: null, source: 'manual' })
+      .where(eq(charterEntries.pollId, pollId))
+    await db.delete(polls).where(eq(polls.id, pollId))
   },
 }
 

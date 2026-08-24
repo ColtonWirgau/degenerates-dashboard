@@ -194,6 +194,7 @@ export default async function LeagueShellLayout({
                 members={seasonMembers}
                 currentUserId={p.me.id}
                 currentUserRole={p.currentUserRole ?? 'member'}
+                devPhase={devPhase}
               />
             </PanelReveal>
           }
@@ -234,8 +235,8 @@ export default async function LeagueShellLayout({
         </CanvasSheet>
         <MobileDock />
 
-        {/* Everything you can DO to the league — opened from the season
-            panel's tiles, on whichever page you pressed. */}
+        {/* The two league surfaces that need real width — the full
+            standings table and the invite flow. */}
         <LeagueSheet
           leagueId={p.league.id}
           leagueName={p.league.name}
@@ -244,19 +245,9 @@ export default async function LeagueShellLayout({
           season={p.season}
           availableSeasons={p.availableSeasons}
           canManage={p.currentUserRole === 'owner' || p.currentUserRole === 'admin'}
-          currentUserRole={p.currentUserRole ?? 'member'}
           currentUserId={p.me.id}
-          members={p.members.map((m) => ({
-            userId: m.user_id,
-            fullName: m.full_name,
-            email: m.email,
-            avatarUrl: m.avatar_url,
-            role: m.role,
-          }))}
           leaderboard={p.leaderboard}
           weeks={p.allWeeksData}
-          currentWeekIndex={p.currentWeekIndex}
-          devPhase={devPhase}
           mock={mock}
         />
 

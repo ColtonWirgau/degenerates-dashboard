@@ -2,13 +2,16 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, Crown, Loader2, Settings as SettingsIcon, Shield, UserMinus } from 'lucide-react'
+import { Check, Crown, Loader2, Shield, UserMinus } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { closePanel, openLeagueSheet } from '@/components/chrome/canvas-store'
 import { useLeagueChrome } from '@/components/chrome/league-chrome-context'
 import { LeagueAvatar } from '@/components/league-avatar'
 import { setViewSeason } from '@/app/actions/view-season'
 import { removeMember, updateMemberRole } from '@/app/actions/leagues'
+import { SlateSettings } from '@/components/league-pages'
+import { DevPhaseSwitcher } from '@/components/user-menu'
+import type { DevPhaseData } from '@/lib/data/dev-toolbar-data'
 import { cn } from '@/lib/utils'
 
 export interface SeasonPanelMember {
@@ -37,17 +40,24 @@ export interface SeasonPanelMember {
  * tapping one opens the working side underneath it. Flipping the year
  * re-reads the whole section, which is the point — this is the one place
  * that answers "who was in it, and how did they do".
+ *
+ * The slate settings sit here too, for the same reason: they're three
+ * rows of chips, the panel has the room, and a modal you have to open to
+ * flick a toggle is a modal you'll forget exists.
  */
 export function SeasonPanel({
   availableSeasons,
   members,
   currentUserId,
   currentUserRole,
+  devPhase,
 }: {
   availableSeasons: string[]
   members: SeasonPanelMember[]
   currentUserId: string
   currentUserRole: 'owner' | 'admin' | 'member'
+  /** Neon-mode dev control — season-phase time travel. Null outside dev. */
+  devPhase?: DevPhaseData | null
 }) {
   const chrome = useLeagueChrome()
   const router = useRouter()
@@ -74,7 +84,7 @@ export function SeasonPanel({
   const selected = members.find((m) => m.userId === openId) ?? null
 
   return (
-    <div className="flex min-h-0 flex-col">
+    <div className="scrollbar-hide flex min-h-0 flex-col overflow-y-auto">
       <p className="text-muted-foreground mb-2 shrink-0 text-[10px] font-bold tracking-[0.3em] uppercase">
         Season
       </p>
@@ -129,14 +139,6 @@ export function SeasonPanel({
               {members.length} members
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => openLeagueSheet('settings')}
-            aria-label="League settings"
-            className="text-muted-foreground hover:text-neon-blue shrink-0 rounded-full p-2 transition-colors hover:bg-white/5"
-          >
-            <SettingsIcon className="h-4 w-4" />
-          </button>
         </div>
 
         {/* The carousel — push through the faces; the trailing card adds
@@ -201,6 +203,17 @@ export function SeasonPanel({
           />
         )}
       </div>
+
+      {/* How the league runs — right here, not behind a gear. */}
+      <div className="mt-5 border-t border-white/10 pt-4">
+        <SlateSettings canManage={canManage} leagueId={chrome.leagueId} />
+      </div>
+
+      {devPhase && (
+        <div className="mt-2">
+          <DevPhaseSwitcher data={devPhase} />
+        </div>
+      )}
     </div>
   )
 }
