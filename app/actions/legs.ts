@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { getDataAdapter } from '@/lib/data/adapter'
 import { getCurrentUser } from '@/lib/data/auth-bridge'
+import { getDevNow } from '@/lib/data/dev-now'
 import { validateParlayLegs } from '@/lib/openai'
 import { publish } from '@/lib/ably/server'
 import { channelName, event } from '@/lib/ably/channels'
@@ -24,6 +25,23 @@ export interface SubmitLegResult {
 const ODDS_MIN = -200
 const ODDS_MAX = 200
 
+function validateOdds(odds: string): { oddsNum: number; error: string | null } {
+  const oddsNum = parseInt(odds, 10)
+  if (isNaN(oddsNum)) {
+    return { oddsNum: NaN, error: 'Odds must be a number.' }
+  }
+  if (oddsNum === 0 || (oddsNum > -100 && oddsNum < 100)) {
+    return { oddsNum, error: 'Odds must be at most -100 or at least +100.' }
+  }
+  if (oddsNum < ODDS_MIN || oddsNum > ODDS_MAX) {
+    return {
+      oddsNum,
+      error: `League rule: odds must be between ${ODDS_MIN} and +${ODDS_MAX}.`,
+    }
+  }
+  return { oddsNum, error: null }
+}
+
 export async function submitLeg(
   weekId: string,
   leagueId: string,
@@ -32,19 +50,8 @@ export async function submitLeg(
   const me = await getCurrentUser()
   if (!me) return { success: false, error: 'Unauthorized' }
 
-  const oddsNum = parseInt(leg.odds, 10)
-  if (isNaN(oddsNum)) {
-    return { success: false, error: 'Odds must be a number.' }
-  }
-  if (oddsNum === 0 || (oddsNum > -100 && oddsNum < 100)) {
-    return { success: false, error: 'Odds must be at most -100 or at least +100.' }
-  }
-  if (oddsNum < ODDS_MIN || oddsNum > ODDS_MAX) {
-    return {
-      success: false,
-      error: `League rule: odds must be between ${ODDS_MIN} and +${ODDS_MAX}.`,
-    }
-  }
+  const { oddsNum, error: oddsError } = validateOdds(leg.odds)
+  if (oddsError) return { success: false, error: oddsError }
 
   const adapter = await getDataAdapter()
 
@@ -55,6 +62,16 @@ export async function submitLeg(
     return {
       success: false,
       error: 'The parlay is locked for this week — no more edits.',
+    }
+  }
+
+  // Hard deadline: once the slate kicks off (earliest in-slate kickoff −
+  // lock offset), members can't sneak legs in even if not everyone
+  // submitted. getDevNow honors the dev time-travel cookie in `next dev`.
+  if (existingParlay?.lockAt && new Date(existingParlay.lockAt) <= (await getDevNow())) {
+    return {
+      success: false,
+      error: 'Submissions are locked for this week — the slate has kicked off.',
     }
   }
 
@@ -184,6 +201,16 @@ export async function deleteLeg(weekId: string, legId: string, leagueId: string)
     if (role !== 'owner' && role !== 'admin') {
       return { success: false, error: 'You can only delete your own leg' }
     }
+  } else if (parlay?.lockAt && new Date(parlay.lockAt) <= (await getDevNow())) {
+    // Delete-then-resubmit is the edit mechanism, so self-deletes obey the
+    // same slate deadline as submissions. Admins can still clean up anytime.
+    const role = await adapter.getUserRole(leagueId, me.id)
+    if (role !== 'owner' && role !== 'admin') {
+      return {
+        success: false,
+        error: 'Submissions are locked for this week — the slate has kicked off.',
+      }
+    }
   }
 
   await adapter.deleteLeg(legId)
@@ -196,25 +223,91 @@ export async function deleteLeg(weekId: string, legId: string, leagueId: string)
   return { success: true, error: null }
 }
 
-export async function updateLegAsAdmin(
-  weekId: string,
-  _legId: string,
-  leagueId: string,
-  _input: { description: string; odds: string }
-) {
-  console.warn('[mock] updateLegAsAdmin no-op')
-  revalidatePath(`/leagues/${leagueId}/weeks/${weekId}`)
-  return { success: true, error: null }
-}
-
+// Admin records a pick on another member's behalf (the "he texted me his
+// leg" flow). Deliberately skips the slate-deadline gate — that's the whole
+// point — but runs the same odds rules + AI conflict validation.
 export async function submitLegForUser(
-  _weekId: string,
-  _leagueId: string,
-  _userId: string,
-  _leg: { description: string; odds: string }
-) {
-  console.warn('[mock] submitLegForUser no-op')
-  return { success: true, error: null }
+  weekId: string,
+  leagueId: string,
+  userId: string,
+  leg: { description: string; odds: string }
+): Promise<SubmitLegResult> {
+  const me = await getCurrentUser()
+  if (!me) return { success: false, error: 'Unauthorized' }
+
+  const adapter = await getDataAdapter()
+  const role = await adapter.getUserRole(leagueId, me.id)
+  if (role !== 'owner' && role !== 'admin') {
+    return { success: false, error: 'Only owners and admins can submit for another member.' }
+  }
+
+  const members = await adapter.getLeagueMembers(leagueId)
+  if (!members.some((m) => m.user.id === userId)) {
+    return { success: false, error: 'That user is not a member of this league.' }
+  }
+
+  const { oddsNum, error: oddsError } = validateOdds(leg.odds)
+  if (oddsError) return { success: false, error: oddsError }
+
+  const existingParlay = await adapter.getParlay(weekId)
+  if (existingParlay && existingParlay.state !== 'open') {
+    return {
+      success: false,
+      error: 'The parlay is locked for this week — no more edits.',
+    }
+  }
+
+  let validationStatus: 'approved' | 'conflicting' = 'approved'
+  let validationMessage = 'Valid'
+  let warning: SubmitLegResult['warning']
+
+  const otherLegs = (existingParlay?.legs ?? []).filter(
+    (l) => l.user.id !== userId && l.lockedAt !== null
+  )
+  if (otherLegs.length > 0) {
+    const targetName =
+      members.find((m) => m.user.id === userId)?.user.fullName ?? 'Them'
+    const fullParlay = [
+      ...otherLegs.map((l) => ({
+        description: l.description,
+        odds: String(l.odds),
+        userName: l.user.fullName ?? l.user.email,
+      })),
+      { description: leg.description, odds: leg.odds, userName: targetName },
+    ]
+    const aiResult = (await validateParlayLegs(fullParlay)) as
+      | { legs?: Array<{ status?: string; conflicts_with?: number[]; reason?: string }> }
+      | null
+    const mine = aiResult?.legs?.[fullParlay.length - 1]
+    if (mine?.status === 'conflicting') {
+      validationStatus = 'conflicting'
+      validationMessage = mine.reason ?? 'Conflicts with another submitted leg'
+      const conflictsWith = (mine.conflicts_with ?? [])
+        .map((n) => fullParlay[n - 1]?.userName)
+        .filter((n): n is string => !!n && n !== targetName)
+      warning = {
+        conflictsWith,
+        reason: mine.reason ?? 'This leg conflicts with another already-submitted leg.',
+      }
+    }
+  }
+
+  const submittedLeg = await adapter.submitLeg({
+    parlayId: weekId,
+    userId,
+    description: leg.description,
+    odds: oddsNum,
+    validationStatus,
+    validationMessage,
+  })
+  revalidatePath(`/leagues/${leagueId}/weeks/${weekId}`)
+  revalidatePath(`/leagues/${leagueId}`)
+  void publish(channelName.parlayLegs(leagueId, weekId), event.legSubmitted, {
+    legId: submittedLeg.id,
+    userId,
+    lockedAt: submittedLeg.lockedAt,
+  })
+  return { success: true, error: null, warning }
 }
 
 // Re-exported for legacy import sites — same shape as season-scoped variants.

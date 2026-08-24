@@ -50,6 +50,18 @@ export async function getLeagueOverview(leagueId: string) {
           // meaningless in neon mode).
           seasonState.activeWeek.season
 
+  // In-season: make sure this league has a parlay row for the active week.
+  // Parlays are created lazily here (not by a cron) so a brand-new league —
+  // or the first visit after a week rolls over — always has a week to
+  // submit into. Only the active week; past weeks are never backfilled.
+  if (
+    seasonState.kind === 'regular-season' ||
+    seasonState.kind === 'playoffs' ||
+    seasonState.kind === 'super-bowl'
+  ) {
+    await adapter.ensureWeekParlay(leagueId, seasonState.activeWeek.id)
+  }
+
   const [members, role, currentWeek, parlays, leaderboard, userStats] = await Promise.all([
     adapter.getLeagueMembers(leagueId),
     adapter.getUserRole(leagueId, me.id),
@@ -109,7 +121,9 @@ export async function getLeagueOverview(leagueId: string) {
         id: p.id, // URL convention: weekId in URL is the parlay id
         week_number: p.week.weekNumber,
         season: p.week.season,
-        deadline: p.week.startDate ?? '',
+        // True lock moment (earliest in-slate kickoff − lock offset) when
+        // known; raw week start as the fallback for TBD slates.
+        deadline: p.lockAt ?? p.week.startDate ?? '',
         status: ((p.state === 'open'
           ? 'open'
           : p.state === 'locked' || p.state === 'graded'

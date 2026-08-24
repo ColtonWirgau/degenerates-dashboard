@@ -53,6 +53,8 @@ export interface WeekOverviewPayload {
   parlayId: string
   parlayState: ParlayState
   parlayResult: 'won' | 'lost' | null
+  /** True lock moment (earliest in-slate kickoff − lock offset); null = TBD. */
+  lockAt: string | null
   totalOdds: string | null
   legs: WeekOverviewLeg[]
   myLeg: WeekOverviewLeg | null
@@ -131,6 +133,7 @@ export async function getWeekOverview(
       parlayId: parlay.id,
       parlayState: parlay.state,
       parlayResult: parlay.result,
+      lockAt: parlay.lockAt,
       totalOdds: parlay.totalOdds,
       legs,
       myLeg,

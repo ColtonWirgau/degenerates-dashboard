@@ -65,6 +65,7 @@ export default async function WeekDetailPage({
     parlayId,
     parlayState,
     parlayResult,
+    lockAt,
     totalOdds,
     legs,
     myLeg,
@@ -136,9 +137,10 @@ export default async function WeekDetailPage({
               <h1 className="text-3xl sm:text-4xl font-bold">Week {week.weekNumber}</h1>
               <StatusPill state={submissionsOpen ? 'open' : parlayState} />
             </div>
-            {week.startDate && (
+            {(lockAt ?? week.startDate) && (
               <p className="text-muted-foreground text-sm sm:text-base mt-1">
-                Kickoff: <DeadlineDisplay deadline={week.startDate} />
+                {lockAt ? 'Locks' : 'Kickoff'}:{' '}
+                <DeadlineDisplay deadline={(lockAt ?? week.startDate)!} />
               </p>
             )}
           </div>

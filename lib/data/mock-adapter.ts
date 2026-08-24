@@ -340,6 +340,10 @@ const synthesize = (scenario: Scenario): SynthesizedStore => {
         totalOdds,
         state: stateInfo.state,
         result: stateInfo.result,
+        // Past weeks lock at their start; open/future weeks stay null so the
+        // fixture clock (scenario "now" vs real now) can't spuriously lock
+        // submissions. Deadline displays fall back to week.startDate.
+        lockAt: treatAsPast ? week.startDate ?? null : null,
       });
     }
   }
@@ -390,6 +394,7 @@ const synthesize = (scenario: Scenario): SynthesizedStore => {
         totalOdds,
         state: stateInfo.state,
         result: stateInfo.result,
+        lockAt: week.startDate ?? null,
       });
     }
   }
@@ -603,6 +608,12 @@ export const mockAdapter: DataAdapter = {
   async getWeekParlay(leagueId, weekId) {
     const s = await store();
     return s.parlays.find((p) => p.leagueId === leagueId && p.week.id === weekId) ?? null;
+  },
+
+  // Mock fixtures are synthesized per scenario — nothing to create. Delegates
+  // so the shared "ensure" call sites work in both modes.
+  async ensureWeekParlay(leagueId, nflWeekId) {
+    return this.getWeekParlay(leagueId, nflWeekId);
   },
 
   async getParlay(parlayId) {

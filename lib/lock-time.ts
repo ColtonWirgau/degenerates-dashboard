@@ -28,6 +28,18 @@ export interface LockComputation {
   anchorKickoff: Date | null
 }
 
+/** The one slate-membership predicate. Both lock derivation and the week
+ *  slate UI filter through here so the two can never drift. */
+export function isInSlate(
+  game: { scheduledDay: string; isHolidayGame: boolean },
+  config: Pick<SlateConfig, 'slateDaysIncluded' | 'slateIncludeHolidays'>
+): boolean {
+  return (
+    config.slateDaysIncluded.includes(game.scheduledDay) ||
+    (config.slateIncludeHolidays && game.isHolidayGame)
+  )
+}
+
 export async function computeLockAt(
   leagueId: string,
   nflWeekId: string
@@ -56,11 +68,7 @@ export async function computeLockAt(
     .from(nflGames)
     .where(eq(nflGames.nflWeekId, nflWeekId))
 
-  const eligible = games.filter((g) => {
-    const inSlate = league.slateDaysIncluded.includes(g.scheduledDay)
-    const holiday = league.slateIncludeHolidays && g.isHolidayGame
-    return inSlate || holiday
-  })
+  const eligible = games.filter((g) => isInSlate(g, league))
 
   if (eligible.length === 0) {
     return { lockAt: null, anchorGameId: null, anchorKickoff: null }
@@ -73,6 +81,28 @@ export async function computeLockAt(
   const anchor = sorted[0]
   const lockAt = new Date(anchor.kickoff.getTime() - league.lockOffsetMinutes * 60_000)
   return { lockAt, anchorGameId: anchor.id, anchorKickoff: anchor.kickoff }
+}
+
+/** Cached lock moment for a league-week. A cache row with a null
+ *  lock_at_cached is a legit "TBD" (no in-slate games) and is returned
+ *  as-is; a missing row (league predates the prewarm) self-heals by
+ *  computing + persisting on the spot. */
+export async function getCachedLockAt(
+  leagueId: string,
+  nflWeekId: string
+): Promise<Date | null> {
+  const row = await db
+    .select({ lockAtCached: leagueWeeks.lockAtCached })
+    .from(leagueWeeks)
+    .where(
+      and(eq(leagueWeeks.leagueId, leagueId), eq(leagueWeeks.nflWeekId, nflWeekId))
+    )
+    .limit(1)
+  if (row[0]) return row[0].lockAtCached
+
+  const { lockAt } = await computeLockAt(leagueId, nflWeekId)
+  await persistLockAt(leagueId, nflWeekId, lockAt)
+  return lockAt
 }
 
 export async function persistLockAt(

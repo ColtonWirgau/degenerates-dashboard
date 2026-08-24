@@ -13,6 +13,7 @@
 import { and, asc, desc, eq, inArray, gte, lte, sql } from 'drizzle-orm'
 import { db } from '@/db/client'
 import { getDevNow } from './dev-now'
+import { getCachedLockAt } from '@/lib/lock-time'
 import {
   charterApprovals,
   charterEntries,
@@ -173,6 +174,7 @@ async function buildParlay(parlayId: string): Promise<Parlay | null> {
     parlayLegFromRow(l, userFromRow(l.user))
   )
   const { state, result } = computeParlayState(legs, count ?? 0)
+  const lockAt = await getCachedLockAt(parlayRow.leagueId, parlayRow.nflWeekId)
 
   return {
     id: parlayRow.id,
@@ -182,6 +184,7 @@ async function buildParlay(parlayId: string): Promise<Parlay | null> {
     totalOdds: computeTotalOdds(legs),
     state,
     result,
+    lockAt: lockAt?.toISOString() ?? null,
   }
 }
 
@@ -432,6 +435,31 @@ export const neonAdapter: DataAdapter = {
       .limit(1)
     if (!row[0]) return null
     return buildParlay(row[0].id)
+  },
+
+  async ensureWeekParlay(leagueId, nflWeekId) {
+    const existing = await db
+      .select({ id: parlays.id })
+      .from(parlays)
+      .where(and(eq(parlays.leagueId, leagueId), eq(parlays.nflWeekId, nflWeekId)))
+      .limit(1)
+    if (existing[0]) return buildParlay(existing[0].id)
+
+    // The (league_id, nfl_week_id) unique constraint makes this race-safe:
+    // a concurrent creator wins silently and we re-read their row.
+    const inserted = await db
+      .insert(parlays)
+      .values({ leagueId, nflWeekId })
+      .onConflictDoNothing()
+      .returning({ id: parlays.id })
+    if (inserted[0]) return buildParlay(inserted[0].id)
+
+    const raced = await db
+      .select({ id: parlays.id })
+      .from(parlays)
+      .where(and(eq(parlays.leagueId, leagueId), eq(parlays.nflWeekId, nflWeekId)))
+      .limit(1)
+    return raced[0] ? buildParlay(raced[0].id) : null
   },
 
   async getParlay(parlayId) {

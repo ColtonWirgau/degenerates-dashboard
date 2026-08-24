@@ -1,7 +1,6 @@
 // DataAdapter — the seam between UI and storage. Two impls:
 //   • mock-adapter: in-memory fixtures + scenario switching (UI iteration)
-//   • supabase-adapter: thin wrapper around the live Supabase queries
-//   • neon-adapter (future): direct postgres / drizzle against Neon
+//   • neon-adapter: direct postgres / drizzle against Neon (production)
 //
 // All methods are async even when an impl is sync, so the contract stays
 // uniform.
@@ -51,6 +50,10 @@ export interface DataAdapter {
   // ─── Parlays ────────────────────────────────────────────────────────────
   /** League's parlay for a specific week, with all legs + users + state. */
   getWeekParlay(leagueId: string, weekId: string): Promise<Parlay | null>;
+  /** Get the league's parlay for an NFL week, creating the row if absent.
+   *  Race-safe via the (league_id, nfl_week_id) unique constraint. Returns
+   *  null only in mock mode when the fixture week has no parlay. */
+  ensureWeekParlay(leagueId: string, nflWeekId: string): Promise<Parlay | null>;
   /** Parlay by id (URL convenience). */
   getParlay(parlayId: string): Promise<Parlay | null>;
   /** All parlays for a league across a season, oldest → newest. */
@@ -156,9 +159,8 @@ export interface CreateCharterEntryInput {
 }
 
 // ─── Adapter selection ──────────────────────────────────────────────────────
-// `NEXT_PUBLIC_DATA_SOURCE=mock|supabase|neon` picks the impl. Default:
-// 'mock' during UI iteration. Flip to 'neon' once the Drizzle migration
-// + Auth.js wiring + data migration land.
+// `NEXT_PUBLIC_DATA_SOURCE=mock|neon` picks the impl. Default: 'mock'
+// (kept as a permanent dev/demo tool); production runs 'neon'.
 
 let _instance: DataAdapter | null = null;
 
@@ -168,9 +170,6 @@ export async function getDataAdapter(): Promise<DataAdapter> {
   if (source === 'neon') {
     const mod = await import('./neon-adapter');
     _instance = mod.neonAdapter;
-  } else if (source === 'supabase') {
-    const mod = await import('./supabase-adapter');
-    _instance = mod.supabaseAdapter;
   } else {
     const mod = await import('./mock-adapter');
     _instance = mod.mockAdapter;

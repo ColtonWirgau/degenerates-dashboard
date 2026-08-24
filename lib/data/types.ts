@@ -74,6 +74,10 @@ export interface Parlay {
   state: ParlayState;
   /** Convenience: outcome when state==='won'|'lost' */
   result: 'won' | 'lost' | null;
+  /** The moment submissions lock — earliest in-slate kickoff minus the
+   *  league's lock offset (league_weeks.lock_at_cached). Null = TBD
+   *  (no in-slate games, e.g. flex/postseason mismatch). */
+  lockAt: string | null;
 }
 
 export type ParlayState = 'open' | 'locked' | 'graded' | 'won' | 'lost';
