@@ -137,16 +137,16 @@ export function subscribeWeekDirty(listener: (n: number) => void): () => void {
 
 /* ---------- The league sheet ---------- */
 
-/* The two league surfaces that need real width — the full standings
- * table and the invite flow. Everything else about the league is on the
- * season panel, visible without opening anything. The board panel opens
- * the standings; the roster's "+" opens the invite. */
-export type LeaguePage = 'standings' | 'invite'
+/* The one league surface still worth a portaled sheet: the invite flow.
+ * The standings left for the BOARD panel, which now pages in to any one
+ * person's season; everything else is on the season panel, visible
+ * without opening anything. */
+export type LeaguePage = 'invite'
 
 let leaguePage: LeaguePage | null = null
 const leagueListeners = new Set<(page: LeaguePage | null) => void>()
 
-export function openLeagueSheet(page: LeaguePage = 'standings') {
+export function openLeagueSheet(page: LeaguePage = 'invite') {
   leaguePage = page
   leagueListeners.forEach((l) => l(leaguePage))
 }

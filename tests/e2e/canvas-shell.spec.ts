@@ -69,7 +69,7 @@ test.describe('desktop', () => {
 
     await boardBubble.click()
     await expect(page.locator('.sheet-track.is-slid-right')).toHaveCount(1)
-    await expect(page.getByText('Leaderboard', { exact: false }).first()).toBeVisible()
+    await expect(page.getByText('Board', { exact: false }).first()).toBeVisible()
 
     await page.keyboard.press('Escape')
     await expect(page.locator('.sheet-track.is-slid-right')).toHaveCount(0)
@@ -137,7 +137,7 @@ test.describe('mobile', () => {
     await dock.getByRole('button', { name: 'Leaderboard' }).click()
     // The panel arrives as a portaled bottom sheet.
     await expect(
-      page.getByRole('dialog').getByText('Leaderboard', { exact: false }).first()
+      page.getByRole('dialog').getByText('Board', { exact: false }).first()
     ).toBeVisible({ timeout: 5_000 })
   })
 })

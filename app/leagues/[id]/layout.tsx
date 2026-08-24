@@ -228,7 +228,12 @@ export default async function LeagueShellLayout({
           }
           boardPanel={
             <PanelReveal panel="board">
-              <BoardPanel entries={p.leaderboard} currentUserId={p.me.id} />
+              <BoardPanel
+                entries={p.leaderboard}
+                currentUserId={p.me.id}
+                weeks={chromeWeeks}
+                laysByWeek={layByWeek}
+              />
             </PanelReveal>
           }
           pollsPanel={
@@ -253,19 +258,12 @@ export default async function LeagueShellLayout({
         </CanvasSheet>
         <MobileDock />
 
-        {/* The two league surfaces that need real width — the full
-            standings table and the invite flow. */}
+        {/* The invite flow — the last thing that still wants a portaled
+            sheet rather than a 19rem column. */}
         <LeagueSheet
           leagueId={p.league.id}
-          leagueName={p.league.name}
-          memberCount={p.members.length}
           inviteCode={p.league.invite_code}
-          season={p.season}
-          availableSeasons={p.availableSeasons}
           canManage={p.currentUserRole === 'owner' || p.currentUserRole === 'admin'}
-          currentUserId={p.me.id}
-          leaderboard={p.leaderboard}
-          weeks={p.allWeeksData}
           mock={mock}
         />
 

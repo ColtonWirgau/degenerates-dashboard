@@ -16,14 +16,10 @@
  */
 
 import { useEffect, useState } from 'react'
-import { useResponsiveSheet } from '@/components/ui/responsive-sheet'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { FinalStandings } from '@/components/final-standings'
 import { inviteMember, regenerateInviteCode } from '@/app/actions/leagues'
-import type { WeekDetailData } from '@/components/week-detail-sheet'
-import type { LeaderboardEntry } from '@/components/leaderboard-sheet'
 import {
   AlertCircle,
   Check,
@@ -41,35 +37,6 @@ export type LeagueSheetMember = {
   email: string
   avatarUrl: string | null
   role: 'owner' | 'admin' | 'member'
-}
-
-// Full standings — the complete table with dot traces; rows drill into
-// the member's detail page.
-export function StandingsPage({
-  currentUserId,
-  leaderboard,
-  weeks,
-  onSelectUser,
-}: {
-  currentUserId: string
-  leaderboard: LeaderboardEntry[]
-  weeks: WeekDetailData[]
-  onSelectUser: (userId: string) => void
-}) {
-  const { navigate } = useResponsiveSheet()
-  return (
-    <div className="px-5 sm:px-6 pb-6 pt-2">
-      <FinalStandings
-        currentUserId={currentUserId}
-        leaderboard={leaderboard}
-        allWeeksData={weeks}
-        onSelectUser={(id) => {
-          onSelectUser(id)
-          navigate('user')
-        }}
-      />
-    </div>
-  )
 }
 
 // ─── Settings page ──────────────────────────────────────────────────────────

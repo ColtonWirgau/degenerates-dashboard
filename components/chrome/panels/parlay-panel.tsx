@@ -69,21 +69,51 @@ export function ParlayPanel({
   const hit = lay.legs.filter((l) => l.result === 'win').length
   const graded = lay.legs.filter((l) => l.result !== null).length
 
+  const won = week.parlayState === 'won'
+  const lost = week.parlayState === 'lost'
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="mb-3 flex shrink-0 items-baseline justify-between gap-2">
-        <p className="text-muted-foreground text-[10px] font-bold tracking-[0.3em] uppercase">
-          Week {week.weekNumber}
-        </p>
-        <p className="text-foreground/80 text-xs font-bold tabular-nums">
-          {graded > 0 ? (
-            <span className={hit === graded ? 'text-neon-blue' : 'text-foreground/80'}>
-              {hit}/{graded} hit
-            </span>
-          ) : (
-            lay.totalOdds
-          )}
-        </p>
+      {/* Same masthead as everywhere else the app names a week: the
+          number on its tinted slab, the panel's noun beside it, and the
+          one number that matters at the far end. */}
+      <div className="mb-3 flex shrink-0 items-stretch gap-2.5">
+        <div
+          aria-hidden
+          className="relative flex w-[3.25rem] shrink-0 items-center justify-center overflow-hidden rounded-lg py-1.5"
+          style={{
+            clipPath: 'polygon(0 0, 100% 0, calc(100% - 9px) 100%, 0 100%)',
+            background: won
+              ? 'linear-gradient(150deg, rgba(0,217,255,0.22), rgba(0,217,255,0.04))'
+              : lost
+                ? 'linear-gradient(150deg, rgba(255,105,180,0.22), rgba(255,105,180,0.04))'
+                : 'linear-gradient(150deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))',
+          }}
+        >
+          <span
+            className={cn(
+              'font-display -mr-1.5 text-[1.75rem] leading-none tabular-nums',
+              won ? 'text-neon-blue' : lost ? 'text-destructive' : 'text-foreground/70'
+            )}
+          >
+            {week.weekNumber}
+          </span>
+        </div>
+
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+          <h2 className="font-display text-foreground/80 text-lg leading-none tracking-tight uppercase">
+            The Lay
+          </h2>
+          <p className="shrink-0 text-xs font-bold tabular-nums">
+            {graded > 0 ? (
+              <span className={hit === graded ? 'text-neon-blue' : 'text-foreground/80'}>
+                {hit}/{graded} hit
+              </span>
+            ) : (
+              <span className="text-muted-foreground">{lay.totalOdds}</span>
+            )}
+          </p>
+        </div>
       </div>
 
       <div className="scrollbar-hide min-h-0 flex-1 space-y-1.5 overflow-y-auto pb-2">
