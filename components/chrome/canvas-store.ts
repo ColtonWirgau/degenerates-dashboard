@@ -70,11 +70,13 @@ export function subscribeViewedWeek(
 
 /* ---------- The league sheet ---------- */
 
-/* Everything you can DO to the league — members, invites, settings,
- * history, the full table. Too many pages for a 19rem reveal, so this
- * one stays a portaled sheet; the season panel is its doorway, and the
- * tile you press decides which page it opens on. */
-export type LeaguePage = 'main' | 'settings' | 'members' | 'invite' | 'history' | 'standings'
+/* The league's wider pages — settings, the invite flow, the full table.
+ * Too much for a 19rem reveal, so this one stays a portaled sheet; the
+ * season panel is its doorway, and the control you press decides which
+ * page it opens on. (The roster itself is NOT in here — it lives on the
+ * season panel, because who's in the league is a fact about the season
+ * you're looking at.) */
+export type LeaguePage = 'main' | 'settings' | 'invite' | 'standings'
 
 let leaguePage: LeaguePage | null = null
 const leagueListeners = new Set<(page: LeaguePage | null) => void>()

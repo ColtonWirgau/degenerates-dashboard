@@ -49,6 +49,10 @@ export function WeekHeader({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <h1 className="text-3xl font-bold sm:text-4xl">Week {weekNumber}</h1>
         <StatusPill state={state} />
+        {/* The row's right end is the week's controls. The scope switch
+            sits at the far right with its label stacked above it; anything
+            that acts on the week itself (locking it early, say) belongs
+            beside it here. */}
         {scopeCounts && <SlateScopePill counts={scopeCounts} className="ml-auto" />}
       </div>
       {when && (

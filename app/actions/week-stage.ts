@@ -30,8 +30,6 @@ export interface WeekStagePayload {
   scopeCounts: { action: number; slate: number; all: number } | null
   games: SlateGame[] | null
   legs: LegRoster[]
-  /** The viewer's own result this week, for the confetti. */
-  myResult: 'win' | 'loss' | 'push' | null
   /** Whether the parlay is still taking legs (nobody's sealed it yet). */
   submissionsOpen: boolean
 }
@@ -93,7 +91,6 @@ export async function getWeekStage(
         : null,
       games: slate?.games ?? null,
       legs,
-      myResult: legs.find((l) => l.userId === me.id)?.result ?? null,
       submissionsOpen,
     },
   }

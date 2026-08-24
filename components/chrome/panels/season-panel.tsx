@@ -1,39 +1,61 @@
 'use client'
 
-import { useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  Check,
-  History,
-  Link2,
-  Loader2,
-  Settings as SettingsIcon,
-  Users,
-} from 'lucide-react'
-import { closePanel, openLeagueSheet, type LeaguePage } from '@/components/chrome/canvas-store'
+import { Check, Crown, Loader2, Settings as SettingsIcon, Shield, UserMinus } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { closePanel, openLeagueSheet } from '@/components/chrome/canvas-store'
 import { useLeagueChrome } from '@/components/chrome/league-chrome-context'
 import { LeagueAvatar } from '@/components/league-avatar'
 import { setViewSeason } from '@/app/actions/view-season'
+import { removeMember, updateMemberRole } from '@/app/actions/leagues'
 import { cn } from '@/lib/utils'
 
+export interface SeasonPanelMember {
+  userId: string
+  fullName: string | null
+  email: string
+  avatarUrl: string | null
+  role: 'owner' | 'admin' | 'member'
+  /** Their record in the season being shown. */
+  wins: number
+  losses: number
+  pushes: number
+}
+
 /**
- * THE SEASON — which year the whole app is answering for.
+ * THE SEASON — which year the whole app is answering for, and who was in
+ * it.
  *
- * Tapping a year switches to it, full stop. There's no preview-then-
- * commit two-step: a list where tapping a row does something *other*
- * than the obvious thing is a list that feels broken, and looking at
- * last year is the entire reason this panel exists.
+ * Tapping a year switches to it, full stop: no preview-then-commit
+ * two-step, because a list where tapping a row does something other than
+ * the obvious thing is a list that feels broken.
  *
- * Underneath, the doors to the league itself. They open the league
- * sheet — too many pages for a reveal this narrow — straight onto the
- * page you asked for.
+ * The roster sits right here rather than behind a door, borrowing
+ * RoarTracker's people carousel: a row of faces you can push through,
+ * each card carrying that person's record FOR THE SELECTED YEAR, and
+ * tapping one opens the working side underneath it. Flipping the year
+ * re-reads the whole section, which is the point — this is the one place
+ * that answers "who was in it, and how did they do".
  */
-export function SeasonPanel({ availableSeasons }: { availableSeasons: string[] }) {
+export function SeasonPanel({
+  availableSeasons,
+  members,
+  currentUserId,
+  currentUserRole,
+}: {
+  availableSeasons: string[]
+  members: SeasonPanelMember[]
+  currentUserId: string
+  currentUserRole: 'owner' | 'admin' | 'member'
+}) {
   const chrome = useLeagueChrome()
   const router = useRouter()
   const [pending, start] = useTransition()
+  const [openId, setOpenId] = useState<string | null>(null)
 
   if (!chrome) return null
+  const canManage = currentUserRole === 'owner' || currentUserRole === 'admin'
 
   const pick = (season: string) => {
     if (season === chrome.season) {
@@ -45,17 +67,19 @@ export function SeasonPanel({ availableSeasons }: { availableSeasons: string[] }
       // freezing you on it.
       await setViewSeason(season === availableSeasons[0] ? null : season)
       router.refresh()
-      closePanel()
+      setOpenId(null)
     })
   }
 
+  const selected = members.find((m) => m.userId === openId) ?? null
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <p className="text-muted-foreground mb-3 shrink-0 text-[10px] font-bold tracking-[0.3em] uppercase">
+    <div className="flex min-h-0 flex-col">
+      <p className="text-muted-foreground mb-2 shrink-0 text-[10px] font-bold tracking-[0.3em] uppercase">
         Season
       </p>
 
-      <div className="mb-6 shrink-0 space-y-1.5">
+      <div className="mb-5 shrink-0 space-y-1.5">
         {availableSeasons.map((s) => {
           const active = s === chrome.season
           return (
@@ -66,7 +90,7 @@ export function SeasonPanel({ availableSeasons }: { availableSeasons: string[] }
               disabled={pending}
               aria-current={active ? 'true' : undefined}
               className={cn(
-                'flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left transition-colors',
+                'flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors',
                 active
                   ? 'border-neon-blue/40 bg-neon-blue/10'
                   : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.06]',
@@ -93,7 +117,8 @@ export function SeasonPanel({ availableSeasons }: { availableSeasons: string[] }
         })}
       </div>
 
-      <div className="mt-auto shrink-0 border-t border-white/10 pt-5">
+      {/* The league, and who was in it that year. */}
+      <div className="min-h-0 shrink border-t border-white/10 pt-4">
         <div className="mb-3 flex items-center gap-3">
           <LeagueAvatar leagueId={chrome.leagueId} size="sm" name={chrome.leagueName} />
           <div className="min-w-0 flex-1">
@@ -101,38 +126,211 @@ export function SeasonPanel({ availableSeasons }: { availableSeasons: string[] }
               {chrome.leagueName}
             </p>
             <p className="text-muted-foreground text-[11px]">
-              {chrome.memberCount} members
+              {members.length} members
             </p>
           </div>
+          <button
+            type="button"
+            onClick={() => openLeagueSheet('settings')}
+            aria-label="League settings"
+            className="text-muted-foreground hover:text-neon-blue shrink-0 rounded-full p-2 transition-colors hover:bg-white/5"
+          >
+            <SettingsIcon className="h-4 w-4" />
+          </button>
         </div>
-        <div className="grid grid-cols-4 gap-1.5">
-          <Door icon={SettingsIcon} label="Settings" page="settings" />
-          <Door icon={Users} label="Members" page="members" />
-          <Door icon={Link2} label="Invite" page="invite" />
-          <Door icon={History} label="History" page="history" />
+
+        {/* The carousel — push through the faces; the trailing card adds
+            the next one. */}
+        <div className="scrollbar-hide -mx-1 flex snap-x gap-1.5 overflow-x-auto px-1 pb-1">
+          {members.map((m) => {
+            const on = openId === m.userId
+            const played = m.wins + m.losses + m.pushes > 0
+            return (
+              <button
+                key={m.userId}
+                type="button"
+                onClick={() => setOpenId(on ? null : m.userId)}
+                aria-expanded={on}
+                className={cn(
+                  'flex w-[4.4rem] flex-none snap-start flex-col items-center gap-1.5 rounded-lg border px-1.5 pt-2.5 pb-2 transition-colors',
+                  on
+                    ? 'border-neon-blue/50 bg-neon-blue/10'
+                    : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.06]'
+                )}
+              >
+                <Avatar className="h-8 w-8 ring-1 ring-white/10">
+                  <AvatarImage src={m.avatarUrl ?? undefined} alt="" />
+                  <AvatarFallback className="bg-primary/70 text-primary-foreground text-[9px] font-bold">
+                    {initialsOf(m.fullName, m.email)}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="w-full truncate text-center text-[0.65rem] leading-none">
+                  {firstNameOf(m.fullName, m.email)}
+                </span>
+                <span
+                  className={cn(
+                    'text-[0.58rem] leading-none tabular-nums',
+                    played ? 'text-foreground/70' : 'text-muted-foreground/50'
+                  )}
+                >
+                  {played ? `${m.wins}–${m.losses}` : '—'}
+                </span>
+              </button>
+            )
+          })}
+          {canManage && (
+            <button
+              type="button"
+              onClick={() => openLeagueSheet('invite')}
+              aria-label="Invite someone"
+              className="text-muted-foreground hover:text-neon-blue hover:border-neon-blue/30 flex w-[4.4rem] flex-none snap-start flex-col items-center justify-center rounded-lg border border-dashed border-white/10 px-2 py-3 transition-colors"
+            >
+              <span className="font-display text-[1.4rem] leading-none">+</span>
+            </button>
+          )}
         </div>
+
+        {selected && (
+          <MemberDetail
+            key={selected.userId}
+            leagueId={chrome.leagueId}
+            member={selected}
+            isMe={selected.userId === currentUserId}
+            viewerRole={currentUserRole}
+            onGone={() => setOpenId(null)}
+          />
+        )}
       </div>
     </div>
   )
 }
 
-function Door({
-  icon: Icon,
-  label,
-  page,
+/** The working side of one member: what they did this season, and — for
+ *  the people who run the league — what you can do about them. */
+function MemberDetail({
+  leagueId,
+  member,
+  isMe,
+  viewerRole,
+  onGone,
 }: {
-  icon: typeof Users
-  label: string
-  page: LeaguePage
+  leagueId: string
+  member: SeasonPanelMember
+  isMe: boolean
+  viewerRole: 'owner' | 'admin' | 'member'
+  onGone: () => void
 }) {
+  const router = useRouter()
+  const [pending, start] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+
+  const total = member.wins + member.losses + member.pushes
+  const rate = total > 0 ? Math.round((member.wins / total) * 100) : null
+
+  // Owners set roles; owners and admins remove, but never themselves and
+  // never an owner. Mirrors the server's matrix so the UI can't offer
+  // something the action will refuse.
+  const canSetRole = viewerRole === 'owner' && member.role !== 'owner'
+  const canRemove =
+    !isMe &&
+    member.role !== 'owner' &&
+    (viewerRole === 'owner' || (viewerRole === 'admin' && member.role === 'member'))
+
+  const run = (fn: () => Promise<{ error?: string | null }>) =>
+    start(async () => {
+      setError(null)
+      const res = await fn()
+      if (res.error) {
+        setError(res.error)
+        return
+      }
+      router.refresh()
+    })
+
   return (
-    <button
-      type="button"
-      onClick={() => openLeagueSheet(page)}
-      className="text-muted-foreground hover:border-neon-blue/30 hover:text-neon-blue flex flex-col items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.02] px-1 py-2.5 transition-colors"
-    >
-      <Icon className="h-4 w-4" />
-      <span className="text-[9px] font-bold tracking-[0.15em] uppercase">{label}</span>
-    </button>
+    <div className="mt-3 border-t border-dashed border-white/15 pt-3">
+      <p className="text-foreground/90 flex items-center gap-1.5 text-sm font-semibold">
+        {member.fullName ?? member.email}
+        {isMe && <span className="text-neon-blue text-[11px] font-bold">· you</span>}
+        {member.role !== 'member' && (
+          <span className="text-muted-foreground inline-flex items-center gap-1 text-[10px] tracking-[0.15em] uppercase">
+            {member.role === 'owner' ? (
+              <Crown className="h-3 w-3" />
+            ) : (
+              <Shield className="h-3 w-3" />
+            )}
+            {member.role}
+          </span>
+        )}
+      </p>
+      <p className="text-muted-foreground mt-0.5 truncate text-[11px]">{member.email}</p>
+
+      <div className="mt-2.5 flex items-center gap-4 text-xs tabular-nums">
+        <span className="text-neon-blue font-bold">{member.wins} hit</span>
+        <span className="text-destructive font-bold">{member.losses} missed</span>
+        {member.pushes > 0 && (
+          <span className="text-muted-foreground">{member.pushes} push</span>
+        )}
+        {rate !== null && <span className="text-foreground/70 ml-auto">{rate}%</span>}
+      </div>
+
+      {(canSetRole || canRemove) && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {canSetRole && (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() =>
+                run(() =>
+                  updateMemberRole(
+                    leagueId,
+                    member.userId,
+                    member.role === 'admin' ? 'member' : 'admin'
+                  )
+                )
+              }
+              className="text-muted-foreground hover:text-neon-blue hover:border-neon-blue/30 rounded-full border border-white/10 px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase transition-colors disabled:opacity-50"
+            >
+              {member.role === 'admin' ? 'Make member' : 'Make admin'}
+            </button>
+          )}
+          {canRemove && (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() =>
+                run(async () => {
+                  const res = await removeMember(leagueId, member.userId)
+                  if (!res.error) onGone()
+                  return res
+                })
+              }
+              className="text-destructive/80 hover:text-destructive border-destructive/20 hover:border-destructive/50 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase transition-colors disabled:opacity-50"
+            >
+              <UserMinus className="h-3 w-3" />
+              Remove
+            </button>
+          )}
+          {pending && (
+            <Loader2 className="text-muted-foreground h-3.5 w-3.5 animate-spin self-center" />
+          )}
+        </div>
+      )}
+
+      {error && <p className="text-destructive mt-2 text-[11px]">{error}</p>}
+    </div>
   )
+}
+
+function initialsOf(name: string | null, email: string): string {
+  if (name) {
+    const parts = name.split(' ').filter(Boolean)
+    if (parts.length >= 2) return `${parts[0]![0]}${parts[1]![0]}`.toUpperCase()
+    return name.slice(0, 2).toUpperCase()
+  }
+  return email.slice(0, 2).toUpperCase()
+}
+
+function firstNameOf(name: string | null, email: string): string {
+  return name?.split(' ')[0] ?? email.split('@')[0] ?? email
 }

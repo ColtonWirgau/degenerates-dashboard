@@ -1,14 +1,7 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
-import {
-  ChevronRight,
-  History,
-  Link2,
-  Loader2,
-  Settings as SettingsIcon,
-  Users,
-} from 'lucide-react'
+import { ChevronRight, Loader2, Users } from 'lucide-react'
 import {
   closeLeagueSheet,
   subscribeLeagueSheet,
@@ -20,10 +13,7 @@ import {
   useResponsiveSheet,
 } from '@/components/ui/responsive-sheet'
 import {
-  HistoryPage,
   InvitePage,
-  MembersPage,
-  NavTile,
   SettingsPage,
   StandingsPage,
   type LeagueSheetMember,
@@ -151,25 +141,12 @@ export function LeagueSheet(props: LeagueSheetProps) {
           <SettingsPage canManage={props.canManage} leagueId={props.leagueId} />
         </SheetPage>
 
-        <SheetPage name="members" title="Members">
-          <MembersPage
-            leagueId={props.leagueId}
-            members={props.members}
-            currentUserId={props.currentUserId}
-            currentUserRole={props.currentUserRole}
-          />
-        </SheetPage>
-
         <SheetPage name="invite" title="Invite">
           <InvitePage
             leagueId={props.leagueId}
             inviteCode={props.inviteCode}
             canManage={props.canManage}
           />
-        </SheetPage>
-
-        <SheetPage name="history" title="History">
-          <HistoryPage />
         </SheetPage>
 
         {props.mock && (
@@ -265,17 +242,9 @@ function LeagueMainPage({
         </div>
       </div>
 
-      {/* Everything you can do to the league. */}
-      <div className="mt-2 grid grid-cols-4 gap-1.5">
-        <NavTile icon={SettingsIcon} label="Settings" onClick={() => navigate('settings')} />
-        <NavTile icon={Users} label="Members" onClick={() => navigate('members')} />
-        <NavTile icon={Link2} label="Invite" onClick={() => navigate('invite')} />
-        <NavTile icon={History} label="History" onClick={() => navigate('history')} />
-      </div>
-
       {/* How the season has gone. */}
       {weeks.length > 0 && (
-        <div className="mt-6 border-t border-white/10 pt-5">
+        <div className="border-t border-white/10 pt-5">
           <SeasonFormStrip
             weeks={weeks}
             leagueId={leagueId}

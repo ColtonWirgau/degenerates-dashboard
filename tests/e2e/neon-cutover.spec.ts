@@ -117,13 +117,15 @@ test('the lay is a reveal off the rail, not a modal', async ({ page }) => {
 test('the season and your profile are separate doors', async ({ page }) => {
   await openLeague(page)
 
-  // THE SEASON — years, and the ways into the league itself.
+  // THE SEASON — years and the roster, off the same right edge as the
+  // lockup that opens it.
   await page.getByRole('button', { name: 'Season and league' }).first().click()
-  await expect(page.locator('.sheet-track.is-slid-right')).toBeVisible()
+  await expect(page.locator('.sheet-track.is-slid-left')).toBeVisible()
   await expect(page.getByRole('button', { name: /2025/ })).toBeVisible({
     timeout: 10_000,
   })
-  await expect(page.getByText('Members', { exact: true })).toBeVisible()
+  // The roster lives on the panel itself, not behind a Members door.
+  await expect(page.getByText('12 members')).toBeVisible()
   await page.keyboard.press('Escape')
 
   // YOU — off the card's right edge, and nothing about the league in it.

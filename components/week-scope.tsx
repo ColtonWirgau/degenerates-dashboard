@@ -95,10 +95,11 @@ export function SlateScopePill({
       onClick={cycleSlateScope}
       aria-label={`${SCOPE_HINT[current]}. Click to change.`}
       title={SCOPE_HINT[current]}
-      className={cn('group inline-flex items-center gap-2.5', className)}
+      className={cn('group inline-flex flex-col items-end gap-1', className)}
     >
-      {/* The word, to the LEFT of the switch — it names what you're
-          looking at, so it reads before the control that changes it. */}
+      {/* The word sits ABOVE the switch — it names what you're looking at,
+          and stacking it keeps the row's right edge free for the week's
+          own controls. */}
       <span className="text-muted-foreground group-hover:text-foreground/80 text-[10px] font-bold tracking-[0.25em] whitespace-nowrap uppercase tabular-nums transition-colors">
         {SCOPE_LABEL[current]} · {counts[current]}
       </span>

@@ -13,7 +13,10 @@ import { CanvasSheet } from '@/components/chrome/canvas-sheet'
 import { PageSheet } from '@/components/chrome/page-sheet'
 import { MobileDock } from '@/components/chrome/mobile-dock'
 import { LeagueSheet } from '@/components/chrome/league-sheet'
-import { SeasonPanel } from '@/components/chrome/panels/season-panel'
+import {
+  SeasonPanel,
+  type SeasonPanelMember,
+} from '@/components/chrome/panels/season-panel'
 import { PanelReveal } from '@/components/chrome/panel-reveal'
 import { SlatePanel } from '@/components/chrome/panels/slate-panel'
 import { BoardPanel } from '@/components/chrome/panels/board-panel'
@@ -115,6 +118,24 @@ export default async function LeagueShellLayout({
     },
   }
 
+  // The roster, each carrying their record for the season being shown —
+  // the season panel is where "who was in it and how did they do" gets
+  // answered, so the two facts travel together.
+  const recordByUser = new Map(p.leaderboard.map((e) => [e.userId, e]))
+  const seasonMembers: SeasonPanelMember[] = p.members.map((m) => {
+    const record = recordByUser.get(m.user_id)
+    return {
+      userId: m.user_id,
+      fullName: m.full_name,
+      email: m.email,
+      avatarUrl: m.avatar_url,
+      role: m.role,
+      wins: record?.wins ?? 0,
+      losses: record?.losses ?? 0,
+      pushes: record?.pushes ?? 0,
+    }
+  })
+
   // Every poll in the season, tagged with its week — the panel picks out
   // the viewed week's without another round trip when you change weeks.
   const adapter = await getDataAdapter()
@@ -168,7 +189,12 @@ export default async function LeagueShellLayout({
         <CanvasSheet
           seasonPanel={
             <PanelReveal panel="season">
-              <SeasonPanel availableSeasons={p.availableSeasons} />
+              <SeasonPanel
+                availableSeasons={p.availableSeasons}
+                members={seasonMembers}
+                currentUserId={p.me.id}
+                currentUserRole={p.currentUserRole ?? 'member'}
+              />
             </PanelReveal>
           }
           slatePanel={

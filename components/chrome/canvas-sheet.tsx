@@ -16,8 +16,8 @@ import {
  * thing you pressed. Only the card moves; the masthead holds still.
  * (Mobile gets ResponsiveSheets instead.)
  */
-const LEFT_PANELS = ['season', 'slate', 'parlay', 'board', 'polls'] as const
-const RIGHT_PANELS = ['submit', 'profile'] as const
+const LEFT_PANELS = ['slate', 'parlay', 'board', 'polls'] as const
+const RIGHT_PANELS = ['submit', 'profile', 'season'] as const
 
 const PANEL_LABEL: Record<Exclude<CanvasPanel, null>, string> = {
   season: 'Season',
@@ -60,7 +60,8 @@ export function CanvasSheet({
   const [lastPanel, setLastPanel] = useState<Exclude<CanvasPanel, null>>('slate')
 
   useEffect(() => subscribePanel(setPanel), [])
-  const onRight = (p: CanvasPanel) => p === 'submit' || p === 'profile'
+  const onRight = (p: CanvasPanel) =>
+    p === 'submit' || p === 'profile' || p === 'season'
   useEffect(() => {
     if (panel) {
       setLastSide(onRight(panel) ? 'left' : 'right')
@@ -83,13 +84,16 @@ export function CanvasSheet({
 
   const slid = wide ? panel : null
   const leftContent = {
-    season: seasonPanel,
     slate: slatePanel,
     parlay: parlayPanel,
     board: boardPanel,
     polls: pollsPanel,
   } as const
-  const rightContent = { submit: submitPanel, profile: profilePanel } as const
+  const rightContent = {
+    submit: submitPanel,
+    profile: profilePanel,
+    season: seasonPanel,
+  } as const
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
@@ -122,20 +126,21 @@ export function CanvasSheet({
         {PANEL_LABEL[slid ?? lastPanel]}
       </div>
 
-      {/* Under the sheet's RIGHT edge: your leg and your profile — the two
-          surfaces that are about YOU, sliding in from off-screen right. */}
+      {/* Under the sheet's RIGHT edge: your leg, your profile, and the
+          season — everything whose trigger lives on that side, sliding in
+          from off-screen right. */}
       {RIGHT_PANELS.map((p) => (
         <div
           key={p}
           data-split-keep
           aria-hidden={slid !== p}
-          className={`fixed right-6 top-[5.75rem] bottom-6 z-0 hidden w-[max(23vw,19rem)] flex-col transition-[transform,opacity] duration-[340ms] ease-[cubic-bezier(0.2,0.9,0.25,1)] lg:flex ${
+          className={`fixed right-6 top-[5.75rem] z-0 hidden max-h-[calc(100dvh-7.5rem)] w-[max(23vw,19rem)] flex-col transition-[transform,opacity] duration-[340ms] ease-[cubic-bezier(0.2,0.9,0.25,1)] lg:flex ${
             slid === p
               ? 'translate-x-0 opacity-100'
               : 'pointer-events-none translate-x-[115%] opacity-0'
           }`}
         >
-          <div className="neon-panel-card flex min-h-0 flex-1 flex-col overflow-hidden px-5 pt-5 pb-4">
+          <div className="neon-panel-card flex min-h-0 flex-col overflow-hidden px-5 pt-5 pb-4">
             {rightContent[p]}
           </div>
         </div>
@@ -148,13 +153,13 @@ export function CanvasSheet({
         <div
           key={p}
           aria-hidden={slid !== p}
-          className={`fixed left-6 top-[5.75rem] bottom-6 z-0 hidden w-[max(23vw,19rem)] flex-col transition-[transform,opacity] duration-[340ms] ease-[cubic-bezier(0.2,0.9,0.25,1)] lg:flex ${
+          className={`fixed left-6 top-[5.75rem] z-0 hidden max-h-[calc(100dvh-7.5rem)] w-[max(23vw,19rem)] flex-col transition-[transform,opacity] duration-[340ms] ease-[cubic-bezier(0.2,0.9,0.25,1)] lg:flex ${
             slid === p
               ? 'translate-x-0 opacity-100'
               : 'pointer-events-none -translate-x-[115%] opacity-0'
           }`}
         >
-          <div className="neon-panel-card flex min-h-0 flex-1 flex-col overflow-hidden px-5 pt-5 pb-4">
+          <div className="neon-panel-card flex min-h-0 flex-col overflow-hidden px-5 pt-5 pb-4">
             {leftContent[p]}
           </div>
         </div>

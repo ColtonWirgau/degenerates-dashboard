@@ -1,6 +1,6 @@
 'use client'
 
-import { Check, Clock, Skull } from 'lucide-react'
+import { Clock, Skull, Trophy } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { closePanel, setViewedWeek } from '@/components/chrome/canvas-store'
 import {
@@ -160,8 +160,8 @@ function WeekCard({
 
 type Tone = 'hit' | 'miss' | 'pending'
 
-const TONE_MARK: Record<Tone, typeof Check> = {
-  hit: Check,
+const TONE_MARK: Record<Tone, typeof Trophy> = {
+  hit: Trophy,
   miss: Skull,
   pending: Clock,
 }
@@ -169,7 +169,9 @@ const TONE_MARK: Record<Tone, typeof Check> = {
 /**
  * One outcome, one row: a mark, then up to seven faces ringed to match.
  * Blue survived, pink went down — the league's whole colour grammar in
- * two lines. An empty row renders nothing rather than an empty shelf.
+ * two lines. A trophy means a win everywhere in this app; a tick would
+ * mean "submitted", which is a different thing entirely. An empty row
+ * renders nothing rather than an empty shelf.
  */
 function OutcomeRow({
   tone,

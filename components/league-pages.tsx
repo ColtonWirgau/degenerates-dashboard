@@ -1,45 +1,31 @@
 'use client'
 
 /**
- * The league's own pages — standings, settings, members, invites,
- * history. They're pages rather than a sheet because they all live
- * *inside* one: the season sheet, behind the masthead lockup. Nothing
- * about YOU is in here; that's the profile sheet's business.
+ * The league's WIDER pages — the full standings table, the slate
+ * settings, the invite flow. Pages rather than a sheet because they all
+ * live inside one, opened from the season panel.
+ *
+ * The roster isn't here: who's in the league is a fact about the season
+ * you're looking at, so it sits on the season panel beside the years.
+ * Nothing about YOU is here either; that's the profile panel's business.
  */
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import {
-  SheetPageKebab,
-  useResponsiveSheet,
-  type SheetPageKebabItem,
-} from '@/components/ui/responsive-sheet'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
+import { useResponsiveSheet } from '@/components/ui/responsive-sheet'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { FinalStandings } from '@/components/final-standings'
-import {
-  inviteMember,
-  regenerateInviteCode,
-  removeMember,
-  updateMemberRole,
-} from '@/app/actions/leagues'
+import { inviteMember, regenerateInviteCode } from '@/app/actions/leagues'
 import type { WeekDetailData } from '@/components/week-detail-sheet'
 import type { LeaderboardEntry } from '@/components/leaderboard-sheet'
 import {
   AlertCircle,
   Check,
   Copy,
-  Crown,
   Loader2,
-  Lock,
   Mail,
   RefreshCw,
-  Shield,
-  User as UserIcon,
-  UserMinus,
   UserPlus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -51,14 +37,6 @@ export type LeagueSheetMember = {
   avatarUrl: string | null
   role: 'owner' | 'admin' | 'member'
 }
-
-/** Compact row for the in-sheet league switcher. */
-export type LeagueSwitcherRow = {
-  id: string
-  name: string
-  role: 'owner' | 'admin' | 'member'
-}
-
 
 // Full standings — the complete table with dot traces; rows drill into
 // the member's detail page.
@@ -86,29 +64,6 @@ export function StandingsPage({
         }}
       />
     </div>
-  )
-}
-
-export function NavTile({
-  icon: Icon,
-  label,
-  onClick,
-}: {
-  icon: React.ComponentType<{ className?: string }>
-  label: string
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group flex flex-col items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.02] px-2 py-3 transition-all hover:border-primary/40 hover:bg-white/[0.05]"
-    >
-      <Icon className="h-4 w-4 text-muted-foreground group-hover:text-neon-blue transition-colors" />
-      <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground group-hover:text-foreground transition-colors">
-        {label}
-      </span>
-    </button>
   )
 }
 
@@ -335,138 +290,6 @@ export function SettingsPage({ canManage, leagueId }: { canManage: boolean; leag
   )
 }
 
-// ─── Members page ───────────────────────────────────────────────────────────
-
-const ROLE_VISUALS = {
-  owner: { icon: Crown, color: 'text-neon-blue', label: 'Owner' },
-  admin: { icon: Shield, color: 'text-neon-blue', label: 'Admin' },
-  member: { icon: UserIcon, color: 'text-neon-blue', label: 'Member' },
-} as const
-
-const getInitials = (name: string | null, email: string) => {
-  if (name) {
-    const parts = name.split(' ')
-    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
-    return name.slice(0, 2).toUpperCase()
-  }
-  return email.slice(0, 2).toUpperCase()
-}
-
-export function MembersPage({
-  leagueId,
-  members,
-  currentUserId,
-  currentUserRole,
-}: {
-  leagueId: string
-  members: LeagueSheetMember[]
-  currentUserId: string
-  currentUserRole: 'owner' | 'admin' | 'member'
-}) {
-  const router = useRouter()
-  const [updatingId, setUpdatingId] = useState<string | null>(null)
-
-  const canManage = currentUserRole === 'owner' || currentUserRole === 'admin'
-  const isOwner = currentUserRole === 'owner'
-
-  const buildKebabItems = (m: LeagueSheetMember): SheetPageKebabItem[] => {
-    if (!canManage || m.userId === currentUserId || m.role === 'owner') return []
-    const items: SheetPageKebabItem[] = []
-    if (isOwner && m.role === 'member') {
-      items.push({
-        key: 'promote',
-        label: 'Promote to admin',
-        icon: Shield,
-        onSelect: async () => {
-          setUpdatingId(m.userId)
-          await updateMemberRole(leagueId, m.userId, 'admin')
-          setUpdatingId(null)
-          router.refresh()
-        },
-      })
-    }
-    if (isOwner && m.role === 'admin') {
-      items.push({
-        key: 'demote',
-        label: 'Demote to member',
-        icon: UserIcon,
-        onSelect: async () => {
-          setUpdatingId(m.userId)
-          await updateMemberRole(leagueId, m.userId, 'member')
-          setUpdatingId(null)
-          router.refresh()
-        },
-      })
-    }
-    items.push({
-      key: 'remove',
-      label: 'Remove from league',
-      icon: UserMinus,
-      variant: 'destructive',
-      onSelect: async () => {
-        if (!confirm(`Remove ${m.fullName ?? m.email} from the league?`)) return
-        setUpdatingId(m.userId)
-        await removeMember(leagueId, m.userId)
-        setUpdatingId(null)
-        router.refresh()
-      },
-    })
-    return items
-  }
-
-  return (
-    <div className="px-3 pb-6 pt-2 space-y-1.5">
-      {members.map((m) => {
-        const Roi = ROLE_VISUALS[m.role].icon
-        const initials = getInitials(m.fullName, m.email)
-        const items = buildKebabItems(m)
-        return (
-          <div
-            key={m.userId}
-            className={cn(
-              'flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5',
-              updatingId === m.userId && 'opacity-60 transition-opacity'
-            )}
-          >
-            <Avatar className="h-9 w-9 shrink-0">
-              <AvatarImage src={m.avatarUrl ?? undefined} alt={m.fullName ?? m.email} />
-              <AvatarFallback className="bg-primary text-primary-foreground font-bold text-xs">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold truncate flex items-center gap-1.5">
-                {m.fullName ?? m.email}
-                <Roi className={cn('h-3 w-3', ROLE_VISUALS[m.role].color)} />
-                <span
-                  className={cn(
-                    'text-[10px] font-bold tracking-widest uppercase',
-                    ROLE_VISUALS[m.role].color
-                  )}
-                >
-                  {ROLE_VISUALS[m.role].label}
-                </span>
-                {m.userId === currentUserId && (
-                  <Badge
-                    variant="outline"
-                    className="text-[10px] border-primary/40 px-1.5 py-0"
-                  >
-                    You
-                  </Badge>
-                )}
-              </p>
-              {m.fullName && (
-                <p className="text-[11px] text-muted-foreground truncate">{m.email}</p>
-              )}
-            </div>
-            {items.length > 0 && <SheetPageKebab items={items} forceMenu />}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
 // ─── Invite page ────────────────────────────────────────────────────────────
 
 export function InvitePage({
@@ -656,18 +479,3 @@ function InviteByEmail({ leagueId }: { leagueId: string }) {
 }
 
 // ─── History page ───────────────────────────────────────────────────────────
-
-export function HistoryPage() {
-  return (
-    <div className="px-5 sm:px-6 pb-8 pt-4">
-      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-5 text-center">
-        <Lock className="h-6 w-6 text-muted-foreground/60 mx-auto mb-2" />
-        <p className="text-sm font-semibold">Coming soon</p>
-        <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed">
-          Closed polls, all-time leaderboards, championship recaps, and per-season
-          drill-ins land here.
-        </p>
-      </div>
-    </div>
-  )
-}

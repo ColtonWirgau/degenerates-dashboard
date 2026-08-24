@@ -1,7 +1,7 @@
 'use client'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { CheckCircle2, Minus, Skull } from 'lucide-react'
+import { Minus, Skull, Trophy } from 'lucide-react'
 import { useViewedWeek } from '@/components/chrome/league-chrome-context'
 import { cn } from '@/lib/utils'
 
@@ -178,8 +178,10 @@ function EmptyRow({
 }
 
 function ResultMark({ result }: { result: ParlayPanelLeg['result'] }) {
+  // A trophy, never a tick: a tick means "submitted" in this app, and a
+  // leg can be submitted and still lose.
   if (result === 'win')
-    return <CheckCircle2 className="text-neon-blue h-3.5 w-3.5 shrink-0" />
+    return <Trophy className="text-neon-blue h-3.5 w-3.5 shrink-0" />
   if (result === 'loss')
     return <Skull className="text-destructive h-3.5 w-3.5 shrink-0" />
   return <Minus className="text-muted-foreground h-3.5 w-3.5 shrink-0" />

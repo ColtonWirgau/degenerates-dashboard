@@ -6,7 +6,6 @@ import { getWeekStage, type WeekStagePayload } from '@/app/actions/week-stage'
 import { useLeagueChrome, useViewedWeek } from '@/components/chrome/league-chrome-context'
 import { WeekHeader } from '@/components/week-header'
 import { WeekSlate } from '@/components/week-slate'
-import { ParlayResultAnimation } from '@/components/parlay-result-animation'
 
 /**
  * THE STAGE — the one thing on the page, showing the one week you're on.
@@ -78,15 +77,10 @@ export function WeekStage({
 
   return (
     <div className={loading ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
-      {/* Win/loss confetti — fires once when graded results land. */}
-      {(stage.parlayState === 'won' || stage.parlayState === 'lost') &&
-        stage.myResult && (
-          <ParlayResultAnimation
-            result={stage.myResult}
-            userParlay={{ legs: [{ result: stage.myResult }] }}
-          />
-        )}
-
+      {/* No win/loss takeover. Whether your leg hit is written on your
+          face in THE LAY and on the week card in the list; a full-screen
+          message announcing it a third time is just something to dismiss
+          before you can look at the thing you came for. */}
       <WeekHeader
         weekNumber={stage.weekNumber}
         state={stage.submissionsOpen ? 'open' : stage.parlayState}
