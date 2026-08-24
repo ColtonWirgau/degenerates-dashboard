@@ -1,16 +1,26 @@
 'use client'
 
-import { CheckCircle2, Skull, Trophy } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { DeadlineDisplay } from '@/components/deadline-display'
 import { useEffect } from 'react'
+import { openPanel } from '@/components/chrome/canvas-store'
 import {
   resetSlateScope,
+  SCOPE_LABEL,
   SlateScopePill,
+  useSlateScope,
   type SlateScope,
 } from '@/components/week-scope'
 import type { ParlayState } from '@/lib/data/types'
 import { cn } from '@/lib/utils'
+
+/** The week's verdict, in one word. */
+const STATE_WORD: Record<ParlayState, string> = {
+  open: 'Open',
+  locked: 'Locked',
+  graded: 'In progress',
+  won: 'Won',
+  lost: 'Lost',
+}
 
 /**
  * THE WEEK, named once — as the number, on the same slab the week list
@@ -52,46 +62,113 @@ export function WeekHeader({
   const lost = state === 'lost'
 
   return (
-    <header className="mb-5 flex items-stretch gap-3">
-      {/* The number IS the title. Screen readers get the words. */}
-      <h1 className="sr-only">Week {weekNumber}</h1>
-      <div
-        aria-hidden
-        // Exactly as wide as the game rows' slabs below it, so the page
-        // keeps one left column all the way down instead of two edges
-        // that nearly agree.
-        className="relative flex w-[7.5rem] shrink-0 items-center justify-center overflow-hidden rounded-l-xl py-5"
-        style={{
-          clipPath: 'polygon(0 0, 100% 0, calc(100% - 13px) 100%, 0 100%)',
-          background: won
-            ? 'linear-gradient(150deg, rgba(0,217,255,0.22), rgba(0,217,255,0.04))'
-            : lost
-              ? 'linear-gradient(150deg, rgba(255,105,180,0.22), rgba(255,105,180,0.04))'
-              : 'linear-gradient(150deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))',
-        }}
-      >
-        <span
+    <>
+      {/* THE WEEK. Its number in the left corner, its lock in the right,
+          the full width of the card between them — the two facts that
+          belong to the week itself rather than to the slate below. */}
+      <header className="flex items-stretch justify-between gap-3">
+        {/* The number IS the title. Screen readers get the words. */}
+        <h1 className="sr-only">Week {weekNumber}</h1>
+        <WeekCornerDoor
+          weekNumber={weekNumber}
+          tone={won ? 'won' : lost ? 'lost' : 'neutral'}
+        />
+
+        {/* HOW IT WENT, next to the number and at its scale — outside the
+            slab, so the slab stays the door and this stays the verdict.
+            It was a chip in the far corner, which is where you put a
+            label, not a result. */}
+        <p
           className={cn(
-            'font-display -mr-2 text-6xl leading-none tabular-nums',
+            'font-display min-w-0 flex-1 self-center truncate pt-1 text-3xl leading-none tracking-tight uppercase sm:text-4xl',
             won
               ? 'text-neon-blue'
               : lost
                 ? 'text-destructive'
-                : 'text-foreground/75'
+                : 'text-foreground/35'
           )}
         >
-          {weekNumber}
-        </span>
-      </div>
+          {STATE_WORD[state]}
+        </p>
 
-      <div className="flex min-w-0 flex-1 flex-wrap items-end justify-end gap-x-3 gap-y-2 pb-1">
-        {/* Terminal states aren't a lock question any more — a week that
-            won or lost says so, and there's nothing to press. */}
-        {(state === 'graded' || won || lost) && <StatusPill state={state} />}
-        {scopeCounts && <SlateScopePill counts={scopeCounts} />}
         <LockMark locked={locked} weekNumber={weekNumber} />
-      </div>
-    </header>
+      </header>
+
+      {/* THE SLATE'S OWN HEADING — it names what you're looking at, and
+          the switch that changes it sits at the other end of the same
+          line. The switch used to carry that name stacked above itself,
+          which put the label and the thing it labels a hand's width
+          apart with nothing between them. */}
+      {scopeCounts && <SlateHeading counts={scopeCounts} />}
+    </>
+  )
+}
+
+function SlateHeading({ counts }: { counts: Record<SlateScope, number> }) {
+  const scope = useSlateScope()
+  return (
+    // A hairline under the whole row — title at one end, switch at the
+    // other, and the rule tying them together and holding the games off.
+    <div className="mt-4 mb-3 flex items-end justify-between gap-3 border-b border-white/[0.07] pb-2.5">
+      <h2 className="font-display text-foreground/80 text-xl leading-none tracking-tight uppercase">
+        {SCOPE_LABEL[scope]}
+        <span className="text-muted-foreground/60 ml-2 text-sm tabular-nums">
+          {counts[scope]}
+        </span>
+      </h2>
+      <SlateScopePill counts={counts} hideLabel />
+    </div>
+  )
+}
+
+/**
+ * THE CORNER DOOR — the week's number, reaching into the card's top-left
+ * corner, and the way into the week list.
+ *
+ * Negative margins cancel the page gutter and the top padding so it sits
+ * ON the corner rather than near it, and its own top-left is rounded to
+ * the card's radius. Pressing it opens the list, which is why the rail
+ * no longer carries a bubble wearing this same number six inches away —
+ * and why RAIL_TOP starts below it.
+ */
+export function WeekCornerDoor({
+  weekNumber,
+  tone = 'neutral',
+}: {
+  weekNumber: number
+  tone?: 'neutral' | 'won' | 'lost'
+}) {
+  const won = tone === 'won'
+  const lost = tone === 'lost'
+  return (
+    <button
+      type="button"
+      onClick={() => openPanel('slate')}
+      aria-label={
+        weekNumber === 0
+          ? 'Preseason — open the week list'
+          : `Week ${weekNumber} — open the week list`
+      }
+      className="group relative -mt-8 -ml-4 flex w-[7.5rem] shrink-0 items-center justify-center overflow-hidden rounded-tl-[20px] pt-8 pb-5 transition-[filter] hover:brightness-125 lg:-ml-14 lg:w-[8.75rem] lg:pl-6"
+      style={{
+        clipPath: 'polygon(0 0, 100% 0, calc(100% - 13px) 100%, 0 100%)',
+        background: won
+          ? 'linear-gradient(150deg, rgba(0,217,255,0.22), rgba(0,217,255,0.04))'
+          : lost
+            ? 'linear-gradient(150deg, rgba(255,105,180,0.22), rgba(255,105,180,0.04))'
+            : 'linear-gradient(150deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))',
+      }}
+    >
+      <span
+        aria-hidden
+        className={cn(
+          'font-display -mr-2 text-6xl leading-none tabular-nums',
+          won ? 'text-neon-blue' : lost ? 'text-destructive' : 'text-foreground/75'
+        )}
+      >
+        {weekNumber}
+      </span>
+    </button>
   )
 }
 
@@ -144,14 +221,17 @@ function LockMark({ locked, weekNumber }: { locked: boolean; weekNumber: number 
       role="img"
       aria-label={label}
       title={label}
+      // Sized to answer the week's number across the card, not to sit
+      // quietly beside a switch — it's the other thing that's true about
+      // the week as a whole.
       className={cn(
-        'flex size-9 items-center justify-center rounded-full border',
+        'flex size-14 items-center justify-center rounded-2xl border',
         locked
           ? 'border-neon-blue/40 bg-neon-blue/10 text-neon-blue'
           : 'text-muted-foreground/70 border-white/10 bg-white/[0.02]'
       )}
     >
-      <Padlock shut={locked} />
+      <Padlock shut={locked} big />
     </span>
   )
 }
@@ -164,7 +244,7 @@ function LockMark({ locked, weekNumber }: { locked: boolean; weekNumber: number 
  * glyphs — swapping them would cut, not animate — so this is hand-rolled
  * to keep one continuous object across the change.
  */
-function Padlock({ shut }: { shut: boolean }) {
+function Padlock({ shut, big = false }: { shut: boolean; big?: boolean }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -173,7 +253,7 @@ function Padlock({ shut }: { shut: boolean }) {
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="size-[18px]"
+      className={big ? 'size-7' : 'size-[18px]'}
       aria-hidden
     >
       <path
@@ -188,41 +268,4 @@ function Padlock({ shut }: { shut: boolean }) {
       <rect x="4" y="11" width="16" height="10" rx="2" />
     </svg>
   )
-}
-
-function StatusPill({ state }: { state: ParlayState }) {
-  switch (state) {
-    case 'graded':
-      return (
-        <Badge
-          variant="outline"
-          className="text-muted-foreground flex items-center gap-1.5 border-white/20 bg-white/5"
-        >
-          <CheckCircle2 className="h-3.5 w-3.5" />
-          GRADING
-        </Badge>
-      )
-    case 'won':
-      return (
-        <Badge
-          variant="outline"
-          className="text-neon-blue flex items-center gap-1.5 border-[#00D9FF]/30 bg-[#00D9FF]/10"
-        >
-          <Trophy className="h-3.5 w-3.5" />
-          WON
-        </Badge>
-      )
-    case 'lost':
-      return (
-        <Badge
-          variant="outline"
-          className="text-destructive border-destructive/30 bg-destructive/10 flex items-center gap-1.5"
-        >
-          <Skull className="h-3.5 w-3.5" />
-          LOST
-        </Badge>
-      )
-    default:
-      return null
-  }
 }

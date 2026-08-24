@@ -80,9 +80,10 @@ test.describe('desktop', () => {
     await page.goto('http://localhost:3001/')
     await page.waitForURL(/\/leagues\//, { timeout: 10_000 })
 
-    // Week 0 has no slate, so no pod at all. Move to a week that does.
+    // Week 0 has no slate, so no pod at all. Move to a week that does —
+    // through the corner door, since the rail no longer carries the week.
     await expect(page.getByRole('button', { name: 'actions' })).toHaveCount(0)
-    await page.getByRole('button', { name: 'slate panel' }).click()
+    await page.getByRole('button', { name: /open the week list/i }).click()
     await page.getByRole('button', { name: /Week 1\b/ }).first().click()
     await expect(page.getByRole('heading', { name: 'Week 1', level: 1 })).toBeVisible({
       timeout: 15_000,

@@ -81,10 +81,13 @@ export function useSlateScope(): SlateScope {
 export function SlateScopePill({
   counts,
   className,
+  hideLabel = false,
 }: {
   /** How many games each scope would show. */
   counts: Record<SlateScope, number>
   className?: string
+  /** The section header already names the scope — don't say it twice. */
+  hideLabel?: boolean
 }) {
   const current = useSlateScope()
   const index = SCOPES.indexOf(current)
@@ -97,12 +100,15 @@ export function SlateScopePill({
       title={SCOPE_HINT[current]}
       className={cn('group inline-flex flex-col items-end gap-1', className)}
     >
-      {/* The word sits ABOVE the switch — it names what you're looking at,
-          and stacking it keeps the row's right edge free for the week's
-          own controls. */}
-      <span className="text-muted-foreground group-hover:text-foreground/80 text-[10px] font-bold tracking-[0.25em] whitespace-nowrap uppercase tabular-nums transition-colors">
-        {SCOPE_LABEL[current]} · {counts[current]}
-      </span>
+      {/* The word normally sits ABOVE the switch, naming what you're
+          looking at. Where a section header already says it — the slate's
+          own heading does — the switch goes wordless rather than
+          repeating it a hand's width away. */}
+      {!hideLabel && (
+        <span className="text-muted-foreground group-hover:text-foreground/80 text-[10px] font-bold tracking-[0.25em] whitespace-nowrap uppercase tabular-nums transition-colors">
+          {SCOPE_LABEL[current]} · {counts[current]}
+        </span>
+      )}
       <span className="relative flex items-center gap-1 rounded-full bg-white/[0.04] p-1 ring-1 ring-white/10">
         {/* The slider: size-7 disc, one gap (4px) over — 32px of travel. */}
         <span

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { SaveLastLeague } from '@/components/save-last-league'
 import { WeekStage } from '@/components/week-stage'
+import { WeekCornerDoor } from '@/components/week-header'
 import { OffseasonPollsHub } from '@/components/offseason-polls-hub'
 
 /**
@@ -111,15 +112,18 @@ async function PreseasonStage({ payload: p }: { payload: Payload }) {
     <>
       {/* The open-vote count is deliberately absent: the POLLS rung wears
           it on the rail, and the dock's disc wears it on a phone. */}
-      <header className="mb-2">
-        <p className="text-neon-blue text-[10px] font-bold tracking-[0.3em] uppercase">
-          Week 0
-        </p>
-        <h1 className="mt-1 text-3xl font-bold sm:text-4xl">Preseason</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          No slate to bet yet — this is the week the league writes its own
-          rules. Settle the charter, take the votes, then football.
-        </p>
+      {/* Week 0 gets the same corner door as every other week — it's
+          the only way into the week list now that the rail doesn't carry
+          one, and the preseason must not be a dead end. */}
+      <header className="mb-4 flex items-stretch gap-4">
+        <WeekCornerDoor weekNumber={0} />
+        <div className="min-w-0 flex-1 pt-1">
+          <h1 className="text-3xl font-bold sm:text-4xl">Preseason</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            No slate to bet yet — this is the week the league writes its own
+            rules. Settle the charter, take the votes, then football.
+          </p>
+        </div>
       </header>
 
       <OffseasonPollsHub

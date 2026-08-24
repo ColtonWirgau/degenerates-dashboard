@@ -26,7 +26,11 @@ import { BITE_FILLET, BITE_R, type Bite } from '@/components/chrome/bite-geometr
  * while the order never changes, so your hand learns it once.
  *
  * The right edge, top-anchored, is you: the profile sheet's trigger. */
-export const RAIL_TOP = 133.5
+/* The first rung starts BELOW the card's top-left corner, because that
+ * corner is now a control in its own right: the week's number slab, which
+ * opens the week list. A bite at 133.5 put a hole through the bottom of
+ * that slab; the rail begins under it instead. */
+export const RAIL_TOP = 205
 export const RAIL_STEP = 91
 export const PROFILE_C = 153
 export const PROFILE_R = 25

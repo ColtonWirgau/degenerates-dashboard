@@ -65,7 +65,11 @@ async function openLeague(page: Page) {
 
 test('the league opens on the current week — week 0, the charter', async ({ page }) => {
   await openLeague(page)
-  await expect(page.getByText('Week 0', { exact: true })).toBeVisible()
+  // Week 0's identity is now the corner door — the "0" slab that opens
+  // the week list, same as every other week.
+  await expect(
+    page.getByRole('button', { name: /Preseason — open the week list/i })
+  ).toBeVisible()
 
   // The charter is the week's content, read from real seeded rows.
   await expect(page.getByText('$50 · 12 teams · $600 pot')).toBeVisible({
@@ -78,7 +82,7 @@ test('picking a week swaps the stage without navigating', async ({ page }) => {
   await openLeague(page)
   const url = page.url()
 
-  await page.getByRole('button', { name: 'slate panel' }).click()
+  await page.getByRole('button', { name: /open the week list/i }).click()
   await expect(page.getByText('Preseason', { exact: true }).first()).toBeVisible()
   await page.getByRole('button', { name: /Week 1\b/ }).first().click()
 
@@ -88,9 +92,11 @@ test('picking a week swaps the stage without navigating', async ({ page }) => {
   // Single page: the URL never moved.
   expect(page.url()).toBe(url)
 
-  // A week with a slate carries the scope switch and the SUBMIT bubble;
-  // week 0 carries neither.
-  await expect(page.getByText(/Betting slate · \d+/i)).toBeVisible()
+  // A week with a slate carries the slate's own heading and the ACTIONS
+  // pod; week 0 carries neither.
+  await expect(
+    page.getByRole('heading', { name: /Betting slate/i, level: 2 })
+  ).toBeVisible()
   await expect(page.getByRole('button', { name: 'actions' })).toBeVisible()
 })
 
@@ -100,7 +106,7 @@ test('the lay is a reveal off the rail, not a modal', async ({ page }) => {
   // Week 0 has no parlay, so no LAY rung.
   await expect(page.getByRole('button', { name: 'parlay panel' })).toHaveCount(0)
 
-  await page.getByRole('button', { name: 'slate panel' }).click()
+  await page.getByRole('button', { name: /open the week list/i }).click()
   await page.getByRole('button', { name: /Week 1\b/ }).first().click()
   await expect(page.getByRole('heading', { name: 'Week 1', level: 1 })).toBeVisible({
     timeout: 15_000,
@@ -137,7 +143,7 @@ test('a finished season is closed, not still taking legs', async ({ page }) => {
 
   // And a week of a finished season that nobody entered says so in the
   // past tense — "Nobody in", not "Nobody in yet".
-  await page.getByRole('button', { name: 'slate panel' }).click()
+  await page.getByRole('button', { name: /open the week list/i }).click()
   await expect(page.getByText('Nobody in', { exact: true }).first()).toBeVisible({
     timeout: 10_000,
   })

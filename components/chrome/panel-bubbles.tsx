@@ -21,17 +21,23 @@ import { railC, setRailCount } from '@/components/chrome/bubble-layout'
  * RoarTracker, each bubble wearing its panel's live fact. In order,
  * always:
  *
- *   WEEK    the week you're on (PRE in the preseason), opens the week list
  *   PARLAY  this week's twelve legs — who's in, who hit
  *   BOARD   your rank, opens the standings
  *   POLLS   this week's open votes
  *
- * The middle two come and go with the week (the preseason has no parlay;
- * most weeks have no polls) and the rail closes up behind them, so it's
- * never a ladder with a rung missing. Open, a bubble becomes its own ✕.
- * They render inside .page-sheet, so they ride every slide the card makes.
+ * The week list is NOT here any more. It had a bubble wearing the week's
+ * number while the page's own title was that same number, six inches
+ * away — so the title took the job: the slab in the top-left corner is
+ * what opens the list now. The rail starts lower down to leave that
+ * corner alone (see RAIL_TOP).
+ *
+ * The first and last come and go with the week (the preseason has no
+ * parlay; most weeks have no polls) and the rail closes up behind them,
+ * so it's never a ladder with a rung missing. Open, a bubble becomes its
+ * own ✕. They render inside .page-sheet, so they ride every slide the
+ * card makes.
  */
-type Rung = 'slate' | 'parlay' | 'board' | 'polls'
+type Rung = 'parlay' | 'board' | 'polls'
 
 export function PanelBubbles() {
   const chrome = useLeagueChrome()
@@ -44,7 +50,7 @@ export function PanelBubbles() {
 
   // Rail order is fixed; presence is not. The clip follows exactly —
   // resolveBites carves this many holes, top-down.
-  const rungs: Rung[] = ['slate']
+  const rungs: Rung[] = []
   if (hasParlay) rungs.push('parlay')
   rungs.push('board')
   if (hasPolls) rungs.push('polls')
@@ -85,7 +91,7 @@ export function PanelBubbles() {
             {/* The panel's name curved around the bite, out on the canvas —
                 letter-by-letter placement (see arc-label). */}
             <ArcLabel
-              text={arcText(p, week)}
+              text={arcText(p)}
               cx={44}
               cy={49.5}
               r={39.5}
@@ -123,18 +129,8 @@ export function PanelBubbles() {
   )
 }
 
-/** "PRE" in the preseason, otherwise the number. */
-function weekFace(week: ChromeWeek | null): string {
-  if (!week) return '–'
-  return week.kind === 'preseason' ? 'PRE' : String(week.weekNumber)
-}
-
-function arcText(panel: Rung, week: ChromeWeek | null): string {
+function arcText(panel: Rung): string {
   switch (panel) {
-    case 'slate':
-      return week?.kind === 'preseason'
-        ? 'PRESEASON'
-        : `WEEK ${week?.weekNumber ?? ''}`
     case 'parlay':
       return 'THE LAY'
     case 'board':
@@ -150,8 +146,6 @@ function faceKey(
   myRank: number | null
 ): string | number {
   switch (panel) {
-    case 'slate':
-      return weekFace(week)
     case 'parlay':
       return week?.submissionCount ?? 0
     case 'board':
@@ -171,20 +165,6 @@ function Face({
   myRank: number | null
 }) {
   switch (panel) {
-    case 'slate': {
-      const face = weekFace(week)
-      return (
-        <span
-          className={
-            face === 'PRE'
-              ? 'font-display text-[0.72rem] leading-none tracking-wide'
-              : 'font-display text-[1.05rem] leading-none'
-          }
-        >
-          {face}
-        </span>
-      )
-    }
     case 'parlay':
       return (week?.submissionCount ?? 0) > 0 ? (
         <span className="font-display text-[1.05rem] leading-none">
