@@ -2,16 +2,20 @@
  * Stamp `locked_at` on legs that never got one.
  *
  * Legs imported from the league's history predate this app, so they came
- * in with no lock time — which made every past week read as "still taking
- * submissions" forever. A graded leg was obviously submitted; the best
- * evidence of when is the row's own creation time.
+ * in with no lock time — and a leg with no lock time reads as a DRAFT,
+ * which made every past week say "still taking submissions" forever.
+ * None of them are drafts: they're finished business, graded or not. The
+ * best evidence of when each went in is the row's own creation time, so
+ * that's the guess we stamp.
  *
- * Idempotent: only touches rows where locked_at is null and a result is in.
+ * Safe to run again, and safe to leave in place: every leg submitted
+ * through the app gets its lock stamp at write time (see the adapter's
+ * submitLeg), so the only rows this can ever find are imported ones.
  *
  *   npx tsx --env-file=.env.local scripts/backfill-leg-locks.ts
  */
 
-import { and, isNotNull, isNull, sql } from 'drizzle-orm'
+import { isNull, sql } from 'drizzle-orm'
 import { db } from '@/db/client'
 import { parlayLegs } from '@/db/schema'
 
@@ -19,10 +23,15 @@ async function main() {
   const result = await db
     .update(parlayLegs)
     .set({ lockedAt: sql`${parlayLegs.createdAt}` })
-    .where(and(isNull(parlayLegs.lockedAt), isNotNull(parlayLegs.result)))
-    .returning({ id: parlayLegs.id })
+    .where(isNull(parlayLegs.lockedAt))
+    .returning({ id: parlayLegs.id, result: parlayLegs.result })
 
-  console.log(`Stamped ${result.length} graded leg(s) as locked.`)
+  const graded = result.filter((r) => r.result !== null).length
+  console.log(
+    `Stamped ${result.length} leg(s) as locked — ${graded} graded, ${
+      result.length - graded
+    } still awaiting a result.`
+  )
 }
 
 main()

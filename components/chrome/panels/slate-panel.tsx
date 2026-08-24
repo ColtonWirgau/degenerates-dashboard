@@ -1,5 +1,6 @@
 'use client'
 
+import { Check, Clock, Skull } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { closePanel, setViewedWeek } from '@/components/chrome/canvas-store'
 import {
@@ -76,7 +77,6 @@ function WeekCard({
 }) {
   const preseason = week.kind === 'preseason'
   const graded = lay?.legs.filter((l) => l.result !== null) ?? []
-  const hit = graded.filter((l) => l.result === 'win').length
   const won = week.parlayState === 'won'
   const lost = week.parlayState === 'lost'
 
@@ -119,59 +119,97 @@ function WeekCard({
         </span>
       </div>
 
-      {/* Faces — the week's cast, in the order it matters: who hit, who
-          missed, who's still pending, who never picked. */}
-      <div className="flex items-center gap-2 px-3 py-2">
+      {/* The week's cast. Once results land it splits in two — who
+          survived, who went down — because that's the shape of the
+          question you're asking when you scroll back through a season. */}
+      <div className="space-y-1 px-3 py-2">
         {preseason ? (
           <span className="text-foreground/70 text-xs">
             {week.pollCount > 0
               ? `${week.pollCount} ${week.pollCount === 1 ? 'vote' : 'votes'} on the charter`
               : 'Charter and league business'}
           </span>
-        ) : lay && lay.legs.length > 0 ? (
-          <FaceRow lay={lay} />
-        ) : (
+        ) : !lay || lay.legs.length === 0 ? (
           // A week nobody has opened and a week nobody has picked in are
           // the same fact to a reader, so they get the same sentence.
           <span className="text-muted-foreground/60 text-xs italic">Nobody in yet</span>
-        )}
-        {graded.length > 0 && (
-          <span
-            className={cn(
-              'ml-auto shrink-0 text-xs font-bold tabular-nums',
-              hit === graded.length ? 'text-neon-blue' : 'text-foreground/80'
-            )}
-          >
-            {hit}/{graded.length}
-          </span>
+        ) : graded.length === 0 ? (
+          <OutcomeRow tone="pending" people={lay.legs} out={lay.missing.length} />
+        ) : (
+          <>
+            {/* A push is settled but survives the parlay, so it rides with
+                the hits — muted, so you can still tell them apart. */}
+            <OutcomeRow
+              tone="hit"
+              people={lay.legs.filter(
+                (l) => l.result === 'win' || l.result === 'push'
+              )}
+            />
+            <OutcomeRow
+              tone="miss"
+              people={lay.legs.filter((l) => l.result === 'loss')}
+              out={lay.missing.length}
+              pending={lay.legs.filter((l) => l.result === null).length}
+            />
+          </>
         )}
       </div>
     </button>
   )
 }
 
-/** Up to eight faces, ringed by outcome — blue hit, pink missed. */
-function FaceRow({ lay }: { lay: ParlayPanelWeek }) {
-  const ordered = [
-    ...lay.legs.filter((l) => l.result === 'win'),
-    ...lay.legs.filter((l) => l.result === 'loss'),
-    ...lay.legs.filter((l) => l.result === 'push'),
-    ...lay.legs.filter((l) => l.result === null),
-  ]
-  const faces = ordered.slice(0, 8)
-  const extra = ordered.length - faces.length
+type Tone = 'hit' | 'miss' | 'pending'
+
+const TONE_MARK: Record<Tone, typeof Check> = {
+  hit: Check,
+  miss: Skull,
+  pending: Clock,
+}
+
+/**
+ * One outcome, one row: a mark, then up to seven faces ringed to match.
+ * Blue survived, pink went down — the league's whole colour grammar in
+ * two lines. An empty row renders nothing rather than an empty shelf.
+ */
+function OutcomeRow({
+  tone,
+  people,
+  out = 0,
+  pending = 0,
+}: {
+  tone: Tone
+  people: ParlayPanelWeek['legs']
+  /** Members who never picked — worth saying once, on the last row. */
+  out?: number
+  /** Legs still awaiting a result. */
+  pending?: number
+}) {
+  if (people.length === 0 && out === 0 && pending === 0) return null
+  const Mark = TONE_MARK[tone]
 
   return (
-    <div className="flex min-w-0 items-center">
+    <div className="flex min-w-0 items-center gap-2">
+      <Mark
+        className={cn(
+          'h-3 w-3 shrink-0',
+          tone === 'hit'
+            ? 'text-neon-blue'
+            : tone === 'miss'
+              ? 'text-destructive'
+              : 'text-muted-foreground/60'
+        )}
+      />
       <div className="flex -space-x-1.5">
-        {faces.map((l) => (
+        {people.slice(0, 7).map((l) => (
           <Avatar
             key={l.id}
             className={cn(
               'h-6 w-6 ring-2',
-              l.result === 'win'
-                ? 'ring-neon-blue/70'
-                : l.result === 'loss'
+              tone === 'hit'
+                ? l.result === 'push'
+                  ? 'ring-neon-blue/30'
+                  : 'ring-neon-blue/70'
+                : tone === 'miss'
                   ? 'ring-destructive/70'
                   : 'ring-white/15'
             )}
@@ -183,14 +221,26 @@ function FaceRow({ lay }: { lay: ParlayPanelWeek }) {
           </Avatar>
         ))}
       </div>
-      {extra > 0 && (
-        <span className="text-muted-foreground ml-2 text-[10px] tabular-nums">
-          +{extra}
-        </span>
-      )}
-      {lay.missing.length > 0 && (
-        <span className="text-muted-foreground/60 ml-2 text-[10px] whitespace-nowrap">
-          {lay.missing.length} out
+      {/* No "+N" chip: the total is already sitting at the end of the
+          row, and saying "7 shown, 4 more" next to "11" is the same
+          fact twice. */}
+      <span
+        className={cn(
+          'ml-auto shrink-0 text-xs font-bold tabular-nums',
+          tone === 'hit'
+            ? 'text-neon-blue'
+            : tone === 'miss'
+              ? 'text-destructive'
+              : 'text-muted-foreground'
+        )}
+      >
+        {people.length}
+      </span>
+      {(out > 0 || pending > 0) && (
+        <span className="text-muted-foreground/60 shrink-0 text-[10px] whitespace-nowrap">
+          {[pending > 0 ? `${pending} pending` : null, out > 0 ? `${out} out` : null]
+            .filter(Boolean)
+            .join(' · ')}
         </span>
       )}
     </div>
