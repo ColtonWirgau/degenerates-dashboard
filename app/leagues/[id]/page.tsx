@@ -68,7 +68,12 @@ export default async function LeaguePage({
   return (
     <div>
       <SaveLastLeague leagueId={id} />
-      <main className="container mx-auto px-4 py-8 pb-28 lg:pb-12">
+      {/* The card's edges are BITTEN: each bubble cuts BITE_R (31.5px)
+          into it, so anything sitting at a 16px gutter is inside the
+          hole, not beside it. On desktop the gutter has to clear the
+          bite and then leave air, or the content looks like it's being
+          crowded off the card by the rail. */}
+      <main className="container mx-auto px-4 py-8 pb-28 lg:px-14 lg:pb-12">
         <WeekStage
           leagueId={id}
           initial={initial}

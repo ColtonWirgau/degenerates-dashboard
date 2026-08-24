@@ -327,7 +327,10 @@ export function WeekSlate({
               <p className="text-[10px] font-bold tracking-[0.3em] uppercase text-muted-foreground/80 mb-2">
                 {DAY_LABEL[day]}
               </p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+              {/* Games are ROWS now, in the week list's grammar, so they
+                  want width rather than columns. Two abreast on a wide
+                  card, one on a narrow one. */}
+              <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
                 {games.map(({ g, idx }) => (
                   <GameCard
                     key={idx}
@@ -400,93 +403,88 @@ function GameCard({
   const homeColor = teamColor(game.home)
   const headerBg = `linear-gradient(110deg, ${awayColor} 0%, ${awayColor} 49.5%, ${homeColor} 50.5%, ${homeColor} 100%)`
 
+  const live = game.status === 'in-progress'
+  const final = game.status === 'final'
+
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        'group relative flex flex-col rounded-xl border overflow-hidden text-center transition-colors',
+        'group relative flex overflow-hidden rounded-xl border text-left transition-colors',
         'border-white/10 bg-white/[0.02] hover:bg-white/[0.05]'
       )}
       aria-label={`${game.away.name} at ${game.home.name}, ${time}`}
     >
-      {/* Edge-to-edge team-colored header with diagonal split. Logos
-          float at the bottom edge so they overlap into the body below
-          for a cohesive look. */}
+      {/* THE MATCHUP, full height on the left — the same slab the week
+          list gives a week's number, and for the same reason: the thing
+          that identifies the row gets its own field of colour, and the
+          facts about it live to the right. The colours are the two
+          teams', split on the diagonal; the slab's inner edge carries
+          that diagonal out into the silhouette. */}
       <div
-        className="relative h-20 w-full"
-        style={{ background: headerBg }}
+        className="relative flex w-[7.5rem] shrink-0 items-center justify-center gap-1 self-stretch py-3"
+        style={{
+          background: headerBg,
+          clipPath: 'polygon(0 0, 100% 0, calc(100% - 13px) 100%, 0 100%)',
+        }}
       >
-        {/* Subtle dark scrim so light logos + names stay readable on
-            bright team colors (Steelers yellow, Saints gold, etc). */}
-        <div aria-hidden className="absolute inset-0 bg-black/20" />
-        {game.status === 'in-progress' ? (
-          <span className="absolute right-1.5 top-1.5 z-10 inline-flex h-2 w-2" title="Live">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-neon-pink opacity-75" />
-            <span className="bg-neon-pink relative inline-flex h-2 w-2 rounded-full" />
+        {/* Scrim so logos stay readable on the bright ones — Steelers
+            yellow, Saints gold. */}
+        <div aria-hidden className="absolute inset-0 bg-black/25" />
+        <TeamLogo team={game.away} size="md" />
+        <span
+          aria-hidden
+          className="relative inline-flex size-5 items-center justify-center rounded-full bg-white/15 text-[10px] font-bold text-white ring-1 ring-white/25"
+        >
+          @
+        </span>
+        <TeamLogo team={game.home} size="md" />
+      </div>
+
+      <div className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-3 pl-2.5">
+        <div className="min-w-0 flex-1">
+          {/* Who's playing, said once. */}
+          <p className="text-muted-foreground/80 truncate text-[10px] font-bold tracking-[0.18em] uppercase">
+            {game.away.name}
+            <span className="text-muted-foreground/40"> @ </span>
+            {game.home.name}
+          </p>
+          {/* And the one fact that matters right now, set like it
+              matters: the score once there is one, the kickoff until
+              then. */}
+          <p
+            className={cn(
+              'font-display mt-0.5 text-xl leading-none tabular-nums',
+              live
+                ? 'text-neon-pink'
+                : final
+                  ? 'text-foreground/85'
+                  : 'text-foreground/60'
+            )}
+          >
+            {final || live
+              ? `${game.awayScore ?? 0}–${game.homeScore ?? 0}`
+              : time.replace(' ET', '')}
+            <span className="text-muted-foreground/60 ml-1.5 text-[10px] font-bold tracking-[0.18em] uppercase">
+              {live ? periodLabel(game.period) : final ? 'Final' : 'ET'}
+            </span>
+          </p>
+        </div>
+
+        {live ? (
+          <span className="relative inline-flex size-2 shrink-0" title="Live">
+            <span className="bg-neon-pink absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
+            <span className="bg-neon-pink relative inline-flex size-2 rounded-full" />
           </span>
         ) : (
           game.isPrimetime && (
-            <Flame
-              className="absolute right-1.5 top-1.5 h-3 w-3 text-white drop-shadow z-10"
-            />
+            <Flame className="text-foreground/50 size-3 shrink-0" />
           )
         )}
-        {/* Logos centered in each color half. */}
-        <div className="absolute inset-0 flex items-center">
-          <div className="flex-1 flex justify-center min-w-0">
-            <TeamLogo team={game.away} size="md" />
-          </div>
-          <div className="flex-1 flex justify-center min-w-0">
-            <TeamLogo team={game.home} size="md" />
-          </div>
-        </div>
 
-        {/* Team names — tucked into the bottom outside corners,
-            washed-out so they read as a watermark, not a label. Both are
-            the same size; a name on the lighter half of the diagonal just
-            carries more contrast and reads bigger than it is. */}
-        <span className="absolute bottom-1 left-2 text-[9px] font-bold tracking-widest uppercase text-white/30 truncate max-w-[45%] leading-none">
-          {game.away.name}
-        </span>
-        <span className="absolute bottom-1 right-2 text-[9px] font-bold tracking-widest uppercase text-white/30 truncate max-w-[45%] leading-none">
-          {game.home.name}
-        </span>
-
-        {/* `@` glass pill — sits on the diagonal seam at the exact
-            center of the header. Liquid-glass treatment matches the
-            dock primitives. */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <span
-            aria-hidden
-            className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/15 backdrop-blur-md ring-1 ring-white/25 text-[11px] font-bold uppercase text-white"
-          >
-            @
-          </span>
-        </div>
-      </div>
-
-      {/* Body — time + avatar row. Team names live in the header now. */}
-      <div className="flex flex-col items-center gap-1.5 px-3 pt-2.5 pb-3 flex-1">
-        <span
-          className={cn(
-            'text-[10px] font-bold tracking-widest uppercase tabular-nums',
-            game.status === 'in-progress'
-              ? 'text-neon-pink'
-              : game.isPrimetime
-                ? 'text-foreground/90'
-                : 'text-muted-foreground/80'
-          )}
-        >
-          {game.status === 'final'
-            ? `Final · ${game.awayScore ?? 0}–${game.homeScore ?? 0}`
-            : game.status === 'in-progress'
-              ? `${game.awayScore ?? 0}–${game.homeScore ?? 0} · ${periodLabel(game.period)}`
-              : time}
-        </span>
-
-        {/* Avatar row — always reserves space so cards stay uniform. */}
-        <div className="h-5 mt-auto flex items-center justify-center">
+        {/* Who's got money on it. */}
+        <div className="flex h-5 shrink-0 items-center">
           {sortedLegs.length > 0 ? (
             <div className="flex -space-x-1.5">
               {sortedLegs.slice(0, 4).map((l) => {
