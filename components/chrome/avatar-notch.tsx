@@ -4,12 +4,8 @@ import { useEffect, useState } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useLeagueChrome } from '@/components/chrome/league-chrome-context'
 import { ArcLabel } from '@/components/chrome/arc-label'
-import {
-  closeLeagueSheet,
-  openLeagueSheet,
-  subscribeLeagueSheet,
-} from '@/components/chrome/canvas-store'
-import { LEAGUE_C, LEAGUE_R } from '@/components/chrome/bubble-layout'
+import { openPanel, subscribePanel } from '@/components/chrome/canvas-store'
+import { PROFILE_C, PROFILE_R } from '@/components/chrome/bubble-layout'
 
 const initials = (name: string | null, email: string) => {
   if (name) {
@@ -21,15 +17,17 @@ const initials = (name: string | null, email: string) => {
 }
 
 /**
- * The league trigger: your avatar floating in a bite punched out of the
- * card's RIGHT edge (the hole itself is .page-sheet-card's clip — nothing
- * is painted here). Rendered inside .page-sheet so it rides the card's
- * every slide. Opens the combined league/profile sheet.
+ * YOU: your avatar floating in a bite punched out of the card's RIGHT
+ * edge (the hole itself is .page-sheet-card's clip — nothing is painted
+ * here). Rendered inside .page-sheet so it rides the card's every slide.
+ *
+ * Opens the profile sheet, and only that — your face is a door to YOU.
+ * The league itself lives behind the masthead's season lockup.
  */
 export function AvatarNotch() {
   const chrome = useLeagueChrome()
   const [open, setOpen] = useState(false)
-  useEffect(() => subscribeLeagueSheet(setOpen), [])
+  useEffect(() => subscribePanel((p) => setOpen(p === 'profile')), [])
 
   if (!chrome) return null
 
@@ -37,14 +35,14 @@ export function AvatarNotch() {
     <button
       type="button"
       data-sheet-bubble
-      onClick={open ? closeLeagueSheet : openLeagueSheet}
-      aria-label={open ? 'Close league menu' : 'League menu'}
+      onClick={() => openPanel('profile')}
+      aria-label={open ? 'Close your profile' : 'Your profile'}
       aria-expanded={open}
       className="group hidden focus-visible:outline-none lg:block"
       style={{
         // Box height 50 centred on the shared bite centre (bubble-layout).
         position: 'absolute',
-        top: LEAGUE_C - LEAGUE_R,
+        top: PROFILE_C - PROFILE_R,
         right: 0,
         transform: 'translateX(50%)',
         width: 50,
@@ -52,10 +50,10 @@ export function AvatarNotch() {
         zIndex: 40,
       }}
     >
-      {/* LEAGUE curved around the bite — the right-edge twin of the
-          bubbles' stamps, on the card side to the bite's LEFT. */}
+      {/* PROFILE curved around the bite — the right-edge twin of the
+          rail's stamps, on the card side to the bite's LEFT. */}
       <ArcLabel
-        text="LEAGUE"
+        text="PROFILE"
         cx={37}
         cy={37}
         r={31.5}

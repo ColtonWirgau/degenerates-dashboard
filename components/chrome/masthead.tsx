@@ -4,15 +4,12 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ChevronDown } from 'lucide-react'
-import {
-  openLeagueSheet,
-  openSeasonSheet,
-  subscribeSeasonSheet,
-} from '@/components/chrome/canvas-store'
-import { seasonLabel } from '@/components/chrome/season-sheet'
+import { openPanel, subscribePanel } from '@/components/chrome/canvas-store'
 import { cn } from '@/lib/utils'
 import { useLeagueChrome } from '@/components/chrome/league-chrome-context'
-import { leagueInitials } from '@/components/league-avatar'
+
+/** "2025-2026" → "2025". The span is implied; the year is the name. */
+const seasonLabel = (season: string) => season.split('-')[0] ?? season
 
 const initials = (name: string | null, email: string) => {
   if (name) {
@@ -25,9 +22,14 @@ const initials = (name: string | null, email: string) => {
 
 /**
  * The shell's masthead — sits ON the canvas (not the card) and holds
- * still while the card slides. Mobile: wordmark + your avatar (opens the
- * league sheet). Desktop: wordmark + league name + season/week chip; the
- * avatar lives in the card's edge notch instead.
+ * still while the card slides.
+ *
+ * Two lockups, two nouns. On the left the wordmark. On the right the
+ * SEASON — the door to the league and everything about it (the year,
+ * who's in, who runs it, the settings, the history). Your face sits
+ * beside it at phone width and opens YOU; on desktop it moves down into
+ * the card's right-edge notch. The week is never named up here — that's
+ * the left rail's job, and naming it twice is how a shell gets muddy.
  */
 export function Masthead() {
   const chrome = useLeagueChrome()
@@ -52,18 +54,13 @@ export function Masthead() {
           </h1>
         </Link>
 
-        {/* Mobile: you + the league badge, opening the combined sheet. */}
-        <SeasonLockup
-          season={chrome.season}
-          weekNumber={chrome.weekNumber}
-          className="lg:hidden"
-          compact
-        />
+        {/* Mobile: the season lockup, then your face. */}
+        <SeasonLockup season={chrome.season} className="lg:hidden" compact />
 
         <button
           type="button"
-          onClick={openLeagueSheet}
-          aria-label={`${chrome.me.fullName ?? chrome.me.email} — ${chrome.leagueName}`}
+          onClick={() => openPanel('profile')}
+          aria-label={`Your profile — ${chrome.me.fullName ?? chrome.me.email}`}
           className="group relative shrink-0 lg:hidden"
         >
           <Avatar className="ring-primary/50 group-hover:ring-primary h-10 w-10 cursor-pointer ring-2 transition-all">
@@ -75,23 +72,12 @@ export function Masthead() {
               {initials(chrome.me.fullName, chrome.me.email)}
             </AvatarFallback>
           </Avatar>
-          <span
-            aria-hidden
-            className="ring-background text-foreground/90 absolute -right-0.5 -bottom-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#1a1a1e] text-[8px] font-bold ring-2"
-          >
-            {leagueInitials(chrome.leagueName)}
-          </span>
         </button>
 
         {/* Desktop: the strip's other lockup — same face and weight as
             DEGENERATES DASHBOARD on the left, so the band's two ends
-            answer each other. It's also the control that opens the
-            season sheet (league + year + setup). */}
-        <SeasonLockup
-          season={chrome.season}
-          weekNumber={chrome.weekNumber}
-          className="hidden lg:inline-flex"
-        />
+            answer each other. It opens the league's own sheet. */}
+        <SeasonLockup season={chrome.season} className="hidden lg:inline-flex" />
       </div>
     </header>
   )
@@ -101,28 +87,27 @@ export function Masthead() {
  * The masthead's other lockup: "{year} SEASON ⌄" in the wordmark's own
  * duotone grammar — the year in electric blue, SEASON in hot pink — so
  * the strip's right end answers DEGENERATES DASHBOARD on its left. It
- * opens the season sheet (year, league, and off-season setup).
+ * opens the league sheet: the year, the members, the settings, the
+ * history — everything the league is, as opposed to what you are.
  */
 function SeasonLockup({
   season,
-  weekNumber,
   className,
   compact = false,
 }: {
   season: string
-  weekNumber: number | null
   className?: string
   compact?: boolean
 }) {
   const [open, setOpen] = useState(false)
-  useEffect(() => subscribeSeasonSheet(setOpen), [])
+  useEffect(() => subscribePanel((p) => setOpen(p === 'season')), [])
 
   return (
     <button
       type="button"
-      onClick={openSeasonSheet}
+      onClick={() => openPanel('season')}
       aria-expanded={open}
-      aria-label="Season, league and setup"
+      aria-label="Season and league"
       className={cn(
         'group inline-flex shrink-0 items-center gap-1.5 leading-none font-bold whitespace-nowrap transition-opacity hover:opacity-80',
         className
@@ -142,7 +127,7 @@ function SeasonLockup({
           compact ? 'text-xl' : 'text-2xl'
         )}
       >
-        {weekNumber != null ? `WK${weekNumber}` : 'SEASON'}
+        SEASON
       </span>
       <ChevronDown
         className={cn(

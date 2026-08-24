@@ -100,7 +100,12 @@ export interface DataAdapter {
 
   // ─── Polls ───────────────────────────────────────────────────────────────
   /** Polls for a league. Filter by statuses (defaults to 'open' + 'closed'). */
-  getPolls(leagueId: string, opts?: { statuses?: PollStatus[] }): Promise<LeaguePoll[]>;
+  /** League polls. `nflWeekId` narrows to one week's polls — the normal
+   *  read, since a poll only ever surfaces in the week it belongs to. */
+  getPolls(
+    leagueId: string,
+    opts?: { statuses?: PollStatus[]; nflWeekId?: string }
+  ): Promise<LeaguePoll[]>;
   /** Single poll by id, fully assembled (options + responses + pending lane). */
   getPoll(pollId: string): Promise<LeaguePoll | null>;
   /** Cast / replace a member's vote on a poll. Single-choice uses
@@ -132,6 +137,8 @@ export type PollVote =
 
 export interface CreatePollInput {
   leagueId: string;
+  /** The week the poll lives in. */
+  nflWeekId: string;
   kind: PollKind;
   title: string;
   prompt: string;

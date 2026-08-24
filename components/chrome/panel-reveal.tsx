@@ -18,11 +18,9 @@ import { ScrollHint } from '@/components/ui/scroll-hint'
  */
 export function PanelReveal({
   panel,
-  title,
   children,
 }: {
   panel: Exclude<CanvasPanel, null>
-  title: string
   children: React.ReactNode
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -53,9 +51,10 @@ export function PanelReveal({
 
   return (
     <ResponsiveSheet open={current === panel} onClose={closePanel} sheetMaxHeight="92dvh">
-      <SheetPage name="main" title={title}>
-        {children}
-      </SheetPage>
+      {/* No title here: every panel already opens with its own heading,
+          and SheetPage only paints one on a drilled-in page anyway. One
+          heading, one place, at every width. */}
+      <SheetPage name="main">{children}</SheetPage>
     </ResponsiveSheet>
   )
 }

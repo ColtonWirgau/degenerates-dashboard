@@ -27,7 +27,7 @@ export async function proposeCharter(
   if (!trimmed) return { success: false, error: 'Proposed value is empty' }
   const adapter = await getDataAdapter()
   await adapter.proposeCharterEntry(entryId, me.id, trimmed)
-  revalidatePath(`/leagues/${leagueId}`)
+  revalidatePath(`/leagues/${leagueId}`, 'layout')
   void publish(channelName.charter(leagueId), event.charterEntryProposed, {
     entryId,
     userId: me.id,
@@ -45,7 +45,7 @@ export async function approveCharter(
   if (!me) return { success: false, error: 'Unauthorized' }
   const adapter = await getDataAdapter()
   await adapter.approveCharterEntry(entryId, me.id, approved)
-  revalidatePath(`/leagues/${leagueId}`)
+  revalidatePath(`/leagues/${leagueId}`, 'layout')
   void publish(channelName.charter(leagueId), event.charterEntryApproved, {
     entryId,
     userId: me.id,

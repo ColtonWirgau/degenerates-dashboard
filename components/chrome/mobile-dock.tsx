@@ -1,22 +1,29 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Check, ListTodo, Plus, Trophy } from 'lucide-react'
-import { openLeagueSheet, openPanel, openSubmit } from '@/components/chrome/canvas-store'
-import { useLeagueChrome } from '@/components/chrome/league-chrome-context'
-import { leagueInitials } from '@/components/league-avatar'
+import { Check, Layers, ListTodo, Plus, Trophy } from 'lucide-react'
+import { openPanel, openSubmit } from '@/components/chrome/canvas-store'
+import {
+  useLeagueChrome,
+  useViewedWeek,
+} from '@/components/chrome/league-chrome-context'
 
 /**
  * The mobile dock (ported from RoarTracker): a floating glass PILL of five
  * fixed SLOTS that never move — the center slot is THE button: an
  * electric-blue disc, the one distinguished thing on the bar.
  *
- *   in-season:  SLATE · BOARD · (+/✓) · POLLS · LEAGUE
- *   offseason:  BOARD ·  ·  (POLLS)  ·  · LEAGUE
+ * It's the left rail at phone width, so it says the same things in the
+ * same order — and like the rail it's a function of the WEEK you're
+ * looking at, with the disc holding that week's verb:
+ *
+ *   a week with a slate:  WEEK · LAY · (+/✓) · BOARD · POLLS?
+ *   the preseason week:   WEEK ·  ·  (POLLS) · BOARD ·
  *
  * Each slot crossfades its face (face-pop) when its live fact changes.
- * Identity (the avatar) lives up in the masthead; there is no Home cell
- * because home IS the screen behind the sheets.
+ * There is no Home cell because home IS the week behind the sheets, no
+ * League cell because the league lives in the masthead's lockup, and no
+ * Profile cell because your face is up there beside it.
  *
  * FIXED, floating over the card: content clears the bar with its own
  * padding, honoring the home-indicator safe area in standalone.
@@ -33,6 +40,7 @@ type Face = {
 
 export function MobileDock() {
   const chrome = useLeagueChrome()
+  const week = useViewedWeek()
   const nav = useRef<HTMLElement>(null)
   // Reserved for face-morph paging when the dock grows a second page.
   const [page] = useState<'root'>('root')
@@ -43,108 +51,74 @@ export function MobileDock() {
   }, [])
 
   if (!chrome) return null
-  const offseason =
-    chrome.seasonKind === 'offseason' || chrome.seasonKind === 'preseason'
 
-  const slots: (Face | 'park' | null)[] = offseason
-    ? [
-        // Off-season the league does exactly one thing: settle its
-        // business. POLLS is the disc, so it doesn't also need a cell.
-        {
-          key: `board-${chrome.myRank ?? ''}`,
-          label: 'Leaderboard',
-          onClick: () => openPanel('board'),
-          content:
-            chrome.myRank != null ? (
-              <span className="font-display text-[0.82rem]">#{chrome.myRank}</span>
-            ) : (
-              <Trophy size={16} strokeWidth={2.25} />
-            ),
-          below: 'Board',
-        },
-        null,
-        'park',
-        null,
-        {
-          key: 'league',
-          label: 'League',
-          onClick: openLeagueSheet,
-          content: (
-            <span className="font-display text-[0.78rem]">
-              {leagueInitials(chrome.leagueName)}
-            </span>
-          ),
-          below: 'League',
-        },
-      ]
-    : [
-        {
-          key: `slate-${chrome.weekNumber ?? ''}`,
-          label: 'Slate',
-          onClick: () => openPanel('slate'),
-          content: (
-            <span className="font-display text-[0.82rem]">
-              WK {chrome.weekNumber ?? '–'}
-            </span>
-          ),
-          below: 'Slate',
-        },
-        {
-          key: `board-${chrome.myRank ?? ''}`,
-          label: 'Leaderboard',
-          onClick: () => openPanel('board'),
-          content:
-            chrome.myRank != null ? (
-              <span className="font-display text-[0.82rem]">#{chrome.myRank}</span>
-            ) : (
-              <Trophy size={16} strokeWidth={2.25} />
-            ),
-          below: 'Board',
-        },
-        'park',
-        {
-          key: `polls-${chrome.openPollCount}`,
-          label: 'Polls',
-          onClick: () => openPanel('polls'),
-          content:
-            chrome.openPollCount > 0 ? (
-              <span className="font-display text-[0.82rem] text-neon-blue">
-                {chrome.openPollCount}
-              </span>
-            ) : (
-              <ListTodo size={16} strokeWidth={2.25} />
-            ),
-          below: 'Polls',
-        },
-        {
-          key: 'league',
-          label: 'League',
-          onClick: openLeagueSheet,
-          content: (
-            <span className="font-display text-[0.78rem]">
-              {leagueInitials(chrome.leagueName)}
-            </span>
-          ),
-          below: 'League',
-        },
-      ]
+  const hasSlate = week?.hasSlate ?? false
+  const hasPolls = (week?.pollCount ?? 0) > 0
+  const openPolls = week?.openPollCount ?? 0
+  const weekFace = week
+    ? week.kind === 'preseason'
+      ? 'PRE'
+      : `WK ${week.weekNumber}`
+    : 'WK –'
 
-  const disc = offseason
-    ? {
-        at: 0.5,
-        faceKey: `polls-${chrome.openPollCount}`,
-        label: 'Polls',
-        onClick: () => openPanel('polls'),
-        icon:
-          chrome.openPollCount > 0 ? (
-            <span className="font-display text-[1rem] leading-none">
-              {chrome.openPollCount}
-            </span>
-          ) : (
-            <ListTodo size={20} strokeWidth={2.5} />
-          ),
-      }
-    : chrome.submitted
+  const weekCell: Face = {
+    key: `week-${week?.id ?? ''}`,
+    label: 'Weeks',
+    onClick: () => openPanel('slate'),
+    content: <span className="font-display text-[0.82rem]">{weekFace}</span>,
+    below: 'Week',
+  }
+  const boardCell: Face = {
+    key: `board-${chrome.myRank ?? ''}`,
+    label: 'Leaderboard',
+    onClick: () => openPanel('board'),
+    content:
+      chrome.myRank != null ? (
+        <span className="font-display text-[0.82rem]">#{chrome.myRank}</span>
+      ) : (
+        <Trophy size={16} strokeWidth={2.25} />
+      ),
+    below: 'Board',
+  }
+  const pollsCell: Face = {
+    key: `polls-${openPolls}`,
+    label: 'Polls',
+    onClick: () => openPanel('polls'),
+    content:
+      openPolls > 0 ? (
+        <span className="font-display text-neon-blue text-[0.82rem]">{openPolls}</span>
+      ) : (
+        <ListTodo size={16} strokeWidth={2.25} />
+      ),
+    below: 'Polls',
+  }
+  const layCell: Face = {
+    key: `lay-${week?.submissionCount ?? 0}`,
+    label: 'The lay',
+    onClick: () => openPanel('parlay'),
+    content:
+      (week?.submissionCount ?? 0) > 0 ? (
+        <span className="font-display text-[0.82rem]">{week!.submissionCount}</span>
+      ) : (
+        <Layers size={16} strokeWidth={2.25} />
+      ),
+    below: 'Lay',
+  }
+
+  // The disc is the week's verb. A week with a slate wants your leg; the
+  // preseason week wants your vote. A missing cell collapses rather than
+  // reshuffling its neighbours, so the bar never moves under your thumb.
+  const hasParlay = week?.parlayId != null
+  const slots: (Face | 'park' | null)[] = [
+    weekCell,
+    hasParlay ? layCell : null,
+    'park',
+    boardCell,
+    hasPolls && hasSlate ? pollsCell : null,
+  ]
+
+  const disc = hasSlate
+    ? week!.submitted
       ? {
           at: 0.5,
           faceKey: 'submitted',
@@ -159,6 +133,18 @@ export function MobileDock() {
           onClick: openSubmit,
           icon: <Plus size={22} strokeWidth={2.5} />,
         }
+    : {
+        at: 0.5,
+        faceKey: `polls-${openPolls}`,
+        label: 'Polls',
+        onClick: () => openPanel('polls'),
+        icon:
+          openPolls > 0 ? (
+            <span className="font-display text-[1rem] leading-none">{openPolls}</span>
+          ) : (
+            <ListTodo size={20} strokeWidth={2.5} />
+          ),
+      }
 
   return (
     <nav

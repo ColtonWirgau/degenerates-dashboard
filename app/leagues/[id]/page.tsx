@@ -1,33 +1,45 @@
+import Link from 'next/link'
+import { Lock } from 'lucide-react'
 import { getLeagueOverviewCached } from '@/lib/data/league-overview-cached'
+import { getLeagueWeeksCached } from '@/lib/data/league-weeks-cached'
+import { getWeekStage } from '@/app/actions/week-stage'
+import { getDataAdapter } from '@/lib/data/adapter'
 import { Header } from '@/components/header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { PerformanceSection } from '@/components/performance-section'
-import { WeekSlate } from '@/components/week-slate'
-import { WeekSlateDock } from '@/components/week-slate-dock'
 import { SaveLastLeague } from '@/components/save-last-league'
-import { getWeekSlate, getSeasonOpenerSlate } from '@/lib/data/week-slate'
-import Link from 'next/link'
-import { notFound } from 'next/navigation'
-import { Lock } from 'lucide-react'
-import { SeasonSetupCallout } from '@/components/season-setup-callout'
+import { WeekStage } from '@/components/week-stage'
+import { OffseasonPollsHub } from '@/components/offseason-polls-hub'
 
-export default async function LeaguePage({ params }: { params: Promise<{ id: string }> }) {
+/**
+ * THE LEAGUE — one page, and that's the whole app.
+ *
+ * Everything you can look at is a week, and picking a week is state, not
+ * a URL: the shell stays mounted and the stage in the middle swaps its
+ * content. So there's exactly one route, and it opens on whichever week
+ * the season is actually on.
+ */
+export default async function LeaguePage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
   const { id } = await params
   const result = await getLeagueOverviewCached(id)
 
   if (result.error === 'Access denied - not a member of this league') {
     return (
-      <div className="min-h-[100dvh] ambient-glow">
+      <div className="ambient-glow min-h-[100dvh]">
         <Header />
         <main className="container mx-auto px-4 py-8 pt-24 pb-24">
-          <Card className="glass-card border-primary/30 max-w-2xl mx-auto">
-            <CardContent className="text-center py-12 space-y-4">
-              <Lock className="h-10 w-10 text-muted-foreground mx-auto" />
+          <Card className="glass-card border-primary/30 mx-auto max-w-2xl">
+            <CardContent className="space-y-4 py-12 text-center">
+              <Lock className="text-muted-foreground mx-auto h-10 w-10" />
               <div>
-                <h3 className="text-2xl font-bold mb-2">Access Denied</h3>
+                <h3 className="mb-2 text-2xl font-bold">Access Denied</h3>
                 <p className="text-muted-foreground mb-4">
-                  You are not a member of this league. Ask a league admin for an invite link to join.
+                  You are not a member of this league. Ask a league admin for an
+                  invite link to join.
                 </p>
                 <Link href="/">
                   <Button className="neon-glow-blue">Back to Leagues</Button>
@@ -40,118 +52,85 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
     )
   }
 
-  if (result.error || !result.payload) notFound()
+  if (result.error || !result.payload) return null
+  const p = result.payload
 
-  const {
-    me,
-    league,
-    members,
-    currentWeekIndex,
-    allWeeksData,
-    userStats,
-    leaderboard,
-    recentLegs,
-    userResultSequence,
-    seasonState,
-    season,
-    availableSeasons,
-    polls,
-    charter,
-  } = result.payload
+  const { currentWeek } = await getLeagueWeeksCached(id, p.season)
 
-  const currentWeekData = allWeeksData[currentWeekIndex]
-  const isOffOrPreseason =
-    seasonState.kind === 'offseason' || seasonState.kind === 'preseason'
-
-  const isInSeason =
-    seasonState.kind === 'regular-season' ||
-    seasonState.kind === 'playoffs' ||
-    seasonState.kind === 'super-bowl'
-
-  // Real NFL schedule for the slate. Direct-db read — only meaningful in
-  // neon mode (mock scenarios use synthetic week ids that have no
-  // nfl_weeks rows, so the slate renders its not-loaded state there).
-  const dataSource = process.env.NEXT_PUBLIC_DATA_SOURCE ?? 'mock'
-  const slate =
-    dataSource !== 'neon'
-      ? null
-      : seasonState.kind === 'regular-season' ||
-          seasonState.kind === 'playoffs' ||
-          seasonState.kind === 'super-bowl'
-        ? await getWeekSlate(id, seasonState.activeWeek.id)
-        : seasonState.kind === 'preseason'
-          ? await getSeasonOpenerSlate(id, seasonState.currentSeason)
-          : null
+  // The current week comes down rendered so the first paint costs nothing.
+  // Week 0 has no slate to fetch — its content is the charter, which is
+  // league-level and already loaded.
+  const initial =
+    currentWeek && currentWeek.kind !== 'preseason'
+      ? (await getWeekStage(id, currentWeek.nflWeekId)).payload
+      : null
 
   return (
     <div>
       <SaveLastLeague leagueId={id} />
-
       <main className="container mx-auto px-4 py-8 pb-28 lg:pb-12">
-        {/* Season Setup lives in the SEASON SHEET now (masthead lockup),
-            not the main card — it's league business, not the week's
-            content. This is just the doorway. */}
-        {isOffOrPreseason && (
-          <SeasonSetupCallout
-            season={season}
-            openPolls={polls.filter((poll) => poll.status === 'open').length}
-            lockedEntries={charter.filter((e) => e.status === 'locked').length}
-            totalEntries={charter.length}
-          />
-        )}
-
-        {isInSeason && (
-          <>
-            {/* WeekSlate's section heading IS the in-season top dock —
-                "WEEK N · SLATE" with state-aware status (live pulse, locks
-                countdown, won/lost) in the trailing slot and the league's
-                lay (legs + slackers) in the expanded panel. */}
-            {currentWeekData && (
-              <WeekSlateDock
-                data={currentWeekData}
-                games={slate?.games ?? null}
-                nflWeekId={slate?.nflWeekId ?? null}
-                currentUserId={me.id}
-                membersCount={members.length}
-              />
-            )}
-
-            {userStats && (
-              <section className="mt-10 sm:mt-12">
-                <PerformanceSection
-                  leagueId={id}
-                  currentUserId={me.id}
-                  recentLegs={recentLegs}
-                  userResultSequence={userResultSequence}
-                  stats={userStats}
-                  leaderboard={leaderboard}
-                  allWeeksData={allWeeksData}
-                  membersCount={members.length}
-                  availableSeasons={availableSeasons}
-                  defaultSeason={season}
-                />
-              </section>
-            )}
-          </>
-        )}
-
-        {/* Preseason — Week 1 slate preview. Same `<WeekSlate>` used
-            in-season so the drill-down + day grouping stays consistent
-            across the season lifecycle. */}
-        {seasonState.kind === 'preseason' && (
-          <WeekSlate
-            weekNumber={1}
-            firstKickoff={slate?.firstInSlateKickoff ?? seasonState.nextKickoff}
-            games={slate?.games ?? null}
-            nflWeekId={slate?.nflWeekId ?? null}
-          />
-        )}
+        <WeekStage
+          leagueId={id}
+          initial={initial}
+          preseason={<PreseasonStage payload={p} />}
+        />
       </main>
-
-      {/* The week's primary action now lives in the shell chrome: the
-          SUBMIT edge bubble (desktop) and the dock's center disc (mobile),
-          both opening the submit reveal. Off-/preseason bottom dock is
-          mounted by <OffseasonPollsHub> above. */}
     </div>
+  )
+}
+
+type Payload = NonNullable<
+  Awaited<ReturnType<typeof getLeagueOverviewCached>>['payload']
+>
+
+/**
+ * WEEK 0 — no games, so no slate and nothing to bet. What it has instead
+ * is the league's own business: the charter, and the votes that settle it.
+ */
+async function PreseasonStage({ payload: p }: { payload: Payload }) {
+  const adapter = await getDataAdapter()
+  const dataSource = process.env.NEXT_PUBLIC_DATA_SOURCE ?? 'mock'
+  const preseasonWeek = (
+    await getLeagueWeeksCached(p.league.id, p.season)
+  ).weeks.find((w) => w.kind === 'preseason')
+
+  const polls =
+    dataSource === 'neon' && preseasonWeek
+      ? await adapter.getPolls(p.league.id, {
+          statuses: ['open', 'closed'],
+          nflWeekId: preseasonWeek.nflWeekId,
+        })
+      : p.polls
+
+  return (
+    <>
+      {/* The open-vote count is deliberately absent: the POLLS rung wears
+          it on the rail, and the dock's disc wears it on a phone. */}
+      <header className="mb-2">
+        <p className="text-neon-blue text-[10px] font-bold tracking-[0.3em] uppercase">
+          Week 0
+        </p>
+        <h1 className="mt-1 text-3xl font-bold sm:text-4xl">Preseason</h1>
+        <p className="text-muted-foreground mt-1 text-sm">
+          No slate to bet yet — this is the week the league writes its own
+          rules. Settle the charter, take the votes, then football.
+        </p>
+      </header>
+
+      <OffseasonPollsHub
+        leagueId={p.league.id}
+        polls={polls}
+        charter={p.charter}
+        seasonState={p.seasonState}
+        currentUserId={p.me.id}
+        membersCount={p.members.length}
+        members={p.members.map((m) => ({
+          id: m.user_id,
+          fullName: m.full_name,
+          email: m.email,
+          avatarUrl: m.avatar_url,
+        }))}
+      />
+    </>
   )
 }

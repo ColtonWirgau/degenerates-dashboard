@@ -8,34 +8,44 @@ import {
 } from '@/components/chrome/canvas-store'
 
 /**
- * The desktop reveals (ported from RoarTracker): the page is a near-opaque
+ * The desktop reveals (ported from RoarTracker): the page is a dark-glass
  * neon card floating over the ambient canvas, and it pulls back toward a
- * top corner to show what's printed underneath — toward the LEFT for the
- * SUBMIT reveal (right edge lifts), toward the RIGHT for the rail's three
- * panels (slate / board / polls share the left edge). Only the card moves;
- * the masthead holds still. (Mobile gets ResponsiveSheets instead.)
+ * top corner to show what's printed underneath. Every bubble on an edge
+ * opens the panel on ITS side — the rail's four on the left, your leg and
+ * your profile on the right — so the card always slides away FROM the
+ * thing you pressed. Only the card moves; the masthead holds still.
+ * (Mobile gets ResponsiveSheets instead.)
  */
-const LEFT_PANELS = ['slate', 'board', 'polls'] as const
-const RIGHT_PANELS = ['submit'] as const
+const LEFT_PANELS = ['season', 'slate', 'parlay', 'board', 'polls'] as const
+const RIGHT_PANELS = ['submit', 'profile'] as const
 
 const PANEL_LABEL: Record<Exclude<CanvasPanel, null>, string> = {
-  slate: 'Slate',
+  season: 'Season',
+  slate: 'Weeks',
+  parlay: 'The Lay',
   board: 'Board',
   polls: 'Polls',
   submit: 'The Leg',
+  profile: 'Profile',
 }
 
 export function CanvasSheet({
+  seasonPanel,
   slatePanel,
+  parlayPanel,
   boardPanel,
   pollsPanel,
   submitPanel,
+  profilePanel,
   children,
 }: {
+  seasonPanel: React.ReactNode
   slatePanel: React.ReactNode
+  parlayPanel: React.ReactNode
   boardPanel: React.ReactNode
   pollsPanel: React.ReactNode
   submitPanel: React.ReactNode
+  profilePanel: React.ReactNode
   children: React.ReactNode
 }) {
   const [panel, setPanel] = useState<CanvasPanel>(null)
@@ -50,7 +60,7 @@ export function CanvasSheet({
   const [lastPanel, setLastPanel] = useState<Exclude<CanvasPanel, null>>('slate')
 
   useEffect(() => subscribePanel(setPanel), [])
-  const onRight = (p: CanvasPanel) => p === 'submit'
+  const onRight = (p: CanvasPanel) => p === 'submit' || p === 'profile'
   useEffect(() => {
     if (panel) {
       setLastSide(onRight(panel) ? 'left' : 'right')
@@ -72,8 +82,14 @@ export function CanvasSheet({
   }, [panel])
 
   const slid = wide ? panel : null
-  const leftContent = { slate: slatePanel, board: boardPanel, polls: pollsPanel } as const
-  const rightContent = { submit: submitPanel } as const
+  const leftContent = {
+    season: seasonPanel,
+    slate: slatePanel,
+    parlay: parlayPanel,
+    board: boardPanel,
+    polls: pollsPanel,
+  } as const
+  const rightContent = { submit: submitPanel, profile: profilePanel } as const
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
@@ -106,8 +122,8 @@ export function CanvasSheet({
         {PANEL_LABEL[slid ?? lastPanel]}
       </div>
 
-      {/* Under the sheet's RIGHT edge: the submit reveal — a full-height
-          column sliding in from off-screen right. */}
+      {/* Under the sheet's RIGHT edge: your leg and your profile — the two
+          surfaces that are about YOU, sliding in from off-screen right. */}
       {RIGHT_PANELS.map((p) => (
         <div
           key={p}
@@ -125,10 +141,9 @@ export function CanvasSheet({
         </div>
       ))}
 
-      {/* Under the sheet's left edge: the slate, the board, the polls —
-          three panels, one slot, each on its own card. The active one
-          SLIDES IN from off-screen left (same clock and ease as the card
-          pulling back). */}
+      {/* Under the sheet's left edge: the rail's panels — one slot, each
+          on its own card. The active one SLIDES IN from off-screen left
+          (same clock and ease as the card pulling back). */}
       {LEFT_PANELS.map((p) => (
         <div
           key={p}

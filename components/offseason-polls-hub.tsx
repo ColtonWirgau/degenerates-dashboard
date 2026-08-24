@@ -15,7 +15,6 @@ import {
   Check,
   ChevronRight,
   Circle,
-  Crown,
   DollarSign,
   Hammer,
   Repeat,
@@ -32,7 +31,6 @@ import {
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { SectionHeader } from '@/components/ui/section-header'
 import {
   ResponsiveSheet,
   SheetPage,
@@ -590,13 +588,11 @@ function SeasonSetup({
   })()
 
   return (
-    <section className="mt-10 sm:mt-12">
-      <SectionHeader
-        kicker={season || 'This Season'}
-        title="Season Setup"
-        icon={Crown}
-        accent="blue"
-      />
+    // No heading of its own: this IS the preseason week's content, and
+    // the week page already says so overhead. A second "Season Setup"
+    // title under "Week 0 · Preseason" would just be the same sentence
+    // twice.
+    <section className="mt-8">
 
       {/* One panel per category — a prominent clickable header bar
           (opens the group's sheet summary) over a quiet list of charter

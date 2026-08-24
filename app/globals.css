@@ -264,17 +264,40 @@
   position: relative;
 }
 
-/* The card itself. NEAR-OPAQUE, deliberately not glass: PageSheetCard
-   rewrites a path() clip on every rAF of the split spring, and per-frame
-   backdrop resampling on a viewport-sized element is compositor poison
-   (Safari also mis-clips backdrop-filter under path()). The neon shows
-   through the BITES — real clip holes — not through the surface. */
+/* The card itself: DARK GLASS. Transparent enough that the canvas's neon
+   wash bleeds through as colour, blurred enough that nothing behind it
+   reads as a shape. The bites stay the real story — they're clip holes,
+   fully open — but the surface between them is now lit rather than flat.
+
+   The cost is watched, not ignored. PageSheetCard rewrites a path() clip
+   through subscribeSplitFrame, and per-frame backdrop resampling on a
+   viewport-sized element is compositor poison. That's affordable today
+   because the split spring is dormant (one action bubble, so setSplit is
+   never raised): the clip only re-cuts when the rail's shape changes or
+   the card resizes, which is a handful of frames, not a continuous
+   animation. If a second action verb ever wakes the spring, drop the
+   backdrop-filter here first. Safari also mis-clips backdrop-filter under
+   path(); the fallback below keeps it opaque there. */
 .page-sheet-card {
-  background-color: rgba(10, 10, 10, 0.92);
-  background-image: linear-gradient(to bottom, rgba(18, 18, 18, 0.9), rgba(10, 10, 10, 0.96));
+  background-color: rgba(10, 10, 10, 0.62);
+  background-image: linear-gradient(
+    to bottom,
+    rgba(22, 22, 26, 0.58),
+    rgba(8, 8, 10, 0.72)
+  );
+  backdrop-filter: blur(28px) saturate(1.2);
+  -webkit-backdrop-filter: blur(28px) saturate(1.2);
   box-shadow:
     0 0 0 1px rgba(0, 217, 255, 0.16),
     0 0 40px -10px rgba(0, 217, 255, 0.14);
+}
+
+/* No backdrop-filter (or it's disabled for reduced transparency): fall
+   back to the near-opaque card so text never sits on bare canvas. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .page-sheet-card {
+    background-color: rgba(10, 10, 10, 0.94);
+  }
 }
 
 /* The reveal: opening a panel doesn't float it over the page — the card

@@ -6,6 +6,7 @@ export type Role = 'owner' | 'admin' | 'member';
 export type LegResult = 'win' | 'loss' | 'push' | null;
 
 export type WeekKind =
+  | 'preseason' // week 0 — no games; the league's own business
   | 'regular' // weeks 1–18
   | 'wildcard' // post-season round 1 (week 19)
   | 'divisional' // round 2 (week 20)

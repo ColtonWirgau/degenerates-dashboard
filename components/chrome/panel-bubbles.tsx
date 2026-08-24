@@ -1,8 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Calendar, ListTodo, Trophy } from 'lucide-react'
-import { useLeagueChrome } from '@/components/chrome/league-chrome-context'
+import { Layers, ListTodo, Trophy } from 'lucide-react'
+import {
+  useLeagueChrome,
+  useViewedWeek,
+  type ChromeWeek,
+} from '@/components/chrome/league-chrome-context'
 import {
   openPanel,
   subscribePanel,
@@ -10,47 +14,51 @@ import {
 } from '@/components/chrome/canvas-store'
 import { ArcLabel } from '@/components/chrome/arc-label'
 import { DISC_CENTER } from '@/components/chrome/bite-geometry'
-import { SLATE_C, BOARD_C, POLLS_C, setSeasonMode } from '@/components/chrome/bubble-layout'
+import { railC, setRailCount } from '@/components/chrome/bubble-layout'
 
 /**
- * The LEAGUE'S STATE as bubbles on the card's LEFT edge — the clipped-
- * cutout construction ported from RoarTracker, each wearing its panel's
- * live fact: SLATE the week number, BOARD your rank, POLLS the open count.
- * Open, a bubble becomes its own ✕. They render inside .page-sheet, so
- * they ride every slide the card makes. (You + the action live on the
- * RIGHT edge — AvatarNotch / ActionBubble.)
+ * The card's LEFT rail — the clipped-cutout construction ported from
+ * RoarTracker, each bubble wearing its panel's live fact. In order,
+ * always:
+ *
+ *   WEEK    the week you're on (PRE in the preseason), opens the week list
+ *   PARLAY  this week's twelve legs — who's in, who hit
+ *   BOARD   your rank, opens the standings
+ *   POLLS   this week's open votes
+ *
+ * The middle two come and go with the week (the preseason has no parlay;
+ * most weeks have no polls) and the rail closes up behind them, so it's
+ * never a ladder with a rung missing. Open, a bubble becomes its own ✕.
+ * They render inside .page-sheet, so they ride every slide the card makes.
  */
-const BUBBLES: { panel: Exclude<CanvasPanel, null>; top: number }[] = [
-  { panel: 'slate', top: SLATE_C - DISC_CENTER },
-  { panel: 'board', top: BOARD_C - DISC_CENTER },
-  { panel: 'polls', top: POLLS_C - DISC_CENTER },
-]
+type Rung = 'slate' | 'parlay' | 'board' | 'polls'
 
 export function PanelBubbles() {
   const chrome = useLeagueChrome()
+  const week = useViewedWeek()
   const [panel, setPanel] = useState<CanvasPanel>(null)
   useEffect(() => subscribePanel(setPanel), [])
 
-  const offseason =
-    chrome?.seasonKind === 'offseason' || chrome?.seasonKind === 'preseason'
-  // The clip follows the chrome: off-/preseason carves no slate bite.
+  const hasParlay = week?.parlayId != null
+  const hasPolls = (week?.pollCount ?? 0) > 0
+
+  // Rail order is fixed; presence is not. The clip follows exactly —
+  // resolveBites carves this many holes, top-down.
+  const rungs: Rung[] = ['slate']
+  if (hasParlay) rungs.push('parlay')
+  rungs.push('board')
+  if (hasPolls) rungs.push('polls')
+
+  const count = rungs.length
   useEffect(() => {
-    setSeasonMode(offseason ? 'offseason' : 'in-season')
-  }, [offseason])
+    setRailCount(count)
+  }, [count])
 
   if (!chrome) return null
-  const bubbles = offseason ? BUBBLES.filter((b) => b.panel !== 'slate') : BUBBLES
-
-  const arcText = (p: Exclude<CanvasPanel, null>): string => {
-    if (p === 'slate')
-      return chrome.weekNumber != null ? `WEEK ${chrome.weekNumber}` : 'SLATE'
-    if (p === 'board') return 'BOARD'
-    return 'POLLS'
-  }
 
   return (
     <>
-      {bubbles.map(({ panel: p, top }) => {
+      {rungs.map((p, i) => {
         const open = panel === p
         return (
           <button
@@ -66,7 +74,7 @@ export function PanelBubbles() {
             className="group hidden focus-visible:outline-none lg:block"
             style={{
               position: 'absolute',
-              top,
+              top: railC(i) - DISC_CENTER,
               left: 0,
               transform: 'translateX(-50%)',
               width: 64,
@@ -77,7 +85,7 @@ export function PanelBubbles() {
             {/* The panel's name curved around the bite, out on the canvas —
                 letter-by-letter placement (see arc-label). */}
             <ArcLabel
-              text={arcText(p)}
+              text={arcText(p, week)}
               cx={44}
               cy={49.5}
               r={39.5}
@@ -96,35 +104,15 @@ export function PanelBubbles() {
               style={{ left: 10, top: 15.5, width: 44, height: 44 }}
             >
               <span
-                key={`${p}-${open}-${p === 'slate' ? chrome.weekNumber : p === 'board' ? chrome.myRank : chrome.openPollCount}`}
+                key={`${p}-${open}-${faceKey(p, week, chrome.myRank)}`}
                 className="face-pop flex items-center justify-center"
               >
                 {open ? (
                   <span aria-hidden className="text-[1.15rem] leading-none">
                     ✕
                   </span>
-                ) : p === 'slate' ? (
-                  chrome.weekNumber != null ? (
-                    <span className="font-display text-[1.05rem] leading-none">
-                      {chrome.weekNumber}
-                    </span>
-                  ) : (
-                    <Calendar size={20} strokeWidth={2.25} />
-                  )
-                ) : p === 'board' ? (
-                  chrome.myRank != null ? (
-                    <span className="font-display text-[0.95rem] leading-none">
-                      #{chrome.myRank}
-                    </span>
-                  ) : (
-                    <Trophy size={20} strokeWidth={2.25} />
-                  )
-                ) : chrome.openPollCount > 0 ? (
-                  <span className="font-display text-[1.05rem] leading-none">
-                    {chrome.openPollCount}
-                  </span>
                 ) : (
-                  <ListTodo size={20} strokeWidth={2.25} />
+                  <Face panel={p} week={week} myRank={chrome.myRank} />
                 )}
               </span>
             </span>
@@ -133,4 +121,91 @@ export function PanelBubbles() {
       })}
     </>
   )
+}
+
+/** "PRE" in the preseason, otherwise the number. */
+function weekFace(week: ChromeWeek | null): string {
+  if (!week) return '–'
+  return week.kind === 'preseason' ? 'PRE' : String(week.weekNumber)
+}
+
+function arcText(panel: Rung, week: ChromeWeek | null): string {
+  switch (panel) {
+    case 'slate':
+      return week?.kind === 'preseason'
+        ? 'PRESEASON'
+        : `WEEK ${week?.weekNumber ?? ''}`
+    case 'parlay':
+      return 'THE LAY'
+    case 'board':
+      return 'BOARD'
+    case 'polls':
+      return 'POLLS'
+  }
+}
+
+function faceKey(
+  panel: Rung,
+  week: ChromeWeek | null,
+  myRank: number | null
+): string | number {
+  switch (panel) {
+    case 'slate':
+      return weekFace(week)
+    case 'parlay':
+      return week?.submissionCount ?? 0
+    case 'board':
+      return myRank ?? '–'
+    case 'polls':
+      return week?.openPollCount ?? 0
+  }
+}
+
+function Face({
+  panel,
+  week,
+  myRank,
+}: {
+  panel: Rung
+  week: ChromeWeek | null
+  myRank: number | null
+}) {
+  switch (panel) {
+    case 'slate': {
+      const face = weekFace(week)
+      return (
+        <span
+          className={
+            face === 'PRE'
+              ? 'font-display text-[0.72rem] leading-none tracking-wide'
+              : 'font-display text-[1.05rem] leading-none'
+          }
+        >
+          {face}
+        </span>
+      )
+    }
+    case 'parlay':
+      return (week?.submissionCount ?? 0) > 0 ? (
+        <span className="font-display text-[1.05rem] leading-none">
+          {week!.submissionCount}
+        </span>
+      ) : (
+        <Layers size={19} strokeWidth={2.25} />
+      )
+    case 'board':
+      return myRank != null ? (
+        <span className="font-display text-[0.95rem] leading-none">#{myRank}</span>
+      ) : (
+        <Trophy size={20} strokeWidth={2.25} />
+      )
+    case 'polls':
+      return (week?.openPollCount ?? 0) > 0 ? (
+        <span className="font-display text-[1.05rem] leading-none">
+          {week!.openPollCount}
+        </span>
+      ) : (
+        <ListTodo size={20} strokeWidth={2.25} />
+      )
+  }
 }

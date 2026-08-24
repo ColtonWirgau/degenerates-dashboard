@@ -79,6 +79,11 @@ export interface PollResponse {
 
 export interface LeaguePoll {
   id: string;
+  /** The week this poll belongs to. Polls surface in their own week and
+   *  nowhere else — league business sits in the preseason week, a one-off
+   *  question sits in whichever week raised it. Null only for mock rows
+   *  that predate week-scoping. */
+  nflWeekId: string | null;
   title: string;
   prompt: string;
   /** Tone — purely visual / categorical. Drives the eyebrow chip. */
@@ -509,6 +514,9 @@ export function generateMockPolls({
 
     return {
       id: tpl.id,
+      // Mock scenarios have no nfl_weeks rows; the hub treats a null week
+      // as preseason business, which is where every seeded poll belongs.
+      nflWeekId: null,
       title: tpl.title,
       prompt: tpl.prompt,
       topic: tpl.topic,

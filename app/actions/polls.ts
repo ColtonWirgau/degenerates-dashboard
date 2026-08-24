@@ -25,7 +25,7 @@ export async function submitPollVote(
   if (!me) return { success: false, error: 'Unauthorized' }
   const adapter = await getDataAdapter()
   await adapter.submitPollResponse(pollId, me.id, vote)
-  revalidatePath(`/leagues/${leagueId}`)
+  revalidatePath(`/leagues/${leagueId}`, 'layout')
   void publish(channelName.polls(leagueId), event.pollVoteCast, {
     pollId,
     userId: me.id,
@@ -51,7 +51,7 @@ export async function addPollOption(
       error: err instanceof Error ? err.message : 'Failed to add option',
     }
   }
-  revalidatePath(`/leagues/${leagueId}`)
+  revalidatePath(`/leagues/${leagueId}`, 'layout')
   void publish(channelName.polls(leagueId), event.pollOptionAdded, {
     pollId,
     userId: me.id,
@@ -70,7 +70,7 @@ export async function reactToPollOption(
   if (!me) return { success: false, error: 'Unauthorized' }
   const adapter = await getDataAdapter()
   await adapter.reactToPollOption(pollId, optionId, me.id, value)
-  revalidatePath(`/leagues/${leagueId}`)
+  revalidatePath(`/leagues/${leagueId}`, 'layout')
   void publish(channelName.polls(leagueId), event.pollOptionReacted, {
     pollId,
     optionId,
@@ -93,7 +93,7 @@ export async function promotePollOption(
     return { success: false, error: 'Only owners and admins can promote options' }
   }
   await adapter.promotePollOption(pollId, optionId)
-  revalidatePath(`/leagues/${leagueId}`)
+  revalidatePath(`/leagues/${leagueId}`, 'layout')
   void publish(channelName.polls(leagueId), event.pollOptionPromoted, {
     pollId,
     optionId,
@@ -110,7 +110,7 @@ export async function closePoll(leagueId: string, pollId: string) {
     return { success: false, error: 'Only owners and admins can close polls' }
   }
   await adapter.closePoll(pollId)
-  revalidatePath(`/leagues/${leagueId}`)
+  revalidatePath(`/leagues/${leagueId}`, 'layout')
   void publish(channelName.polls(leagueId), event.pollStatusChanged, {
     pollId,
     status: 'closed',

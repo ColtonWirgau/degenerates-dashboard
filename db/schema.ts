@@ -34,6 +34,11 @@ export const roleEnum = pgEnum('role', ['owner', 'admin', 'member'])
 export const legResultEnum = pgEnum('leg_result', ['win', 'loss', 'push'])
 
 export const weekKindEnum = pgEnum('week_kind', [
+  // Week 0 of every season — no games, so no slate and no parlay. It's the
+  // week the league *runs itself*: charter, votes, draft logistics. Having
+  // it be a real week (not a special "home" screen) is what lets the whole
+  // app be week-shaped.
+  'preseason',
   'regular',
   'wildcard',
   'divisional',
@@ -429,6 +434,15 @@ export const polls = pgTable(
     leagueId: uuid('league_id')
       .notNull()
       .references(() => leagues.id, { onDelete: 'cascade' }),
+    // The week this poll belongs to. Every poll lives in a week — league
+    // business (charter, punishments, draft logistics) in the preseason
+    // week, one-off in-season questions in whichever week raised them.
+    // Nullable only so the column could be added to existing rows; the
+    // backfill points every poll at a real week and readers treat a null
+    // as "preseason".
+    nflWeekId: uuid('nfl_week_id').references(() => nflWeeks.id, {
+      onDelete: 'cascade',
+    }),
     kind: pollKindEnum('kind').notNull(),
     status: pollStatusEnum('status').notNull().default('draft'),
 
@@ -462,6 +476,7 @@ export const polls = pgTable(
   },
   (t) => ({
     leagueStatusIdx: index('polls_league_status_idx').on(t.leagueId, t.status),
+    weekIdx: index('polls_week_idx').on(t.nflWeekId),
     // Unique per (league, template) so the seed can upsert cleanly.
     leagueTemplateUnique: uniqueIndex('polls_league_template_unique').on(
       t.leagueId,

@@ -1,13 +1,24 @@
 /**
  * One tiny store for the canvas reveals (ported from RoarTracker's shell).
  *
- * The page card can pull back toward either top corner: the SUBMIT reveal
- * lives under its right edge, and the left rail's three panels — slate,
- * board, polls — share the space under its left. The LEAGUE surface (the
- * combined account + league sheet) is a portaled sheet, not a canvas
- * reveal, so it rides its own channel.
+ * The page card pulls back toward whichever top corner is AWAY from the
+ * bubble you pressed: the rail's four panels — weeks, the lay, the board,
+ * the polls — print under its left edge, and the two that are about you —
+ * your leg, your profile — under its right. One channel, so opening any
+ * of them closes the last.
+ *
+ * The league sheet is the exception: its trigger is the masthead, which
+ * belongs to no edge, so it stays a portaled sheet on its own channel.
  */
-export type CanvasPanel = 'slate' | 'board' | 'polls' | 'submit' | null
+export type CanvasPanel =
+  | 'season'
+  | 'slate'
+  | 'parlay'
+  | 'board'
+  | 'polls'
+  | 'submit'
+  | 'profile'
+  | null
 
 type PanelListener = (panel: CanvasPanel) => void
 
@@ -30,55 +41,60 @@ export function subscribePanel(listener: PanelListener): () => void {
   return () => panelListeners.delete(listener)
 }
 
+/* ---------- The viewed week ---------- */
+
+/* WHICH WEEK THE CARD IS SHOWING. The app is one page: picking a week
+ * doesn't navigate, it changes this. The stage fetches whatever it needs
+ * and swaps its content; the chrome re-reads its facts from the same id.
+ * Null until the first render settles on the season's current week. */
+let viewedWeekId: string | null = null
+const viewedWeekListeners = new Set<(id: string | null) => void>()
+
+export function setViewedWeek(id: string | null) {
+  if (viewedWeekId === id) return
+  viewedWeekId = id
+  viewedWeekListeners.forEach((l) => l(viewedWeekId))
+}
+
+export function getViewedWeek(): string | null {
+  return viewedWeekId
+}
+
+export function subscribeViewedWeek(
+  listener: (id: string | null) => void
+): () => void {
+  viewedWeekListeners.add(listener)
+  listener(viewedWeekId)
+  return () => viewedWeekListeners.delete(listener)
+}
+
 /* ---------- The league sheet ---------- */
 
-/* The LEAGUE — settings, members, invites, profile, seasons — is the
- * existing multi-page LeagueSheet (a portaled ResponsiveSheet), not a
- * canvas reveal. Every trigger (avatar notch, masthead avatar, dock
- * LEAGUE cell) opens this one channel. */
-let leagueOpen = false
-const leagueListeners = new Set<(open: boolean) => void>()
+/* Everything you can DO to the league — members, invites, settings,
+ * history, the full table. Too many pages for a 19rem reveal, so this
+ * one stays a portaled sheet; the season panel is its doorway, and the
+ * tile you press decides which page it opens on. */
+export type LeaguePage = 'main' | 'settings' | 'members' | 'invite' | 'history' | 'standings'
 
-export function openLeagueSheet() {
-  leagueOpen = true
-  closePanel()
-  leagueListeners.forEach((l) => l(leagueOpen))
+let leaguePage: LeaguePage | null = null
+const leagueListeners = new Set<(page: LeaguePage | null) => void>()
+
+export function openLeagueSheet(page: LeaguePage = 'main') {
+  leaguePage = page
+  leagueListeners.forEach((l) => l(leaguePage))
 }
 
 export function closeLeagueSheet() {
-  leagueOpen = false
-  leagueListeners.forEach((l) => l(leagueOpen))
+  leaguePage = null
+  leagueListeners.forEach((l) => l(leaguePage))
 }
 
-export function subscribeLeagueSheet(listener: (open: boolean) => void): () => void {
+export function subscribeLeagueSheet(
+  listener: (page: LeaguePage | null) => void
+): () => void {
   leagueListeners.add(listener)
-  listener(leagueOpen)
+  listener(leaguePage)
   return () => leagueListeners.delete(listener)
-}
-
-/* ---------- The season sheet ---------- */
-
-/* THE SEASON — which league, which year, and (off-season) the charter
- * that defines it: one sheet, opened from the masthead lockup at every
- * width, so a click on the season means one thing everywhere. */
-let seasonOpen = false
-const seasonListeners = new Set<(open: boolean) => void>()
-
-export function openSeasonSheet() {
-  seasonOpen = true
-  closePanel()
-  seasonListeners.forEach((l) => l(seasonOpen))
-}
-
-export function closeSeasonSheet() {
-  seasonOpen = false
-  seasonListeners.forEach((l) => l(seasonOpen))
-}
-
-export function subscribeSeasonSheet(listener: (open: boolean) => void): () => void {
-  seasonListeners.add(listener)
-  listener(seasonOpen)
-  return () => seasonListeners.delete(listener)
 }
 
 /* ---------- The submit reveal's arm counter ---------- */

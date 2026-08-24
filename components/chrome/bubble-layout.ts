@@ -17,55 +17,56 @@
 
 import { BITE_FILLET, BITE_R, type Bite } from '@/components/chrome/bite-geometry'
 
-export type AnchoredBite = {
-  edge: 'left' | 'right'
-  anchor: 'top' | 'bottom'
-  c: number
-  r: number
-  fillet: number
+/* ---------- The left rail ---------- */
+
+/* The rail is a LADDER, not a set of named positions: bubbles fill it from
+ * the top down in a fixed order (week → parlay → board → polls), and the
+ * ones this week doesn't have simply aren't there. That keeps the rail
+ * contiguous on every week — no holes where a missing noun used to be —
+ * while the order never changes, so your hand learns it once.
+ *
+ * The right edge, top-anchored, is you: the profile sheet's trigger. */
+export const RAIL_TOP = 133.5
+export const RAIL_STEP = 91
+export const PROFILE_C = 153
+export const PROFILE_R = 25
+
+/** Where the nth left bubble's bite sits, measured from the card top. */
+export function railC(index: number): number {
+  return RAIL_TOP + RAIL_STEP * index
 }
 
-/* The fixed bubbles. Left, top-anchored: the league's state trio. Right,
- * top-anchored: you — the LEAGUE sheet trigger (settings/members/profile
- * all live inside that one sheet). */
-export const SLATE_C = 133.5
-export const BOARD_C = 224.5
-export const POLLS_C = 315.5
-export const LEAGUE_C = 153
-export const LEAGUE_R = 25
-
 /* The action group, bottom-anchored on the right. HOME is the resting
- * SUBMIT (in-season) / VOTE (off-season) bubble; the upper ranks are the
- * dormant split slots (91px rhythm, matching the left trio). */
+ * SUBMIT bubble; the upper ranks are the dormant split slots (91px
+ * rhythm, matching the rail). */
 export const ACTION_HOME_C = 153
 export const ACTION_RANK2_C = 244
 export const ACTION_RANK3_C = 335
 
-const STATIC_BITES: AnchoredBite[] = [
-  { edge: 'left', anchor: 'top', c: SLATE_C, r: BITE_R, fillet: BITE_FILLET },
-  { edge: 'left', anchor: 'top', c: BOARD_C, r: BITE_R, fillet: BITE_FILLET },
-  { edge: 'left', anchor: 'top', c: POLLS_C, r: BITE_R, fillet: BITE_FILLET },
-  { edge: 'right', anchor: 'top', c: LEAGUE_C, r: LEAGUE_R, fillet: 5 },
-]
+/* ---------- What the week offers ---------- */
 
-/* ---------- Season mode ---------- */
+/* The chrome is a function of the week you're looking at, and the card's
+ * silhouette follows exactly: a week with no polls carves no POLLS bite,
+ * and the preseason week — no games, so nothing to bet — carves no action
+ * bite. A bubble and its hole can never disagree, because both read these.
+ *
+ * Set by the bubbles as the viewed week changes; the frame listeners
+ * re-carve on the switch. */
+let railCount = 2
+let actionBite = true
 
-/* Off-/preseason has no week: the SLATE bite drops and its bubble with it
- * (there's nothing to slate). BOARD, POLLS and the avatar stay; the action
- * bubble pivots to VOTE. The clip follows: resolveBites drops the slate
- * bite, and the frame listeners re-carve on the switch. */
-export type SeasonMode = 'in-season' | 'offseason'
-let seasonMode: SeasonMode = 'in-season'
-
-export function setSeasonMode(mode: SeasonMode) {
-  if (seasonMode === mode) return
-  seasonMode = mode
-  if (mode === 'offseason') setSplit(false)
+/** How many bubbles the rail is currently showing. */
+export function setRailCount(n: number) {
+  if (railCount === n) return
+  railCount = n
   frameListeners.forEach((l) => l(t, w))
 }
 
-export function getSeasonMode(): SeasonMode {
-  return seasonMode
+export function setActionBite(on: boolean) {
+  if (actionBite === on) return
+  actionBite = on
+  if (!on) setSplit(false)
+  frameListeners.forEach((l) => l(t, w))
 }
 
 /* ---------- The split springs (dormant, kept intact) ---------- */
@@ -189,26 +190,22 @@ export function rank3C(progress: number): number {
 }
 
 /**
- * Every bite, resolved against a card height — statics plus the action
- * group at its current spring position. The union tracer downstream makes
- * the overlapping frames of a split legal geometry, so this can be called
- * mid-flight every frame.
+ * Every bite, resolved against a card height — the rail, your notch, and
+ * the action group at its current spring position. The union tracer
+ * downstream makes the overlapping frames of a split legal geometry, so
+ * this can be called mid-flight every frame.
  */
 export function resolveBites(cardHeight: number, progress: number, third = 0): Bite[] {
-  const statics =
-    seasonMode === 'offseason'
-      ? STATIC_BITES.filter((b) => b.c !== SLATE_C || b.edge !== 'left')
-      : STATIC_BITES
-  const resolved: Bite[] = statics.map((b) => ({
-    edge: b.edge,
-    y: b.anchor === 'top' ? b.c : cardHeight - b.c,
-    r: b.r,
-    fillet: b.fillet,
-  }))
-  // The action bubble is the WEEK's verb (submit your leg). Off-season
-  // there is no week, so the bite goes with it — POLLS is already one
-  // tap away on the left edge and doesn't need a second door.
-  if (seasonMode === 'offseason') return resolved
+  const resolved: Bite[] = []
+  // The rail, filled top-down: however many bubbles this week has.
+  for (let i = 0; i < railCount; i++) {
+    resolved.push({ edge: 'left', y: railC(i), r: BITE_R, fillet: BITE_FILLET })
+  }
+  // You, on the right.
+  resolved.push({ edge: 'right', y: PROFILE_C, r: PROFILE_R, fillet: 5 })
+  // The action bubble is the WEEK's verb (submit your leg). The preseason
+  // week has no slate, so the bite goes with it.
+  if (!actionBite) return resolved
   resolved.push({
     edge: 'right',
     y: cardHeight - ACTION_HOME_C,

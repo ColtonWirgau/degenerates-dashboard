@@ -1,31 +1,19 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import {
-  Calendar,
-  Check,
-  Circle,
-  Clock,
-  ExternalLink,
-  Filter,
-  Flame,
-  Minus,
-  Skull,
-  Trophy,
-} from 'lucide-react'
+import { Clock, ExternalLink, Flame, Minus, Skull, Trophy } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { SectionHeader } from '@/components/ui/section-header'
 import {
   ResponsiveSheet,
   SheetPage,
 } from '@/components/ui/responsive-sheet'
 import { cn } from '@/lib/utils'
+import { useSlateScope } from '@/components/week-scope'
 import type { LegRoster } from '@/components/week-detail-sheet'
 import type { SlateGame, SlateTeam } from '@/lib/data/week-slate'
 import { useLiveScores } from '@/lib/hooks/use-live-scores'
 
 interface WeekSlateProps {
-  weekNumber: number
   firstKickoff?: string | null
   /** Real schedule for the week (lib/data/week-slate). Null/empty renders
    *  an honest "schedule not loaded" state (e.g. mock mode). */
@@ -34,16 +22,6 @@ interface WeekSlateProps {
   nflWeekId?: string | null
   legs?: LegRoster[]
   currentUserId?: string
-  /** Drives default filter state — pre-lock ("open") shows all
-   *  in-slate games (members are composing); post-lock collapses to
-   *  only games with bets so the slate doesn't dwarf the live tracker. */
-  parlayState?: 'open' | 'locked' | 'graded' | 'won' | 'lost'
-  /**
-   * When true, skip the internal `<SectionHeader>` + outer `<section>`
-   * wrapper. Used by `<WeekSlateDock>`, which provides its own dock-style
-   * heading and wraps the slate in its own section.
-   */
-  hideHeader?: boolean
 }
 
 // ─── Team display helpers (real nfl_teams rows via the slate payload) ──────
@@ -111,8 +89,6 @@ const DAY_LABEL: Record<string, string> = {
 }
 const DAY_ORDER = ['thu', 'fri', 'sat', 'sun', 'mon', 'tue', 'wed'] as const
 
-const fmtDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
 // ─── Slate countdown — ticking pre-kickoff timer / live indicator ──────────
 
@@ -271,14 +247,11 @@ function distributeLegsAcrossGames(
  * modal on desktop, which keeps the page surface tight.
  */
 export function WeekSlate({
-  weekNumber,
   firstKickoff,
   games: gamesProp,
   nflWeekId = null,
   legs = [],
   currentUserId,
-  parlayState,
-  hideHeader = false,
 }: WeekSlateProps) {
   // Live scores are merged over the server-rendered schedule. The hook is
   // idle outside the slate window, so this costs nothing most of the week.
@@ -305,34 +278,20 @@ export function WeekSlate({
     [legs, games.length]
   )
 
-  // Filter state.
-  //   - `inSlateOnly` defaults ON: members care about games they can
-  //     actually bet on (the league's slate). Toggle to peek at games
-  //     outside the slate (Thursday opener, etc).
-  //   - `withBetsOnly` defaults to ON post-lock (locked / graded / live)
-  //     so the slate shrinks to the relevant games during the live
-  //     tracker. Pre-lock (open / undefined) shows every available
-  //     option since members are still composing.
-  const [inSlateOnly, setInSlateOnly] = useState(true)
-  const postLock =
-    parlayState === 'locked' ||
-    parlayState === 'graded' ||
-    parlayState === 'won' ||
-    parlayState === 'lost'
-  const [withBetsOnly, setWithBetsOnly] = useState(postLock)
+  // How wide a net to cast. The switch itself lives up in the week
+  // header (see week-scope.tsx) — the slate just does what it's told.
+  const scope = useSlateScope()
 
   const visibleMatchups = useMemo(
     () =>
-      games.map((g, idx) => ({ g, idx })).filter(({ g, idx }) => {
-        if (inSlateOnly && !g.inSlate) {
-          return false
-        }
-        if (withBetsOnly && (legsByGameIdx.get(idx)?.length ?? 0) === 0) {
-          return false
-        }
-        return true
-      }),
-    [games, inSlateOnly, withBetsOnly, legsByGameIdx]
+      games
+        .map((g, idx) => ({ g, idx }))
+        .filter(({ g, idx }) => {
+          if (scope === 'all') return true
+          if (scope === 'slate') return g.inSlate
+          return (legsByGameIdx.get(idx)?.length ?? 0) > 0
+        }),
+    [games, scope, legsByGameIdx]
   )
 
   // Open game in the sheet — tracks by matchup index.
@@ -341,55 +300,16 @@ export function WeekSlate({
   const openGameLegs =
     openGameIdx != null ? legsByGameIdx.get(openGameIdx) ?? [] : []
 
-  const totalWithBets = legs.length
-  const totalInSlate = games.filter((g) => g.inSlate).length
-
-  const Wrapper = hideHeader ? 'div' : 'section'
-  const wrapperClass = hideHeader ? '' : 'mt-10 sm:mt-12'
-
+  // No heading: the week header above already names the week and carries
+  // the scope switch. All that's left is the games and, while they're
+  // running, a live countdown pinned to the first day group.
   return (
-    <Wrapper className={wrapperClass}>
-      {!hideHeader && (
-        <>
-          <SectionHeader
-            kicker={`Week ${weekNumber}`}
-            title="Slate"
-            icon={Calendar}
-            accent="blue"
-            trailing={
-              <SlateCountdown
-                firstKickoff={firstKickoff ?? null}
-                isLive={
-                  anyLive ||
-                  (postLock && parlayState !== 'won' && parlayState !== 'lost')
-                }
-              />
-            }
-          />
-          <p className="text-xs text-muted-foreground mb-3 -mt-3">
-            {firstKickoff
-              ? `First kickoff ${fmtDate(firstKickoff)}`
-              : 'This week\'s NFL matchups'}{' '}
-            · Betting odds are illustrative until the odds feed is wired.
-          </p>
-        </>
+    <div>
+      {anyLive && (
+        <div className="mb-3 flex justify-end">
+          <SlateCountdown firstKickoff={firstKickoff ?? null} isLive />
+        </div>
       )}
-
-      {/* Filter chips */}
-      <div className="flex flex-wrap items-center gap-1.5 mb-5">
-        <Filter className="h-3 w-3 text-muted-foreground/70 mr-0.5" aria-hidden />
-        <FilterChip
-          active={inSlateOnly}
-          onClick={() => setInSlateOnly((v) => !v)}
-          label={`In betting slate · ${totalInSlate}`}
-        />
-        <FilterChip
-          active={withBetsOnly}
-          disabled={totalWithBets === 0}
-          onClick={() => setWithBetsOnly((v) => !v)}
-          label={`With bets · ${totalWithBets}`}
-        />
-      </div>
 
       <div className="space-y-5">
         {DAY_ORDER.map((day) => {
@@ -419,7 +339,9 @@ export function WeekSlate({
             <p className="text-xs text-muted-foreground italic">
               {games.length === 0
                 ? 'Schedule not loaded for this week yet.'
-                : 'No games match your filters. Toggle one off to see more.'}
+                : scope === 'action'
+                  ? "Nothing riding yet — nobody's picked a game."
+                  : 'No games in this scope. Widen it to see more.'}
             </p>
           </div>
         )}
@@ -434,42 +356,7 @@ export function WeekSlate({
           currentUserId={currentUserId}
         />
       )}
-    </Wrapper>
-  )
-}
-
-function FilterChip({
-  active,
-  disabled,
-  onClick,
-  label,
-}: {
-  active: boolean
-  disabled?: boolean
-  onClick: () => void
-  label: string
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase ring-1 transition-colors',
-        active
-          ? 'bg-neon-blue/15 text-neon-blue ring-neon-blue/40'
-          : 'text-muted-foreground ring-white/10 hover:bg-white/5',
-        disabled && 'opacity-40 cursor-not-allowed hover:bg-transparent'
-      )}
-      aria-pressed={active}
-    >
-      {active ? (
-        <Check className="h-3 w-3" strokeWidth={3} />
-      ) : (
-        <Circle className="h-2 w-2" />
-      )}
-      {label}
-    </button>
+    </div>
   )
 }
 

@@ -30,22 +30,17 @@ export async function getLeagueOverview(leagueId: string) {
   }
 
   const scenario = await getActiveScenario()
-  // Resolve which season's data to display based on the season state. In
-  // offseason / preseason there's no current season to populate the page
-  // with, so we recap the most recently completed one.
+  // Which season the app is IN. Not "the last one with results" — the one
+  // the league is currently living in, because that's the season whose
+  // weeks you can act on. Before kickoff that means the upcoming season:
+  // its week 0 is open, its charter is being written, its polls are live.
+  // Last year's numbers are a season-picker away in the league sheet.
   const seasonState = await adapter.getSeasonState()
   const naturalSeason =
     seasonState.kind === 'offseason'
-      ? seasonState.lastSeason ?? scenario.currentSeason
+      ? seasonState.nextSeason ?? scenario.currentSeason
       : seasonState.kind === 'preseason'
-        ? // Preseason → recap the most recently completed season.
-          (() => {
-            const startYear = parseInt(
-              seasonState.currentSeason.split('-')[0]!,
-              10
-            )
-            return `${startYear - 1}-${startYear}`
-          })()
+        ? seasonState.currentSeason
         : // In-season kinds carry the active NFL week — its season is the
           // one the page should display (the mock scenario's season is
           // meaningless in neon mode).

@@ -1,21 +1,24 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+/**
+ * The league's own pages — standings, settings, members, invites,
+ * history. They're pages rather than a sheet because they all live
+ * *inside* one: the season sheet, behind the masthead lockup. Nothing
+ * about YOU is in here; that's the profile sheet's business.
+ */
+
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ResponsiveSheet,
-  SheetPage,
   SheetPageKebab,
-  type SheetPageKebabItem,
   useResponsiveSheet,
+  type SheetPageKebabItem,
 } from '@/components/ui/responsive-sheet'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { LeagueAvatar } from '@/components/league-avatar'
 import { Button } from '@/components/ui/button'
-import { SeasonFormStrip } from '@/components/season-form-strip'
 import { FinalStandings } from '@/components/final-standings'
 import {
   inviteMember,
@@ -23,45 +26,21 @@ import {
   removeMember,
   updateMemberRole,
 } from '@/app/actions/leagues'
-import { getLeagueSeasonBundle } from '@/app/actions/league-season'
-import { getUserDetail, type UserDetailPayload } from '@/app/actions/user-detail'
-import { logout } from '@/app/actions/auth'
-import {
-  DevPhaseSwitcher,
-  MockPage,
-  ProfilePage,
-  type CurrentUser,
-} from '@/components/user-menu'
-import type { DevPhaseData, DevToolbarData } from '@/lib/data/dev-toolbar-data'
-import {
-  WeekDetailSheet,
-  type WeekDetailData,
-} from '@/components/week-detail-sheet'
-import {
-  UserDetailContent,
-  type LeaderboardEntry,
-} from '@/components/leaderboard-sheet'
+import type { WeekDetailData } from '@/components/week-detail-sheet'
+import type { LeaderboardEntry } from '@/components/leaderboard-sheet'
 import {
   AlertCircle,
-  ArrowRight,
   Check,
-  ChevronRight,
   Copy,
   Crown,
-  History,
-  Link2,
   Loader2,
   Lock,
-  LogOut,
   Mail,
   RefreshCw,
-  Settings as SettingsIcon,
-  Settings2,
   Shield,
   User as UserIcon,
   UserMinus,
   UserPlus,
-  Users,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -80,474 +59,10 @@ export type LeagueSwitcherRow = {
   role: 'owner' | 'admin' | 'member'
 }
 
-interface LeagueSheetProps {
-  open: boolean
-  onClose: () => void
-  leagueId: string
-  leagueName: string
-  memberCount: number
-  /** Season currently displayed on the league page (default selection). */
-  season: string
-  inviteCode: string
-  canManage: boolean
-  /** Viewer's role — owner unlocks promote/demote in Members. */
-  currentUserRole: 'owner' | 'admin' | 'member'
-  weeks: WeekDetailData[]
-  /** Index into `weeks` of the in-flight week (only for the active season). */
-  currentWeekIndex: number
-  members: LeagueSheetMember[]
-  currentUserId: string
-  leaderboard: LeaderboardEntry[]
-  availableSeasons: string[]
-  /** Every league the viewer belongs to — powers the switcher section. */
-  leagues: LeagueSwitcherRow[]
-  /** The signed-in user — the sheet is the single home for account +
-   *  league, opened from the combined avatar trigger. */
-  user: CurrentUser
-  /** Mock-mode dev controls. Null in production / neon. */
-  mock?: DevToolbarData | null
-  /** Neon-mode dev control — season-phase time travel. Null outside dev. */
-  devPhase?: DevPhaseData | null
-}
-
-export function LeagueSheet(props: LeagueSheetProps) {
-  // The strip's "current week" pulse only makes sense for the active season.
-  // When the user flips to a prior season, drop the marker.
-  const [selectedSeason, setSelectedSeason] = useState(props.season)
-  const [weeks, setWeeks] = useState(props.weeks)
-  const [leaderboard, setLeaderboard] = useState(props.leaderboard)
-  const [pending, startTransition] = useTransition()
-
-  // Reset on close so reopening always lands on the active season.
-  useEffect(() => {
-    if (!props.open) {
-      setSelectedSeason(props.season)
-      setWeeks(props.weeks)
-      setLeaderboard(props.leaderboard)
-    }
-  }, [props.open, props.season, props.weeks, props.leaderboard])
-
-  const isActiveSeason = selectedSeason === props.season
-  const effectiveWeekIndex = isActiveSeason ? props.currentWeekIndex : -1
-
-  // Standings drill-in — a member's detail renders as a page *within*
-  // this sheet (no stacked sheet). Week drill from there opens the
-  // week-detail sheet on top, same as before.
-  const [detailUserId, setDetailUserId] = useState<string | null>(null)
-  const [detailSeason, setDetailSeason] = useState<string>(props.season)
-  const [detail, setDetail] = useState<UserDetailPayload | null>(null)
-  const [detailPending, startDetailTransition] = useTransition()
-  const [activeWeek, setActiveWeek] = useState<WeekDetailData | null>(null)
-
-  useEffect(() => {
-    if (!props.open) {
-      setDetailUserId(null)
-      setDetail(null)
-      setDetailSeason(props.season)
-      setActiveWeek(null)
-    }
-  }, [props.open, props.season])
-
-  useEffect(() => {
-    if (!detailUserId) {
-      setDetail(null)
-      return
-    }
-    let cancelled = false
-    startDetailTransition(async () => {
-      const res = await getUserDetail(props.leagueId, detailUserId, detailSeason)
-      if (!cancelled) setDetail(res.payload)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [detailUserId, detailSeason, props.leagueId])
-
-  const openWeekFromDetail = (weekId: string) => {
-    const data = weeks.find((w) => w.week.id === weekId)
-    if (data) setActiveWeek(data)
-  }
-
-  const handlePickSeason = (s: string) => {
-    if (s === selectedSeason) return
-    setSelectedSeason(s)
-    if (s === props.season) {
-      // Snap back to the values the page already had — no fetch needed.
-      setWeeks(props.weeks)
-      setLeaderboard(props.leaderboard)
-      return
-    }
-    startTransition(async () => {
-      const res = await getLeagueSeasonBundle(props.leagueId, s)
-      if (res.payload) {
-        setWeeks(res.payload.weeks)
-        setLeaderboard(res.payload.leaderboard)
-      }
-    })
-  }
-
-  return (
-    <>
-      <ResponsiveSheet
-        open={props.open}
-        onClose={props.onClose}
-        panelClassName="glass-intense border-t border-primary/30 md:border md:rounded-2xl"
-        sheetMaxHeight="92dvh"
-      >
-        <SheetPage name="main">
-          <MainPage
-            leagueId={props.leagueId}
-            leagueName={props.leagueName}
-            memberCount={props.memberCount}
-            season={selectedSeason}
-            availableSeasons={props.availableSeasons}
-            onPickSeason={handlePickSeason}
-            switching={pending}
-            weeks={weeks}
-            currentWeekIndex={effectiveWeekIndex}
-            leaderboard={leaderboard}
-            currentUserId={props.currentUserId}
-            onSelectUser={setDetailUserId}
-            user={props.user}
-            devPhase={props.devPhase ?? null}
-            mockEnabled={!!props.mock}
-          />
-        </SheetPage>
-
-        <SheetPage name="standings" title="Standings">
-          <StandingsPage
-            currentUserId={props.currentUserId}
-            leaderboard={leaderboard}
-            weeks={weeks}
-            onSelectUser={setDetailUserId}
-          />
-        </SheetPage>
-
-        <SheetPage name="profile" title="Edit Profile">
-          <ProfilePage user={props.user} onSaved={props.onClose} />
-        </SheetPage>
-
-        <SheetPage name="settings" title="Settings">
-          <SettingsPage canManage={props.canManage} leagueId={props.leagueId} />
-        </SheetPage>
-
-        <SheetPage name="members" title="Members">
-          <MembersPage
-            leagueId={props.leagueId}
-            members={props.members}
-            currentUserId={props.currentUserId}
-            currentUserRole={props.currentUserRole}
-          />
-        </SheetPage>
-
-        <SheetPage name="invite" title="Invite">
-          <InvitePage
-            leagueId={props.leagueId}
-            inviteCode={props.inviteCode}
-            canManage={props.canManage}
-          />
-        </SheetPage>
-
-        <SheetPage name="history" title="History">
-          <HistoryPage />
-        </SheetPage>
-
-        {props.mock && (
-          <SheetPage name="mock" title="Mock controls">
-            <MockPage data={props.mock} />
-          </SheetPage>
-        )}
-
-        <SheetPage name="user">
-          {detailPending && !detail ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-6 w-6 animate-spin text-neon-blue" />
-            </div>
-          ) : detail ? (
-            <UserDetailContent
-              detail={detail}
-              pending={detailPending}
-              availableSeasons={props.availableSeasons}
-              onSeasonChange={setDetailSeason}
-              onOpenLeg={openWeekFromDetail}
-            />
-          ) : null}
-        </SheetPage>
-      </ResponsiveSheet>
-
-      {activeWeek && (
-        <WeekDetailSheet
-          open={activeWeek !== null}
-          onClose={() => setActiveWeek(null)}
-          data={activeWeek}
-          leagueId={props.leagueId}
-          membersCount={props.memberCount}
-        />
-      )}
-    </>
-  )
-}
-
-// ─── Main page ──────────────────────────────────────────────────────────────
-
-function MainPage({
-  leagueId,
-  leagueName,
-  memberCount,
-  season,
-  availableSeasons,
-  onPickSeason,
-  switching,
-  weeks,
-  currentWeekIndex,
-  leaderboard,
-  currentUserId,
-  onSelectUser,
-  user,
-  devPhase,
-  mockEnabled,
-}: {
-  leagueId: string
-  leagueName: string
-  memberCount: number
-  season: string
-  availableSeasons: string[]
-  onPickSeason: (season: string) => void
-  switching: boolean
-  weeks: WeekDetailData[]
-  currentWeekIndex: number
-  leaderboard: LeaderboardEntry[]
-  currentUserId: string
-  onSelectUser: (userId: string) => void
-  user: CurrentUser
-  devPhase: DevPhaseData | null
-  mockEnabled: boolean
-}) {
-  const { navigate } = useResponsiveSheet()
-  const showSwitcher = availableSeasons.length > 1
-
-  const handleStandingsTap = (userId: string) => {
-    onSelectUser(userId)
-    navigate('user')
-  }
-
-  // Standings preview — top 3 plus the viewer's row when they sit
-  // outside it. The full table lives on the standings page.
-  const previewRows = (() => {
-    const rows = leaderboard
-      .slice(0, 3)
-      .map((m, i) => ({ entry: m, rank: i + 1 }))
-    const meIdx = leaderboard.findIndex((m) => m.userId === currentUserId)
-    if (meIdx >= 3) rows.push({ entry: leaderboard[meIdx]!, rank: meIdx + 1 })
-    return rows
-  })()
-
-  return (
-    <div className="px-5 sm:px-6 pb-8 pt-2">
-      {/* You — account hero. The trigger is your avatar, so the sheet
-          leads with you; the league context follows. */}
-      <div className="flex items-center gap-3 pt-4 pb-4">
-        <Avatar className="h-11 w-11 ring-2 ring-primary/40 shrink-0">
-          <AvatarImage
-            src={user.avatarUrl ?? undefined}
-            alt={user.fullName ?? user.email}
-          />
-          <AvatarFallback className="bg-primary text-primary-foreground font-bold">
-            {getInitials(user.fullName, user.email)}
-          </AvatarFallback>
-        </Avatar>
-        <div className="min-w-0 flex-1">
-          <h2 className="text-base font-bold text-foreground truncate leading-tight">
-            {user.fullName ?? user.email}
-          </h2>
-          <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => navigate('profile')}
-          className="rounded-full p-2 text-muted-foreground hover:text-neon-blue hover:bg-white/5 transition-colors shrink-0"
-          aria-label="Edit profile"
-        >
-          <Settings2 className="h-4 w-4" />
-        </button>
-      </div>
-
-      {/* League identity. Single-tenant — this IS the league, so the hero
-          states it rather than offering a switch. */}
-      <div className="flex w-full items-center gap-4 border-t border-white/10 pt-4 pb-5 text-left">
-        <LeagueAvatar leagueId={leagueId} size="lg" name={leagueName} />
-        <div className="min-w-0 flex-1">
-          <h2 className="flex items-center gap-1.5 text-xl font-bold text-foreground leading-tight">
-            <span className="min-w-0 break-words">{leagueName}</span>
-          </h2>
-          <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1">
-              <Users className="h-3 w-3" />
-              {memberCount} {memberCount === 1 ? 'member' : 'members'}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Nav tiles — Settings / Members / Invite / History */}
-      <div className="grid grid-cols-4 gap-1.5">
-        <NavTile
-          icon={SettingsIcon}
-          label="Settings"
-          onClick={() => navigate('settings')}
-        />
-        <NavTile icon={Users} label="Members" onClick={() => navigate('members')} />
-        <NavTile icon={Link2} label="Invite" onClick={() => navigate('invite')} />
-        <NavTile icon={History} label="History" onClick={() => navigate('history')} />
-      </div>
-
-      {/* Season switcher chip row */}
-      {showSwitcher && (
-        <div className="mt-6 border-t border-white/10 pt-5">
-          <div className="-mx-1 flex flex-wrap gap-1.5">
-            {availableSeasons.map((s) => {
-              const active = s === season
-              return (
-                <button
-                  key={s}
-                  type="button"
-                  disabled={switching}
-                  onClick={() => onPickSeason(s)}
-                  className={cn(
-                    'rounded-full border px-3 py-1 text-xs font-bold tracking-wider uppercase font-mono transition-all',
-                    active
-                      ? 'border-neon-blue/60 bg-neon-blue/10 text-neon-blue'
-                      : 'border-white/10 bg-white/[0.02] text-muted-foreground hover:border-white/20 hover:text-foreground',
-                    switching && 'opacity-60'
-                  )}
-                >
-                  {s}
-                  {active && switching && (
-                    <Loader2 className="ml-1.5 inline h-3 w-3 animate-spin" />
-                  )}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Season form strip */}
-      {weeks.length > 0 && (
-        <div className={cn('mt-6', !showSwitcher && 'border-t border-white/10 pt-5')}>
-          <SeasonFormStrip
-            weeks={weeks}
-            leagueId={leagueId}
-            membersCount={memberCount}
-            currentWeekIndex={currentWeekIndex}
-          />
-        </div>
-      )}
-
-      {/* Standings preview — top 3 + you; the full table is a page. */}
-      {leaderboard.length > 0 && (
-        <div className="mt-2">
-          <p className="mb-3 text-[10px] font-bold tracking-[0.25em] uppercase text-muted-foreground">
-            Standings
-          </p>
-          <div className="space-y-1.5">
-            {previewRows.map(({ entry, rank }) => {
-              const isMe = entry.userId === currentUserId
-              return (
-                <button
-                  key={entry.userId}
-                  type="button"
-                  onClick={() => handleStandingsTap(entry.userId)}
-                  className={cn(
-                    'group flex w-full items-center gap-3 rounded-lg border bg-white/[0.02] px-3 py-2.5 text-left transition-all hover:bg-white/[0.04]',
-                    isMe
-                      ? 'border-neon-blue/40 hover:border-neon-blue/60'
-                      : 'border-white/10 hover:border-white/20'
-                  )}
-                >
-                  <span
-                    className={cn(
-                      'shrink-0 w-7 text-center text-sm font-bold tabular-nums leading-none',
-                      rank === 1 ? 'text-neon-blue' : 'text-muted-foreground'
-                    )}
-                  >
-                    #{rank}
-                  </span>
-                  <Avatar className="h-8 w-8 shrink-0 ring-1 ring-white/10">
-                    <AvatarImage
-                      src={entry.avatarUrl ?? undefined}
-                      alt={entry.fullName ?? entry.email}
-                    />
-                    <AvatarFallback className="bg-primary text-primary-foreground font-bold text-xs">
-                      {getInitials(entry.fullName, entry.email)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <p className="min-w-0 flex-1 truncate text-sm font-semibold flex items-center gap-1.5">
-                    {entry.fullName ?? entry.email}
-                    {isMe && (
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] border-neon-blue/40 px-1.5 py-0 text-neon-blue"
-                      >
-                        You
-                      </Badge>
-                    )}
-                  </p>
-                  <span className="shrink-0 text-sm font-bold tabular-nums text-foreground/90">
-                    {entry.winRate.toFixed(1)}%
-                  </span>
-                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
-                </button>
-              )
-            })}
-            {leaderboard.length > previewRows.length && (
-              <button
-                type="button"
-                onClick={() => navigate('standings')}
-                className="group flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/10 px-3 py-2.5 text-[11px] font-bold tracking-widest uppercase text-muted-foreground hover:border-neon-blue/30 hover:text-neon-blue transition-colors"
-              >
-                Full standings ({leaderboard.length})
-                <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Season phase (dev, neon mode) — time-travel preview. */}
-      {devPhase && <DevPhaseSwitcher data={devPhase} />}
-
-      {/* Mock controls entry — mock mode only. */}
-      {mockEnabled && (
-        <button
-          type="button"
-          onClick={() => navigate('mock')}
-          className="mt-5 flex w-full items-center gap-3 rounded-lg border border-neon-pink/30 bg-neon-pink/5 px-3 py-2.5 text-left transition-all hover:border-neon-pink/60 hover:bg-neon-pink/10"
-        >
-          <span className="text-[10px] font-bold tracking-[0.25em] uppercase text-neon-pink">
-            Mock controls
-          </span>
-          <ArrowRight className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        </button>
-      )}
-
-      {/* Sign out */}
-      <form action={logout} className="mt-6 border-t border-white/10 pt-5">
-        <button
-          type="submit"
-          className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-bold tracking-[0.2em] uppercase text-destructive/80 hover:text-destructive hover:bg-destructive/5 transition-colors"
-        >
-          <LogOut className="h-3.5 w-3.5" />
-          Sign Out
-        </button>
-      </form>
-    </div>
-  )
-}
 
 // Full standings — the complete table with dot traces; rows drill into
 // the member's detail page.
-function StandingsPage({
+export function StandingsPage({
   currentUserId,
   leaderboard,
   weeks,
@@ -574,7 +89,7 @@ function StandingsPage({
   )
 }
 
-function NavTile({
+export function NavTile({
   icon: Icon,
   label,
   onClick,
@@ -611,7 +126,7 @@ const DAY_CHIPS: Array<{ id: 'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sa
 
 const LOCK_OFFSET_PRESETS = [5, 10, 15, 30, 60]
 
-function SettingsPage({ canManage, leagueId }: { canManage: boolean; leagueId: string }) {
+export function SettingsPage({ canManage, leagueId }: { canManage: boolean; leagueId: string }) {
   const [days, setDays] = useState<string[]>(['sun', 'mon'])
   const [includeHolidays, setIncludeHolidays] = useState(true)
   const [lockOffsetMin, setLockOffsetMin] = useState<number>(10)
@@ -837,7 +352,7 @@ const getInitials = (name: string | null, email: string) => {
   return email.slice(0, 2).toUpperCase()
 }
 
-function MembersPage({
+export function MembersPage({
   leagueId,
   members,
   currentUserId,
@@ -954,7 +469,7 @@ function MembersPage({
 
 // ─── Invite page ────────────────────────────────────────────────────────────
 
-function InvitePage({
+export function InvitePage({
   leagueId,
   inviteCode: initialInviteCode,
   canManage,
@@ -1142,7 +657,7 @@ function InviteByEmail({ leagueId }: { leagueId: string }) {
 
 // ─── History page ───────────────────────────────────────────────────────────
 
-function HistoryPage() {
+export function HistoryPage() {
   return (
     <div className="px-5 sm:px-6 pb-8 pt-4">
       <div className="rounded-lg border border-white/10 bg-white/[0.02] p-5 text-center">

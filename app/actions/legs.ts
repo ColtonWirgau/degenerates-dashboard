@@ -120,8 +120,11 @@ export async function submitLeg(
     validationStatus,
     validationMessage,
   })
-  revalidatePath(`/leagues/${leagueId}/weeks/${weekId}`)
-  revalidatePath(`/leagues/${leagueId}`)
+  // The whole league segment: the week page, the shell's week list and
+  // the season strip all move when a leg lands. `weekId` here is the
+  // parlay id, which is no longer what week URLs carry — revalidating the
+  // layout covers every week route without guessing at one.
+  revalidatePath(`/leagues/${leagueId}`, 'layout')
   // Fire real-time event so other tabs/devices see "N of 12 submitted"
   // tick up without waiting for their polling interval.
   void publish(channelName.parlayLegs(leagueId, weekId), event.legSubmitted, {
@@ -214,8 +217,11 @@ export async function deleteLeg(weekId: string, legId: string, leagueId: string)
   }
 
   await adapter.deleteLeg(legId)
-  revalidatePath(`/leagues/${leagueId}/weeks/${weekId}`)
-  revalidatePath(`/leagues/${leagueId}`)
+  // The whole league segment: the week page, the shell's week list and
+  // the season strip all move when a leg lands. `weekId` here is the
+  // parlay id, which is no longer what week URLs carry — revalidating the
+  // layout covers every week route without guessing at one.
+  revalidatePath(`/leagues/${leagueId}`, 'layout')
   void publish(channelName.parlayLegs(leagueId, weekId), event.legDeleted, {
     legId,
     userId: target.user.id,
@@ -300,8 +306,11 @@ export async function submitLegForUser(
     validationStatus,
     validationMessage,
   })
-  revalidatePath(`/leagues/${leagueId}/weeks/${weekId}`)
-  revalidatePath(`/leagues/${leagueId}`)
+  // The whole league segment: the week page, the shell's week list and
+  // the season strip all move when a leg lands. `weekId` here is the
+  // parlay id, which is no longer what week URLs carry — revalidating the
+  // layout covers every week route without guessing at one.
+  revalidatePath(`/leagues/${leagueId}`, 'layout')
   void publish(channelName.parlayLegs(leagueId, weekId), event.legSubmitted, {
     legId: submittedLeg.id,
     userId,

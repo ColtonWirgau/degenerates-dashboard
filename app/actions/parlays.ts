@@ -24,7 +24,7 @@ export async function updateLegResult(
     return { success: false, error: 'Only owners and admins can update results' }
   }
   await adapter.updateLegResult(legId, result)
-  revalidatePath(`/leagues/${leagueId}/weeks/${weekId}`)
+  revalidatePath(`/leagues/${leagueId}`, 'layout')
   void publish(channelName.parlayLegs(leagueId, weekId), event.legResultSet, {
     legId,
     result,

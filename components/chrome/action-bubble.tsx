@@ -7,33 +7,33 @@ import {
   subscribePanel,
   type CanvasPanel,
 } from '@/components/chrome/canvas-store'
-import { useLeagueChrome } from '@/components/chrome/league-chrome-context'
+import { useViewedWeek } from '@/components/chrome/league-chrome-context'
 import { ArcLabel } from '@/components/chrome/arc-label'
 import { DISC_CENTER } from '@/components/chrome/bite-geometry'
-import { ACTION_HOME_C } from '@/components/chrome/bubble-layout'
+import { ACTION_HOME_C, setActionBite } from '@/components/chrome/bubble-layout'
 
 /**
- * The card's RIGHT-edge, bottom: the league's ONE verb. In-season it's
- * SUBMIT — your leg for the week (a check once you're in, still opens the
- * reveal to review/replace). Off-/preseason it's VOTE — straight into the
- * polls panel. A single bite for now; the split-spring plumbing from the
- * source shell stays dormant in bubble-layout until a second verb earns
- * its rank.
+ * The card's RIGHT-edge, bottom: the WEEK'S ONE VERB — submit your leg (a
+ * check once you're in; still opens the reveal to review or replace).
+ *
+ * It belongs to the week, not the app, so it comes and goes with one: the
+ * preseason week has no slate to bet, and its bite disappears with the
+ * bubble. The split-spring plumbing from the source shell stays dormant in
+ * bubble-layout until a second verb earns its rank.
  */
 export function ActionBubble() {
-  const chrome = useLeagueChrome()
+  const week = useViewedWeek()
   const [panel, setPanel] = useState<CanvasPanel>(null)
   useEffect(() => subscribePanel(setPanel), [])
 
-  if (!chrome) return null
-  // Off-season the card carries no action bubble — see bubble-layout:
-  // POLLS already sits on the left edge, and a second door to the same
-  // panel is just a second door.
-  const offseason =
-    chrome.seasonKind === 'offseason' || chrome.seasonKind === 'preseason'
-  if (offseason) return null
+  const hasSlate = week?.hasSlate ?? false
+  useEffect(() => {
+    setActionBite(hasSlate)
+  }, [hasSlate])
+
+  if (!week || !hasSlate) return null
   const open = panel === 'submit'
-  const label = open ? 'CLOSE' : chrome.submitted ? 'YOUR LEG' : 'SUBMIT'
+  const label = open ? 'CLOSE' : week.submitted ? 'YOUR LEG' : 'SUBMIT'
 
   return (
     <button
@@ -78,7 +78,7 @@ export function ActionBubble() {
             <span aria-hidden className="text-[1.15rem] leading-none">
               ✕
             </span>
-          ) : chrome.submitted ? (
+          ) : week.submitted ? (
             <Check size={22} strokeWidth={2.5} />
           ) : (
             <Plus size={24} strokeWidth={2.25} />

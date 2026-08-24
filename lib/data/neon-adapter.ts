@@ -10,7 +10,7 @@
 //     stored that the schema can produce
 //   - getSeasonState branches off `now` against the nfl_weeks table
 
-import { and, asc, desc, eq, inArray, gte, lte, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, gte, lte, ne, sql } from 'drizzle-orm'
 import { db } from '@/db/client'
 import { getDevNow } from './dev-now'
 import { getCachedLockAt } from '@/lib/lock-time'
@@ -139,7 +139,10 @@ function computeParlayState(
   expectedMembers: number
 ): { state: ParlayState; result: 'won' | 'lost' | null } {
   if (legs.length === 0) return { state: 'open', result: null }
-  const anyDraft = legs.some((l) => l.lockedAt === null)
+  // A leg that's been graded is not a draft, whatever its lockedAt says —
+  // history imported from before this app existed carries no lock stamp,
+  // and without this guard every past week reads "still open" forever.
+  const anyDraft = legs.some((l) => l.lockedAt === null && l.result === null)
   if (anyDraft || legs.length < expectedMembers) {
     return { state: 'open', result: null }
   }
@@ -253,11 +256,17 @@ export const neonAdapter: DataAdapter = {
   },
 
   // ── Weeks / season state ────────────────────────────────────────────
+  //
+  // Both of these answer questions about the FOOTBALL calendar, so both
+  // skip week 0. The preseason week is real and routable, but it has no
+  // games — letting it into the season-state machine would make "the
+  // season is running" true from March. The app's full week list (week 0
+  // included) is assembled in lib/data/league-weeks.ts instead.
   async getWeeksForSeason(season) {
     const rows = await db
       .select()
       .from(nflWeeks)
-      .where(eq(nflWeeks.season, season))
+      .where(and(eq(nflWeeks.season, season), ne(nflWeeks.kind, 'preseason')))
       .orderBy(asc(nflWeeks.weekNumber))
     return rows.map(nflWeekFromRow)
   },
@@ -270,6 +279,7 @@ export const neonAdapter: DataAdapter = {
       .where(
         and(
           eq(nflWeeks.season, season),
+          ne(nflWeeks.kind, 'preseason'),
           lte(nflWeeks.startDate, now),
           gte(nflWeeks.endDate, now)
         )
@@ -932,7 +942,7 @@ export const neonAdapter: DataAdapter = {
 
   // ─── Polls ────────────────────────────────────────────────────────────
   async getPolls(leagueId, opts) {
-    return loadPolls(leagueId, opts?.statuses ?? ['open', 'closed'])
+    return loadPolls(leagueId, opts?.statuses ?? ['open', 'closed'], opts?.nflWeekId)
   },
 
   async getPoll(pollId) {
@@ -1009,6 +1019,7 @@ export const neonAdapter: DataAdapter = {
       .insert(polls)
       .values({
         leagueId: input.leagueId,
+        nflWeekId: input.nflWeekId,
         kind: input.kind,
         title: input.title,
         prompt: input.prompt,
@@ -1155,12 +1166,19 @@ function meetsThreshold(
 
 async function loadPolls(
   leagueId: string,
-  statuses: PollStatus[]
+  statuses: PollStatus[],
+  nflWeekId?: string
 ): Promise<LeaguePoll[]> {
   const pollRows = await db
     .select()
     .from(polls)
-    .where(and(eq(polls.leagueId, leagueId), inArray(polls.status, statuses)))
+    .where(
+      and(
+        eq(polls.leagueId, leagueId),
+        inArray(polls.status, statuses),
+        nflWeekId ? eq(polls.nflWeekId, nflWeekId) : undefined
+      )
+    )
     .orderBy(desc(polls.createdAt))
   if (pollRows.length === 0) return []
 
@@ -1246,6 +1264,7 @@ async function loadPolls(
 
     return {
       id: p.id,
+      nflWeekId: p.nflWeekId,
       kind: p.kind as PollKind,
       status: p.status as PollStatus,
       title: p.title,
