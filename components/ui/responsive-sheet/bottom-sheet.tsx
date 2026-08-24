@@ -288,6 +288,9 @@ export function BottomSheet({
       />
 
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-hidden={!open}
         className={`absolute inset-x-0 bottom-0 flex flex-col rounded-t-[2rem] shadow-2xl ${
           isDragging ? '' : 'transition-transform duration-300 ease-out'
         } ${className}`}

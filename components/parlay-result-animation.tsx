@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import confetti from 'canvas-confetti'
 
@@ -143,7 +144,11 @@ export function ParlayResultAnimation({ result, userParlay }: ParlayResultAnimat
 
   const colors = getColors()
 
-  return (
+  // Portaled to <body>: `position: fixed` inside the shell's transformed
+  // .page-sheet would be captured by the transform's containing block and
+  // scale with the card.
+  if (typeof document === 'undefined') return null
+  return createPortal(
     <AnimatePresence>
       {show && (
         <motion.div
@@ -194,6 +199,7 @@ export function ParlayResultAnimation({ result, userParlay }: ParlayResultAnimat
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }

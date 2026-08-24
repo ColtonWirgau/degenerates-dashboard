@@ -284,3 +284,156 @@
     }
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Canvas shell — the RoarTracker-derived reveal architecture, neon skin.
+   The page is a near-opaque CARD floating on the body's ambient wash;
+   opening a panel scales the card back toward a top corner to show what's
+   printed on the canvas underneath. Unlayered on purpose: these rules pair
+   with inline classes from components/chrome/* and must not lose to
+   utilities re-ordering.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.page-sheet {
+  position: relative;
+}
+.page-sheet > * {
+  position: relative;
+}
+
+/* The card itself. NEAR-OPAQUE, deliberately not glass: PageSheetCard
+   rewrites a path() clip on every rAF of the split spring, and per-frame
+   backdrop resampling on a viewport-sized element is compositor poison
+   (Safari also mis-clips backdrop-filter under path()). The neon shows
+   through the BITES — real clip holes — not through the surface. */
+.page-sheet-card {
+  background-color: rgba(10, 10, 10, 0.92);
+  background-image: linear-gradient(to bottom, rgba(18, 18, 18, 0.9), rgba(10, 10, 10, 0.96));
+  box-shadow:
+    0 0 0 1px rgba(0, 217, 255, 0.16),
+    0 0 40px -10px rgba(0, 217, 255, 0.14);
+}
+
+/* The reveal: opening a panel doesn't float it over the page — the card
+   SCALES BACK, anchored to a top corner, pulling off the canvas. The
+   masthead holds still; only the card moves. */
+.sheet-track .page-sheet {
+  transition: transform 340ms cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+/* THE ORIGIN LIVES APART FROM THE SLIDE — and outlives it. transform-origin
+   doesn't transition: if it rode along on the is-slid-* classes, the moment
+   a close removed them the origin snapped back to center while the scale
+   was still easing out, and the sheet visibly JUMPED before gliding home.
+   CanvasSheet keeps the last direction's origin class on the track through
+   the whole return trip. */
+.sheet-track.sheet-origin-left .page-sheet {
+  transform-origin: top left;
+}
+.sheet-track.sheet-origin-right .page-sheet {
+  transform-origin: top right;
+}
+.sheet-track.is-slid-left .page-sheet,
+.sheet-track.is-slid-right .page-sheet {
+  transform: scale(0.75);
+}
+/* While slid, the track's full-size box would still sit OVER the revealed
+   panel (a transform moves pixels, not layout) and swallow its wheel and
+   click events. So the slid track goes pointer-transparent and only the
+   sheet itself — the thing you'd tap to put the page back — re-arms. */
+.sheet-track.is-slid-left,
+.sheet-track.is-slid-right {
+  pointer-events: none;
+}
+.sheet-track.is-slid-left .page-sheet,
+.sheet-track.is-slid-right .page-sheet {
+  pointer-events: auto;
+}
+
+/* ONE BIG CARD: on desktop the card doesn't run edge to edge — it floats
+   slightly off the canvas on every side, rounded. Side insets are wider
+   than top/bottom: both edges carry bubbles and each needs its outboard
+   half (32px) fully on screen. The radius lives on BOTH the card and the
+   scroller inside it — the card paints the surface, but the scroller clips
+   the scrolling content. */
+@media (min-width: 1024px) {
+  .page-sheet {
+    margin: 1.25rem 2.75rem 1.75rem 2.75rem;
+  }
+  .page-sheet-card {
+    border-radius: 20px;
+  }
+  .page-sheet-scroll {
+    border-radius: inherit;
+  }
+}
+
+/* The desktop reveals' card: the panels don't print straight on the
+   canvas — each sits on real glass (safe here: these transition
+   transform/opacity only, never a per-frame clip), glowing faintly. */
+.neon-panel-card {
+  backdrop-filter: blur(24px) saturate(1.1);
+  -webkit-backdrop-filter: blur(24px) saturate(1.1);
+  background-color: rgba(18, 18, 18, 0.55);
+  border: 1px solid rgba(0, 217, 255, 0.25);
+  border-radius: 20px;
+  box-shadow:
+    0 0 24px rgba(0, 217, 255, 0.12),
+    0 10px 30px -12px rgba(0, 0, 0, 0.7);
+}
+
+/* The bubble discs floating in the bites: dark cores ringed in cyan, lit
+   from behind by the canvas showing through the hole. */
+.neon-disc {
+  background-color: #101014;
+  color: var(--electric-blue);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 217, 255, 0.4),
+    0 0 14px rgba(0, 217, 255, 0.35);
+  transition: box-shadow 180ms ease;
+}
+.neon-disc:hover,
+.group:hover .neon-disc {
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 217, 255, 0.7),
+    0 0 22px rgba(0, 217, 255, 0.55);
+}
+/* The action disc — the one solid-electric thing on the edge. */
+.neon-disc-hero {
+  background-color: var(--electric-blue);
+  color: #0a0a0a;
+  box-shadow: 0 0 18px rgba(0, 217, 255, 0.5);
+}
+.neon-disc-hero:hover,
+.group:hover .neon-disc-hero {
+  box-shadow: 0 0 28px rgba(0, 217, 255, 0.75);
+}
+
+/* A disc's changing face POPS into place; the dock rides up on mount. */
+@keyframes face-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+.face-pop {
+  animation: face-pop 170ms cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+@keyframes dock-up {
+  from {
+    opacity: 0;
+    transform: translateY(120%);
+  }
+}
+.dock-up {
+  animation: dock-up 260ms cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-track .page-sheet {
+    transition: none;
+  }
+  .face-pop,
+  .dock-up {
+    animation: none;
+  }
+}

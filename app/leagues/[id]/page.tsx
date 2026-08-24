@@ -1,13 +1,11 @@
-import { getLeagueOverview } from '@/app/actions/league-overview'
+import { getLeagueOverviewCached } from '@/lib/data/league-overview-cached'
 import { Header } from '@/components/header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { PerformanceSection } from '@/components/performance-section'
-import { CurrentWeekDock } from '@/components/current-week-dock'
 import { OffseasonPollsHub } from '@/components/offseason-polls-hub'
 import { WeekSlate } from '@/components/week-slate'
 import { WeekSlateDock } from '@/components/week-slate-dock'
-import { LeagueBar } from '@/components/league-bar'
 import { SaveLastLeague } from '@/components/save-last-league'
 import { getWeekSlate, getSeasonOpenerSlate } from '@/lib/data/week-slate'
 import Link from 'next/link'
@@ -16,7 +14,7 @@ import { Lock } from 'lucide-react'
 
 export default async function LeaguePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const result = await getLeagueOverview(id)
+  const result = await getLeagueOverviewCached(id)
 
   if (result.error === 'Access denied - not a member of this league') {
     return (
@@ -48,7 +46,6 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
     me,
     league,
     members,
-    currentUserRole,
     currentWeekIndex,
     allWeeksData,
     userStats,
@@ -66,14 +63,10 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
   const isOffOrPreseason =
     seasonState.kind === 'offseason' || seasonState.kind === 'preseason'
 
-  const canManage = currentUserRole === 'owner' || currentUserRole === 'admin'
   const isInSeason =
     seasonState.kind === 'regular-season' ||
     seasonState.kind === 'playoffs' ||
     seasonState.kind === 'super-bowl'
-  // The strip pulses the "current" week — only meaningful in-season. For
-  // off/preseason recap we render it with no current marker.
-  const sheetCurrentWeekIndex = isInSeason ? currentWeekIndex : -1
 
   // Real NFL schedule for the slate. Direct-db read — only meaningful in
   // neon mode (mock scenarios use synthetic week ids that have no
@@ -90,36 +83,11 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
           ? await getSeasonOpenerSlate(id, seasonState.currentSeason)
           : null
 
-  // Member roster used by the LeagueSheet's Members tab.
-  const sheetMembers = members.map((m) => ({
-    userId: m.user_id,
-    fullName: m.full_name,
-    email: m.email,
-    avatarUrl: m.avatar_url,
-    role: m.role,
-  }))
-
   return (
-    <div className="min-h-[100dvh] ambient-glow">
+    <div>
       <SaveLastLeague leagueId={id} />
 
-      <LeagueBar
-        leagueId={league.id}
-        leagueName={league.name}
-        memberCount={members.length}
-        season={season}
-        inviteCode={league.invite_code}
-        canManage={canManage}
-        currentUserRole={currentUserRole ?? 'member'}
-        weeks={allWeeksData}
-        currentWeekIndex={sheetCurrentWeekIndex}
-        members={sheetMembers}
-        currentUserId={me.id}
-        leaderboard={leaderboard}
-        availableSeasons={availableSeasons}
-      />
-
-      <main className="container mx-auto px-4 py-8 pt-24 pb-56">
+      <main className="container mx-auto px-4 py-8 pb-28 lg:pb-12">
         {/* Dual-dock — for off-/preseason the dual-dock pivots to polls
             (results aggregate up top, single-poll editor at the bottom).
             In-season the league-context dock is folded into the WeekSlate
@@ -188,24 +156,10 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
         )}
       </main>
 
-      {/* Floating bottom dock — primary action surface for the current week.
-          Only renders during in-season states; offseason/preseason have no
-          week. */}
-      {currentWeekData && isInSeason && (
-        <CurrentWeekDock
-          data={currentWeekData}
-          leagueId={id}
-          membersCount={members.length}
-          currentUser={{
-            fullName: me.fullName,
-            email: me.email,
-            avatarUrl: me.avatarUrl,
-          }}
-        />
-      )}
-
-      {/* Off-/preseason bottom dock is mounted by <OffseasonPollsHub>
-          above (paired with its top dock). No separate render here. */}
+      {/* The week's primary action now lives in the shell chrome: the
+          SUBMIT edge bubble (desktop) and the dock's center disc (mobile),
+          both opening the submit reveal. Off-/preseason bottom dock is
+          mounted by <OffseasonPollsHub> above. */}
     </div>
   )
 }

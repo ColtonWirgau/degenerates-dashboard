@@ -1,6 +1,5 @@
 import { getWeekOverview } from '@/app/actions/week-overview'
 import { Header } from '@/components/header'
-import { LeagueBar } from '@/components/league-bar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { SubmitLegForm } from '@/components/submit-leg-form'
@@ -60,7 +59,6 @@ export default async function WeekDetailPage({
 
   const {
     me,
-    league,
     week,
     parlayId,
     parlayState,
@@ -90,7 +88,7 @@ export default async function WeekDetailPage({
   const submissionsOpen = parlayState === 'open' || (parlayState === 'locked' && !everyoneIn)
 
   return (
-    <div className="min-h-screen ambient-glow">
+    <div>
       <SaveLastLeague leagueId={leagueId} />
 
       {/* Win/loss confetti — fires once when graded results land for the
@@ -102,29 +100,7 @@ export default async function WeekDetailPage({
         />
       )}
 
-      <LeagueBar
-        leagueId={league.id}
-        leagueName={league.name}
-        memberCount={members.length}
-        season={week.season}
-        inviteCode={league.inviteCode}
-        canManage={canManage}
-        currentUserRole={currentUserRole ?? 'member'}
-        weeks={[]}
-        currentWeekIndex={-1}
-        members={members.map((m) => ({
-          userId: m.userId,
-          fullName: m.fullName,
-          email: m.email,
-          avatarUrl: m.avatarUrl,
-          role: m.role,
-        }))}
-        currentUserId={me.id}
-        leaderboard={[]}
-        availableSeasons={[week.season]}
-      />
-
-      <main className="container mx-auto px-4 py-8 pt-24 pb-24">
+      <main className="container mx-auto px-4 py-8 pb-28 lg:pb-12">
         {/* Header — back arrow, title, status pill */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6">
           <Link href={`/leagues/${leagueId}`}>
