@@ -10,10 +10,7 @@
 //
 // Requires DATABASE_URL in .env.local.
 
-import { config } from 'dotenv'
-import { resolve } from 'path'
-
-config({ path: resolve(process.cwd(), '.env.local') })
+import './load-env'
 
 import { db } from '../db/client'
 import { nflTeams } from '../db/schema'
@@ -84,6 +81,11 @@ const TEAMS: TeamSeed[] = [
   { abbr: 'SEA', name: 'Seahawks', city: 'Seattle', fullName: 'Seattle Seahawks', conf: 'NFC', div: 'West', primary: '#002244', secondary: '#69BE28' },
 ]
 
+// ESPN team logo CDN — public, no auth. Our abbrs are ESPN's own
+// (WSH, JAX, LAR…), so lowercasing them addresses the CDN directly.
+const logoUrlFor = (abbr: string) =>
+  `https://a.espncdn.com/i/teamlogos/nfl/500/${abbr.toLowerCase()}.png`
+
 async function seedTeams(): Promise<number> {
   for (const t of TEAMS) {
     await db
@@ -97,6 +99,7 @@ async function seedTeams(): Promise<number> {
         division: t.div,
         primaryColor: t.primary,
         secondaryColor: t.secondary,
+        logoUrl: logoUrlFor(t.abbr),
       })
       .onConflictDoUpdate({
         target: nflTeams.abbr,
@@ -108,6 +111,7 @@ async function seedTeams(): Promise<number> {
           division: t.div,
           primaryColor: t.primary,
           secondaryColor: t.secondary,
+          logoUrl: logoUrlFor(t.abbr),
         },
       })
   }

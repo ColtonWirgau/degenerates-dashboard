@@ -16,9 +16,12 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { WeekDetailData } from '@/components/week-detail-sheet'
+import type { SlateGame } from '@/lib/data/week-slate'
 
 interface WeekSlateDockProps {
   data: WeekDetailData
+  /** Real NFL schedule for the week (null when unavailable, e.g. mock mode). */
+  games?: SlateGame[] | null
   currentUserId: string
   membersCount: number
 }
@@ -80,6 +83,7 @@ function useNow(intervalMs = 60_000) {
  */
 export function WeekSlateDock({
   data,
+  games,
   currentUserId,
   membersCount,
 }: WeekSlateDockProps) {
@@ -141,6 +145,7 @@ export function WeekSlateDock({
         <WeekSlate
           weekNumber={week.week_number}
           firstKickoff={week.deadline || null}
+          games={games}
           legs={legs}
           currentUserId={currentUserId}
           parlayState={parlayState}

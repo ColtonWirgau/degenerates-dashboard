@@ -21,22 +21,14 @@ import {
 } from '@/components/ui/responsive-sheet'
 import { cn } from '@/lib/utils'
 import type { LegRoster } from '@/components/week-detail-sheet'
-
-interface Matchup {
-  away: string
-  home: string
-  /** Kickoff time only (e.g. "8:20pm ET"). Day already implied by the
-   *  group section header. */
-  time: string
-  /** Day-of-week the game is scheduled on. Drives both UI grouping and
-   *  (eventually) the per-league slate filter. */
-  scheduledDay: 'thu' | 'fri' | 'sat' | 'sun' | 'mon'
-  isPrimetime?: boolean
-}
+import type { SlateGame, SlateTeam } from '@/lib/data/week-slate'
 
 interface WeekSlateProps {
   weekNumber: number
   firstKickoff?: string | null
+  /** Real schedule for the week (lib/data/week-slate). Null/empty renders
+   *  an honest "schedule not loaded" state (e.g. mock mode). */
+  games?: SlateGame[] | null
   legs?: LegRoster[]
   currentUserId?: string
   /** Drives default filter state — pre-lock ("open") shows all
@@ -51,149 +43,63 @@ interface WeekSlateProps {
   hideHeader?: boolean
 }
 
-// ─── Mock matchups (Phase A — swap for `nfl_games` reads in Phase C) ────────
+// ─── Team display helpers (real nfl_teams rows via the slate payload) ──────
 
-const MOCK_MATCHUPS: Matchup[] = [
-  { away: 'Ravens', home: 'Chiefs', time: '8:20pm ET', scheduledDay: 'thu', isPrimetime: true },
-  { away: 'Steelers', home: 'Falcons', time: '1:00pm ET', scheduledDay: 'sun' },
-  { away: 'Cardinals', home: 'Bills', time: '1:00pm ET', scheduledDay: 'sun' },
-  { away: 'Jaguars', home: 'Dolphins', time: '1:00pm ET', scheduledDay: 'sun' },
-  { away: 'Bengals', home: 'Patriots', time: '1:00pm ET', scheduledDay: 'sun' },
-  { away: 'Texans', home: 'Colts', time: '1:00pm ET', scheduledDay: 'sun' },
-  { away: 'Vikings', home: 'Giants', time: '1:00pm ET', scheduledDay: 'sun' },
-  { away: 'Panthers', home: 'Saints', time: '1:00pm ET', scheduledDay: 'sun' },
-  { away: 'Titans', home: 'Bears', time: '4:25pm ET', scheduledDay: 'sun' },
-  { away: 'Raiders', home: 'Chargers', time: '4:25pm ET', scheduledDay: 'sun' },
-  { away: 'Broncos', home: 'Seahawks', time: '4:25pm ET', scheduledDay: 'sun' },
-  { away: 'Cowboys', home: 'Browns', time: '4:25pm ET', scheduledDay: 'sun' },
-  { away: 'Commanders', home: '49ers', time: '4:25pm ET', scheduledDay: 'sun' },
-  { away: 'Packers', home: 'Eagles', time: '8:20pm ET', scheduledDay: 'sun', isPrimetime: true },
-  { away: 'Buccaneers', home: 'Lions', time: '8:15pm ET', scheduledDay: 'mon', isPrimetime: true },
-  { away: 'Jets', home: 'Rams', time: '8:15pm ET', scheduledDay: 'mon', isPrimetime: true },
-]
+const teamColor = (team: SlateTeam): string => team.primaryColor ?? '#1a1a1a'
 
-// ─── Team logos (ESPN CDN — public, no auth) ────────────────────────────────
-
-// Maps the display name in `MOCK_MATCHUPS` to ESPN's lowercase team
-// abbreviation. PLAN.md notes the long-term path: cache logos in our
-// own CDN/db once the API picks are locked, but ESPN hot-links work
-// fine for the demo. NFL teams don't change abbreviations, so this map
-// is effectively static.
-const TEAM_ABBREV: Record<string, string> = {
-  Ravens: 'bal',
-  Chiefs: 'kc',
-  Steelers: 'pit',
-  Falcons: 'atl',
-  Cardinals: 'ari',
-  Bills: 'buf',
-  Jaguars: 'jax',
-  Dolphins: 'mia',
-  Bengals: 'cin',
-  Patriots: 'ne',
-  Texans: 'hou',
-  Colts: 'ind',
-  Vikings: 'min',
-  Giants: 'nyg',
-  Panthers: 'car',
-  Saints: 'no',
-  Titans: 'ten',
-  Bears: 'chi',
-  Raiders: 'lv',
-  Chargers: 'lac',
-  Broncos: 'den',
-  Seahawks: 'sea',
-  Cowboys: 'dal',
-  Browns: 'cle',
-  Commanders: 'wsh',
-  '49ers': 'sf',
-  Packers: 'gb',
-  Eagles: 'phi',
-  Buccaneers: 'tb',
-  Lions: 'det',
-  Jets: 'nyj',
-  Rams: 'lar',
-}
-
-const teamLogoUrl = (team: string): string | null => {
-  const abbrev = TEAM_ABBREV[team]
-  return abbrev
-    ? `https://a.espncdn.com/i/teamlogos/nfl/500/${abbrev}.png`
-    : null
-}
-
-// Hardcoded primary team colors — pulled from public NFL/ESPN brand
-// references. Future-proofing path is in PLAN.md (Phase B schema):
-// `nfl_teams.primary_color text` + `secondary_color text`, populated
-// from the schedule API on sync. Until then this map is the source.
-const TEAM_COLOR: Record<string, string> = {
-  Ravens: '#241773',
-  Chiefs: '#E31837',
-  Steelers: '#FFB612',
-  Falcons: '#A71930',
-  Cardinals: '#97233F',
-  Bills: '#00338D',
-  Jaguars: '#006778',
-  Dolphins: '#008E97',
-  Bengals: '#FB4F14',
-  Patriots: '#002244',
-  Texans: '#03202F',
-  Colts: '#002C5F',
-  Vikings: '#4F2683',
-  Giants: '#0B2265',
-  Panthers: '#0085CA',
-  Saints: '#D3BC8D',
-  Titans: '#0C2340',
-  Bears: '#0B162A',
-  Raiders: '#000000',
-  Chargers: '#0080C6',
-  Broncos: '#FB4F14',
-  Seahawks: '#002244',
-  Cowboys: '#003594',
-  Browns: '#311D00',
-  Commanders: '#5A1414',
-  '49ers': '#AA0000',
-  Packers: '#203731',
-  Eagles: '#004C54',
-  Buccaneers: '#D50A0A',
-  Lions: '#0076B6',
-  Jets: '#125740',
-  Rams: '#003594',
-}
-
-const teamColor = (team: string): string => TEAM_COLOR[team] ?? '#1a1a1a'
+// Kickoff time in ET (the group header carries the day).
+const fmtKickoffTime = (iso: string): string =>
+  new Date(iso)
+    .toLocaleTimeString('en-US', {
+      timeZone: 'America/New_York',
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+    .toLowerCase()
+    .replace(' ', '') + ' ET'
 
 function TeamLogo({
   team,
   size = 'md',
 }: {
-  team: string
+  team: SlateTeam
   size?: 'sm' | 'md' | 'lg'
 }) {
   const dim = size === 'sm' ? 'h-5 w-5' : size === 'lg' ? 'h-12 w-12' : 'h-7 w-7'
-  const url = teamLogoUrl(team)
-  if (!url) {
+  if (!team.logoUrl) {
     return (
       <span className="text-[10px] font-bold tracking-widest uppercase text-foreground/90">
-        {team.slice(0, 3)}
+        {team.abbr}
       </span>
     )
   }
   // Use plain <img> intentionally — Next.js image optimization for hot-
   // linked ESPN logos isn't worth the next.config domain plumbing here.
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={url} alt={team} title={team} className={cn(dim, 'shrink-0')} />
+  return (
+    <img
+      src={team.logoUrl}
+      alt={team.name}
+      title={team.name}
+      className={cn(dim, 'shrink-0')}
+    />
+  )
 }
 
 // ─── Day grouping ───────────────────────────────────────────────────────────
 
-const DAY_LABEL: Record<Matchup['scheduledDay'], string> = {
+// NFL weeks run Thu → Wed; late-season flexing puts games on Tue/Wed/Sat
+// too, so every day gets a slot.
+const DAY_LABEL: Record<string, string> = {
   thu: 'Thursday',
   fri: 'Friday',
   sat: 'Saturday',
   sun: 'Sunday',
   mon: 'Monday',
+  tue: 'Tuesday',
+  wed: 'Wednesday',
 }
-const DAY_ORDER: Array<Matchup['scheduledDay']> = ['thu', 'fri', 'sat', 'sun', 'mon']
+const DAY_ORDER = ['thu', 'fri', 'sat', 'sun', 'mon', 'tue', 'wed'] as const
 
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -312,7 +218,10 @@ const STATUS_ICON: Record<LegStatus, typeof Clock> = {
   push: Minus,
 }
 
-// ─── Mock leg → game distribution ───────────────────────────────────────────
+// ─── Leg → game association (illustrative) ─────────────────────────────────
+// Legs are free text with no game FK, so which game a bet "belongs to" is a
+// deterministic hash scatter for now. Real association needs a
+// parlay_legs.nfl_game_id column (or AI matching) — deferred.
 
 const hashStr = (s: string) => {
   let h = 0
@@ -328,6 +237,7 @@ function distributeLegsAcrossGames(
   gameCount: number
 ): Map<number, LegRoster[]> {
   const out = new Map<number, LegRoster[]>()
+  if (gameCount === 0) return out
   for (const leg of legs) {
     const idx = hashStr(leg.id) % gameCount
     const arr = out.get(idx) ?? []
@@ -350,22 +260,19 @@ function distributeLegsAcrossGames(
  * member bet history). A sheet has full screen on mobile + a large
  * modal on desktop, which keeps the page surface tight.
  */
-// MVP slate filter — defaults to the league-creation onboarding's
-// sun+mon (per PLAN.md). Real filter pulls from `leagues.slate_days_included`
-// once Phase B lands.
-const DEFAULT_SLATE_DAYS: ReadonlyArray<Matchup['scheduledDay']> = ['sun', 'mon']
-
 export function WeekSlate({
   weekNumber,
   firstKickoff,
+  games: gamesProp,
   legs = [],
   currentUserId,
   parlayState,
   hideHeader = false,
 }: WeekSlateProps) {
+  const games = useMemo(() => gamesProp ?? [], [gamesProp])
   const legsByGameIdx = useMemo(
-    () => distributeLegsAcrossGames(legs, MOCK_MATCHUPS.length),
-    [legs]
+    () => distributeLegsAcrossGames(legs, games.length),
+    [legs, games.length]
   )
 
   // Filter state.
@@ -386,8 +293,8 @@ export function WeekSlate({
 
   const visibleMatchups = useMemo(
     () =>
-      MOCK_MATCHUPS.map((g, idx) => ({ g, idx })).filter(({ g, idx }) => {
-        if (inSlateOnly && !DEFAULT_SLATE_DAYS.includes(g.scheduledDay)) {
+      games.map((g, idx) => ({ g, idx })).filter(({ g, idx }) => {
+        if (inSlateOnly && !g.inSlate) {
           return false
         }
         if (withBetsOnly && (legsByGameIdx.get(idx)?.length ?? 0) === 0) {
@@ -395,19 +302,17 @@ export function WeekSlate({
         }
         return true
       }),
-    [inSlateOnly, withBetsOnly, legsByGameIdx]
+    [games, inSlateOnly, withBetsOnly, legsByGameIdx]
   )
 
   // Open game in the sheet — tracks by matchup index.
   const [openGameIdx, setOpenGameIdx] = useState<number | null>(null)
-  const openGame = openGameIdx != null ? MOCK_MATCHUPS[openGameIdx] : null
+  const openGame = openGameIdx != null ? games[openGameIdx] : null
   const openGameLegs =
     openGameIdx != null ? legsByGameIdx.get(openGameIdx) ?? [] : []
 
   const totalWithBets = legs.length
-  const totalInSlate = MOCK_MATCHUPS.filter((g) =>
-    DEFAULT_SLATE_DAYS.includes(g.scheduledDay)
-  ).length
+  const totalInSlate = games.filter((g) => g.inSlate).length
 
   const Wrapper = hideHeader ? 'div' : 'section'
   const wrapperClass = hideHeader ? '' : 'mt-10 sm:mt-12'
@@ -432,7 +337,7 @@ export function WeekSlate({
             {firstKickoff
               ? `First kickoff ${fmtDate(firstKickoff)}`
               : 'This week\'s NFL matchups'}{' '}
-            · Mock schedule — live NFL data + betting odds light up post-cutover.
+            · Betting odds are illustrative until the odds feed is wired.
           </p>
         </>
       )}
@@ -479,7 +384,9 @@ export function WeekSlate({
         {visibleMatchups.length === 0 && (
           <div className="rounded-md border border-dashed border-white/10 bg-white/[0.02] px-3 py-4 text-center">
             <p className="text-xs text-muted-foreground italic">
-              No games match your filters. Toggle one off to see more.
+              {games.length === 0
+                ? 'Schedule not loaded for this week yet.'
+                : 'No games match your filters. Toggle one off to see more.'}
             </p>
           </div>
         )}
@@ -541,11 +448,12 @@ function GameCard({
   currentUserId,
   onClick,
 }: {
-  game: Matchup
+  game: SlateGame
   legs: LegRoster[]
   currentUserId?: string
   onClick: () => void
 }) {
+  const time = fmtKickoffTime(game.kickoff)
   // Pin viewer first so their avatar is always visible.
   const sortedLegs = currentUserId
     ? [...legs].sort((a, b) => {
@@ -573,7 +481,7 @@ function GameCard({
         'group relative flex flex-col rounded-xl border overflow-hidden text-center transition-colors',
         'border-white/10 bg-white/[0.02] hover:bg-white/[0.05]'
       )}
-      aria-label={`${game.away} at ${game.home}, ${game.time}`}
+      aria-label={`${game.away.name} at ${game.home.name}, ${time}`}
     >
       {/* Edge-to-edge team-colored header with diagonal split. Logos
           float at the bottom edge so they overlap into the body below
@@ -603,10 +511,10 @@ function GameCard({
         {/* Team names — tucked into the bottom outside corners,
             washed-out so they read as a watermark, not a label. */}
         <span className="absolute bottom-1 left-2 text-[8px] font-bold tracking-widest uppercase text-white/30 truncate max-w-[40%] leading-none">
-          {game.away}
+          {game.away.name}
         </span>
         <span className="absolute bottom-1 right-2 text-[8px] font-bold tracking-widest uppercase text-white/30 truncate max-w-[40%] leading-none">
-          {game.home}
+          {game.home.name}
         </span>
 
         {/* `@` glass pill — sits on the diagonal seam at the exact
@@ -630,7 +538,9 @@ function GameCard({
             game.isPrimetime ? 'text-foreground/90' : 'text-muted-foreground/80'
           )}
         >
-          {game.time}
+          {game.status === 'final'
+            ? `Final · ${game.awayScore ?? 0}–${game.homeScore ?? 0}`
+            : time}
         </span>
 
         {/* Avatar row — always reserves space so cards stay uniform. */}
@@ -684,10 +594,11 @@ function GameDetailSheet({
 }: {
   open: boolean
   onClose: () => void
-  game: Matchup
+  game: SlateGame
   legs: LegRoster[]
   currentUserId?: string
 }) {
+  const time = fmtKickoffTime(game.kickoff)
   const sortedLegs = currentUserId
     ? [...legs].sort((a, b) => {
         if (a.userId === currentUserId && b.userId !== currentUserId) return -1
@@ -703,14 +614,14 @@ function GameDetailSheet({
       panelClassName="glass-intense border-t border-primary/30 md:border md:rounded-2xl"
       sheetMaxHeight="92dvh"
     >
-      <SheetPage name="main" title={`${game.away} @ ${game.home}`}>
+      <SheetPage name="main" title={`${game.away.name} @ ${game.home.name}`}>
         <div className="space-y-5">
           {/* Hero — large logos + kickoff slot */}
           <div className="flex items-center justify-center gap-5 py-2">
             <div className="flex flex-col items-center gap-2 flex-1 min-w-0">
               <TeamLogo team={game.away} size="lg" />
               <span className="text-sm font-bold tracking-wide uppercase text-foreground/90 truncate w-full text-center">
-                {game.away}
+                {game.away.name}
               </span>
             </div>
             <span className="text-xs font-bold tracking-widest uppercase text-muted-foreground/70">
@@ -719,12 +630,12 @@ function GameDetailSheet({
             <div className="flex flex-col items-center gap-2 flex-1 min-w-0">
               <TeamLogo team={game.home} size="lg" />
               <span className="text-sm font-bold tracking-wide uppercase text-foreground/90 truncate w-full text-center">
-                {game.home}
+                {game.home.name}
               </span>
             </div>
           </div>
-          <div className="flex items-center justify-center gap-2 text-[11px] font-bold tracking-widest uppercase text-muted-foreground tabular-nums">
-            <span>{DAY_LABEL[game.scheduledDay]}</span>
+          <div className="flex flex-wrap items-center justify-center gap-2 text-[11px] font-bold tracking-widest uppercase text-muted-foreground tabular-nums">
+            <span>{DAY_LABEL[game.scheduledDay] ?? game.scheduledDay}</span>
             <span className="text-muted-foreground/40">·</span>
             <span
               className={cn(
@@ -732,9 +643,20 @@ function GameDetailSheet({
               )}
             >
               {game.isPrimetime && <Flame className="h-3 w-3" />}
-              {game.time}
+              {time}
             </span>
+            {game.network && (
+              <>
+                <span className="text-muted-foreground/40">·</span>
+                <span>{game.network}</span>
+              </>
+            )}
           </div>
+          {game.venue && (
+            <p className="-mt-3 text-center text-[10px] tracking-widest uppercase text-muted-foreground/60">
+              {game.venue}
+            </p>
+          )}
 
           {/* Bets on this game */}
           {sortedLegs.length > 0 ? (
@@ -764,18 +686,19 @@ function GameDetailSheet({
             <LinesOddsMock game={game} />
             <p className="inline-flex items-center gap-1.5 text-[10px] text-muted-foreground/70">
               <ExternalLink className="h-3 w-3" />
-              Mock lines — tap a line to seed your leg composer once
-              feeds are wired.
+              Illustrative lines — real odds light up when the odds feed
+              is wired.
             </p>
           </div>
 
-          {/* Live game — countdown / live scoreboard / final, based on
-              a per-game mock state. Live data lights up post-cutover. */}
+          {/* Game state — real status + final scores from the nightly
+              schedule sync; in-progress detail (quarter/clock) stays
+              illustrative until a live feed is wired. */}
           <div className="space-y-2">
             <p className="text-[10px] font-bold tracking-[0.25em] uppercase text-muted-foreground">
-              Live game
+              Game state
             </p>
-            <GameStateMock game={game} />
+            <GameStateBlock game={game} />
           </div>
         </div>
       </SheetPage>
@@ -844,22 +767,22 @@ function BetRow({
 
 // ─── Lines & odds mock ─────────────────────────────────────────────────────
 
-function LinesOddsMock({ game }: { game: Matchup }) {
-  // Deterministic mock values per matchup so cards stay visually
-  // consistent across re-renders.
-  const h = hashStrSlate(game.away + game.home)
+function LinesOddsMock({ game }: { game: SlateGame }) {
+  // Deterministic illustrative values per matchup so cards stay visually
+  // consistent across re-renders. Swapped for a real odds feed later.
+  const h = hashStrSlate(game.away.abbr + game.home.abbr)
   const spread = (1.5 + ((h % 14) * 0.5)).toFixed(1)
   const total = (38.5 + ((h % 12) * 0.5)).toFixed(1)
   const favML = -(120 + (h % 200))
   const dogML = 100 + ((h >> 4) % 250)
   return (
     <div className="grid grid-cols-3 gap-1.5">
-      <LineCell label="Spread" line={`${game.away} -${spread}`} odds="-110" />
+      <LineCell label="Spread" line={`${game.away.abbr} -${spread}`} odds="-110" />
       <LineCell label="Total" line={`Over ${total}`} odds="-110" />
-      <LineCell label="Moneyline" line={game.away} odds={fmtOdds(favML)} />
-      <LineCell label="Spread" line={`${game.home} +${spread}`} odds="-110" />
+      <LineCell label="Moneyline" line={game.away.abbr} odds={fmtOdds(favML)} />
+      <LineCell label="Spread" line={`${game.home.abbr} +${spread}`} odds="-110" />
       <LineCell label="Total" line={`Under ${total}`} odds="-110" />
-      <LineCell label="Moneyline" line={game.home} odds={fmtOdds(dogML)} />
+      <LineCell label="Moneyline" line={game.home.abbr} odds={fmtOdds(dogML)} />
     </div>
   )
 }
@@ -899,69 +822,75 @@ function hashStrSlate(s: string) {
   return Math.abs(h)
 }
 
-function GameStateMock({ game }: { game: Matchup }) {
-  // Derive a believable demo state from scheduledDay so the slate shows
-  // a mix of finished / live / pre-kickoff games at a glance.
-  let state: 'pre' | 'live' | 'final'
-  if (game.scheduledDay === 'thu') state = 'final'
-  else if (game.scheduledDay === 'mon' || game.isPrimetime) state = 'pre'
-  else state = 'live'
-
-  const h = hashStrSlate(game.away + game.home)
-  const awayScore = 7 + (h % 28)
-  const homeScore = 7 + ((h >> 4) % 28)
-  const quarterIdx = (h >> 8) % 4
-  const quarter = (['Q1', 'Q2', 'Q3', 'Q4'] as const)[quarterIdx]!
-  const clockMin = (h >> 12) % 15
-  const clockSec = (h >> 16) % 60
-  const gameProgressPct = Math.min(
-    100,
-    Math.round(((quarterIdx * 15 + (15 - clockMin)) / 60) * 100)
-  )
-
-  if (state === 'pre') {
-    return <PreKickoffStub />
-  }
-
-  if (state === 'final') {
+// Real status + scores where the schedule sync has them; the in-progress
+// quarter/clock detail is illustrative until a live feed is wired.
+function GameStateBlock({ game }: { game: SlateGame }) {
+  if (game.status === 'final') {
     return (
       <ScoreboardCard
-        awayLabel={game.away}
-        homeLabel={game.home}
-        awayScore={awayScore}
-        homeScore={homeScore}
+        awayLabel={game.away.name}
+        homeLabel={game.home.name}
+        awayScore={game.awayScore ?? 0}
+        homeScore={game.homeScore ?? 0}
         statusLabel="Final"
         statusTone="text-muted-foreground"
       />
     )
   }
 
-  // Live
-  return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 space-y-3">
-      <Scoreboard
-        awayLabel={game.away}
-        homeLabel={game.home}
-        awayScore={awayScore}
-        homeScore={homeScore}
-      />
-      <div className="flex items-center gap-2.5">
-        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase text-red-400 shrink-0">
-          <span className="relative inline-flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-ping" />
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
-          </span>
-          {quarter} · {clockMin}:{clockSec.toString().padStart(2, '0')}
-        </span>
-        <div className="flex-1 h-1 rounded-full bg-white/5 overflow-hidden">
-          <div
-            className="h-full bg-red-500/70 rounded-full"
-            style={{ width: `${gameProgressPct}%` }}
-          />
-        </div>
+  if (game.status === 'postponed' || game.status === 'canceled') {
+    return (
+      <div className="rounded-lg border border-dashed border-white/10 bg-white/[0.02] px-3 py-3 text-center">
+        <p className="text-[10px] font-bold tracking-[0.3em] uppercase text-muted-foreground/80">
+          {game.status === 'postponed' ? 'Postponed' : 'Canceled'}
+        </p>
       </div>
-    </div>
-  )
+    )
+  }
+
+  if (game.status === 'in-progress') {
+    // Real scores when the sync caught them; quarter/clock stays
+    // illustrative (hash-derived) until a live feed exists.
+    const h = hashStrSlate(game.away.abbr + game.home.abbr)
+    const quarterIdx = (h >> 8) % 4
+    const quarter = (['Q1', 'Q2', 'Q3', 'Q4'] as const)[quarterIdx]!
+    const clockMin = (h >> 12) % 15
+    const clockSec = (h >> 16) % 60
+    const gameProgressPct = Math.min(
+      100,
+      Math.round(((quarterIdx * 15 + (15 - clockMin)) / 60) * 100)
+    )
+    return (
+      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 space-y-3">
+        <Scoreboard
+          awayLabel={game.away.name}
+          homeLabel={game.home.name}
+          awayScore={game.awayScore ?? 0}
+          homeScore={game.homeScore ?? 0}
+        />
+        <div className="flex items-center gap-2.5">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase text-red-400 shrink-0">
+            <span className="relative inline-flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-ping" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
+            </span>
+            {quarter} · {clockMin}:{clockSec.toString().padStart(2, '0')}
+          </span>
+          <div className="flex-1 h-1 rounded-full bg-white/5 overflow-hidden">
+            <div
+              className="h-full bg-red-500/70 rounded-full"
+              style={{ width: `${gameProgressPct}%` }}
+            />
+          </div>
+        </div>
+        <p className="text-center text-[9px] tracking-widest uppercase text-muted-foreground/50">
+          Clock illustrative — live feed pending
+        </p>
+      </div>
+    )
+  }
+
+  return <PreKickoffStub />
 }
 
 function PreKickoffStub() {

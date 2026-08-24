@@ -573,7 +573,7 @@ function YourGameDrawer({
       {mode === 'live' && <LiveGameMock leg={userLeg} />}
       {mode === 'final' && <FinalGameMock leg={userLeg} result={result} />}
       <p className="text-[9px] tracking-widest uppercase text-muted-foreground/40 italic text-center">
-        Mock — wires up to the live feed post-cutover.
+        Illustrative — real live tracking lights up when the live feed is wired.
       </p>
     </div>
   )

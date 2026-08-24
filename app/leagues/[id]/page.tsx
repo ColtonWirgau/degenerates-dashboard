@@ -9,6 +9,7 @@ import { WeekSlate } from '@/components/week-slate'
 import { WeekSlateDock } from '@/components/week-slate-dock'
 import { LeagueBar } from '@/components/league-bar'
 import { SaveLastLeague } from '@/components/save-last-league'
+import { getWeekSlate, getSeasonOpenerSlate } from '@/lib/data/week-slate'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Lock } from 'lucide-react'
@@ -74,6 +75,21 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
   // off/preseason recap we render it with no current marker.
   const sheetCurrentWeekIndex = isInSeason ? currentWeekIndex : -1
 
+  // Real NFL schedule for the slate. Direct-db read — only meaningful in
+  // neon mode (mock scenarios use synthetic week ids that have no
+  // nfl_weeks rows, so the slate renders its not-loaded state there).
+  const dataSource = process.env.NEXT_PUBLIC_DATA_SOURCE ?? 'mock'
+  const slate =
+    dataSource !== 'neon'
+      ? null
+      : seasonState.kind === 'regular-season' ||
+          seasonState.kind === 'playoffs' ||
+          seasonState.kind === 'super-bowl'
+        ? await getWeekSlate(id, seasonState.activeWeek.id)
+        : seasonState.kind === 'preseason'
+          ? await getSeasonOpenerSlate(id, seasonState.currentSeason)
+          : null
+
   // Member roster used by the LeagueSheet's Members tab.
   const sheetMembers = members.map((m) => ({
     userId: m.user_id,
@@ -135,6 +151,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
             {currentWeekData && (
               <WeekSlateDock
                 data={currentWeekData}
+                games={slate?.games ?? null}
                 currentUserId={me.id}
                 membersCount={members.length}
               />
@@ -163,7 +180,11 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
             in-season so the drill-down + day grouping stays consistent
             across the season lifecycle. */}
         {seasonState.kind === 'preseason' && (
-          <WeekSlate weekNumber={1} firstKickoff={seasonState.nextKickoff} />
+          <WeekSlate
+            weekNumber={1}
+            firstKickoff={slate?.firstInSlateKickoff ?? seasonState.nextKickoff}
+            games={slate?.games ?? null}
+          />
         )}
       </main>
 
