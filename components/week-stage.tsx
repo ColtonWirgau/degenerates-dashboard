@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react'
 import { getWeekStage, type WeekStagePayload } from '@/app/actions/week-stage'
 import { useLeagueChrome, useViewedWeek } from '@/components/chrome/league-chrome-context'
 import { setWeekActions, subscribeWeekDirty } from '@/components/chrome/canvas-store'
-import { WeekHeader } from '@/components/week-header'
+import { WeekHeader, WeekTiming } from '@/components/week-header'
 import { WeekSlate } from '@/components/week-slate'
 
 /**
@@ -128,9 +128,6 @@ export function WeekStage({
         weekNumber={stage.weekNumber}
         state={stage.submissionsOpen ? 'open' : stage.parlayState}
         locked={stage.locked}
-        firstKickoff={stage.firstKickoff}
-        lockAt={stage.lockAt}
-        kickoff={stage.kickoff}
         scopeCounts={stage.scopeCounts}
       />
 
@@ -140,6 +137,14 @@ export function WeekStage({
         nflWeekId={stage.nflWeekId}
         legs={stage.legs}
         currentUserId={chrome?.me.id}
+      />
+
+      {/* The week's housekeeping, at the foot of everything it applies
+          to rather than crowding the title. */}
+      <WeekTiming
+        locked={stage.locked}
+        lockAt={stage.lockAt}
+        firstKickoff={stage.firstKickoff ?? stage.kickoff}
       />
     </div>
   )
