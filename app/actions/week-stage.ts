@@ -2,6 +2,7 @@
 
 import { getDataAdapter } from '@/lib/data/adapter'
 import { getCurrentUser } from '@/lib/data/auth-bridge'
+import { getDevNow } from '@/lib/data/dev-now'
 import { getWeekSlate } from '@/lib/data/week-slate'
 import type { LegRoster } from '@/components/week-detail-sheet'
 import type { ParlayState } from '@/lib/data/types'
@@ -68,9 +69,13 @@ export async function getWeekStage(
     result: l.result,
   }))
 
+  // A week still takes legs while its deadline is ahead of us. "Not
+  // everyone's in yet" keeps the door open right up to the lock — but it
+  // is not a reason to reopen a week that closed months ago.
+  const past = parlay.lockAt !== null && new Date(parlay.lockAt) <= (await getDevNow())
   const everyoneIn = legs.length >= members.length && legs.length > 0
   const submissionsOpen =
-    parlay.state === 'open' || (parlay.state === 'locked' && !everyoneIn)
+    !past && (parlay.state === 'open' || (parlay.state === 'locked' && !everyoneIn))
 
   return {
     error: null,

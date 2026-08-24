@@ -26,12 +26,18 @@ export function ActionBubble() {
   const [panel, setPanel] = useState<CanvasPanel>(null)
   useEffect(() => subscribePanel(setPanel), [])
 
-  const hasSlate = week?.hasSlate ?? false
+  // Once the week locks, the verb survives only as far as it still means
+  // something: you can go back and read the leg you put in, but a week
+  // you never submitted to is finished business and offers nothing. The
+  // 'open' state is the server's own answer to "does this still take
+  // legs", so the bubble can't disagree with the action behind it.
+  const takingLegs = week?.parlayState === 'open'
+  const show = (week?.hasSlate ?? false) && (takingLegs || (week?.submitted ?? false))
   useEffect(() => {
-    setActionBite(hasSlate)
-  }, [hasSlate])
+    setActionBite(show)
+  }, [show])
 
-  if (!week || !hasSlate) return null
+  if (!week || !show) return null
   const open = panel === 'submit'
   const label = open ? 'CLOSE' : week.submitted ? 'YOUR LEG' : 'SUBMIT'
 

@@ -136,14 +136,25 @@ function computeTotalOdds(legs: ParlayLeg[]): string | null {
 
 function computeParlayState(
   legs: ParlayLeg[],
-  expectedMembers: number
+  expectedMembers: number,
+  /** When this week's submissions closed. Null = no in-slate games, so the
+   *  week never had a deadline to pass. */
+  lockAt: Date | null,
+  now: Date
 ): { state: ParlayState; result: 'won' | 'lost' | null } {
-  if (legs.length === 0) return { state: 'open', result: null }
+  // Past the deadline, the week is closed — however few people showed up.
+  // "Not everyone's in yet" is a statement about a week you can still
+  // submit to; applied afterwards it strands finished seasons on 'open'
+  // forever, and it only takes one new member joining to strand the ones
+  // that already read correctly.
+  const closed = lockAt !== null && lockAt.getTime() <= now.getTime()
+
+  if (legs.length === 0) return { state: closed ? 'locked' : 'open', result: null }
   // A leg that's been graded is not a draft, whatever its lockedAt says —
   // history imported from before this app existed carries no lock stamp,
   // and without this guard every past week reads "still open" forever.
   const anyDraft = legs.some((l) => l.lockedAt === null && l.result === null)
-  if (anyDraft || legs.length < expectedMembers) {
+  if (!closed && (anyDraft || legs.length < expectedMembers)) {
     return { state: 'open', result: null }
   }
   const anyResult = legs.some((l) => l.result !== null)
@@ -176,8 +187,13 @@ async function buildParlay(parlayId: string): Promise<Parlay | null> {
   const legs: ParlayLeg[] = parlayRow.legs.map((l) =>
     parlayLegFromRow(l, userFromRow(l.user))
   )
-  const { state, result } = computeParlayState(legs, count ?? 0)
   const lockAt = await getCachedLockAt(parlayRow.leagueId, parlayRow.nflWeekId)
+  const { state, result } = computeParlayState(
+    legs,
+    count ?? 0,
+    lockAt,
+    await getDevNow()
+  )
 
   return {
     id: parlayRow.id,

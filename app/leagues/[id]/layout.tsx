@@ -2,6 +2,7 @@ import { getLeagueOverviewCached } from '@/lib/data/league-overview-cached'
 import { getLeagueWeeksCached } from '@/lib/data/league-weeks-cached'
 import { getCurrentUser } from '@/lib/data/auth-bridge'
 import { getDataAdapter } from '@/lib/data/adapter'
+import { getDevNow } from '@/lib/data/dev-now'
 import { getDevToolbarData, getDevPhaseData } from '@/lib/data/dev-toolbar-data'
 import {
   LeagueChromeProvider,
@@ -83,15 +84,21 @@ export default async function LeagueShellLayout({
     ? p.leaderboard.findIndex((e) => e.userId === p.me.id)
     : -1
 
+  const now = await getDevNow()
   const chromeWeeks: ChromeWeek[] = weeks.map((w) => {
     const wd = w.parlayId ? byParlay.get(w.parlayId) : undefined
+    // A week nobody ever opened a parlay for still ended when it ended.
+    // Defaulting those to 'open' is what left whole finished seasons
+    // claiming they were still taking legs.
+    const closed = w.endDate !== null && new Date(w.endDate) <= now
     return {
       id: w.nflWeekId,
       weekNumber: w.weekNumber,
       kind: w.kind,
       hasSlate: w.kind !== 'preseason',
       parlayId: w.parlayId,
-      parlayState: wd?.parlayState ?? 'open',
+      closed,
+      parlayState: wd?.parlayState ?? (closed ? 'locked' : 'open'),
       submissionCount: wd?.submissionCount ?? w.submissionCount,
       myResult: wd?.userLeg?.result ?? null,
       submitted: wd?.userLeg != null,

@@ -33,6 +33,9 @@ export type ChromeWeek = {
   submitted: boolean
   /** True lock moment (ISO), null = TBD or no slate. */
   lockAt: string | null
+  /** The week's window has passed. Preseason has no lock to be past, so
+   *  without this a finished season's week 0 reads "Open" forever. */
+  closed: boolean
   openPollCount: number
   pollCount: number
 }

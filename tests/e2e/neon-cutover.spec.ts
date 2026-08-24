@@ -114,6 +114,32 @@ test('the lay is a reveal off the rail, not a modal', async ({ page }) => {
   await expect(page.getByText('no pick').first()).toBeVisible({ timeout: 10_000 })
 })
 
+test('a finished season is closed, not still taking legs', async ({ page }) => {
+  await openLeague(page)
+
+  // Switch to the season that already happened.
+  await page.getByRole('button', { name: 'Season and league' }).first().click()
+  await page.getByRole('button', { name: /2025-2026/ }).click()
+
+  // Its last week has a lock time in the past, so it reads LOCKED — the
+  // "not everyone's in yet" rule must not reopen it — and the week's one
+  // verb is gone, because there's nothing left to submit.
+  await expect(page.getByRole('heading', { name: 'Week 18', level: 1 })).toBeVisible({
+    timeout: 20_000,
+  })
+  await expect(page.getByText('Locked', { exact: true }).first()).toBeVisible({
+    timeout: 15_000,
+  })
+  await expect(page.getByRole('button', { name: 'submit' })).toHaveCount(0)
+
+  // Week 0 of a finished season is closed too, even though a preseason
+  // week has no lock of its own to be past.
+  await page.getByRole('button', { name: 'slate panel' }).click()
+  await expect(page.getByText('Closed', { exact: true }).first()).toBeVisible({
+    timeout: 10_000,
+  })
+})
+
 test('the season and your profile are separate doors', async ({ page }) => {
   await openLeague(page)
 

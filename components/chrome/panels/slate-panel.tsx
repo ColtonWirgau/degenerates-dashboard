@@ -49,7 +49,10 @@ export function SlatePanel({
             lay={laysByWeek[w.id]}
             memberCount={chrome.memberCount}
             active={viewed?.id === w.id}
-            isCurrent={chrome.currentWeekId === w.id}
+            // Every season has a week you land on, but only the live one
+            // has a week that's happening. Looking back at 2025, its last
+            // week is where you start — it isn't "now".
+            isCurrent={chrome.currentWeekId === w.id && !w.closed}
           />
         ))}
         {ordered.length === 0 && (
@@ -131,8 +134,11 @@ function WeekCard({
           </span>
         ) : !lay || lay.legs.length === 0 ? (
           // A week nobody has opened and a week nobody has picked in are
-          // the same fact to a reader, so they get the same sentence.
-          <span className="text-muted-foreground/60 text-xs italic">Nobody in yet</span>
+          // the same fact to a reader, so they get the same sentence —
+          // minus the "yet" once the week can no longer be picked in.
+          <span className="text-muted-foreground/60 text-xs italic">
+            {week.closed ? 'Nobody in' : 'Nobody in yet'}
+          </span>
         ) : graded.length === 0 ? (
           <OutcomeRow tone="pending" people={lay.legs} out={lay.missing.length} />
         ) : (
@@ -253,9 +259,10 @@ function OutcomeRow({
 function headline(week: ChromeWeek, memberCount: number): string {
   if (week.kind === 'preseason') {
     if (week.openPollCount > 0) {
-      return `${week.openPollCount} open`
+      return week.closed ? `${week.openPollCount} unsettled` : `${week.openPollCount} open`
     }
-    return week.pollCount > 0 ? 'Settled' : 'Open'
+    if (week.pollCount > 0) return 'Settled'
+    return week.closed ? 'Closed' : 'Open'
   }
   switch (week.parlayState) {
     case 'open':

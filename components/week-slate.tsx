@@ -63,13 +63,20 @@ function TeamLogo({
   }
   // Use plain <img> intentionally — Next.js image optimization for hot-
   // linked ESPN logos isn't worth the next.config domain plumbing here.
-  // eslint-disable-next-line @next/next/no-img-element
+  //
+  // object-contain because the box is square and the artwork isn't
+  // guaranteed to be. Note this can't make two marks look the same size:
+  // ESPN draws every logo on a 500×500 canvas, and how much of that
+  // canvas the mark fills is the artwork's business, not ours — which is
+  // why a leaping Lion reads bigger than a Commanders W at identical
+  // dimensions.
   return (
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={team.logoUrl}
       alt={team.name}
       title={team.name}
-      className={cn(dim, 'shrink-0')}
+      className={cn(dim, 'shrink-0 object-contain')}
     />
   )
 }
@@ -436,11 +443,13 @@ function GameCard({
         </div>
 
         {/* Team names — tucked into the bottom outside corners,
-            washed-out so they read as a watermark, not a label. */}
-        <span className="absolute bottom-1 left-2 text-[8px] font-bold tracking-widest uppercase text-white/30 truncate max-w-[40%] leading-none">
+            washed-out so they read as a watermark, not a label. Both are
+            the same size; a name on the lighter half of the diagonal just
+            carries more contrast and reads bigger than it is. */}
+        <span className="absolute bottom-1 left-2 text-[9px] font-bold tracking-widest uppercase text-white/30 truncate max-w-[45%] leading-none">
           {game.away.name}
         </span>
-        <span className="absolute bottom-1 right-2 text-[8px] font-bold tracking-widest uppercase text-white/30 truncate max-w-[40%] leading-none">
+        <span className="absolute bottom-1 right-2 text-[9px] font-bold tracking-widest uppercase text-white/30 truncate max-w-[45%] leading-none">
           {game.home.name}
         </span>
 
