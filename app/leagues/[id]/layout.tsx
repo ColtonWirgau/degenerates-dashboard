@@ -117,6 +117,17 @@ export default async function LeagueShellLayout({
     currentWeekId: currentWeek?.nflWeekId ?? null,
     myRank: myRankIdx >= 0 ? myRankIdx + 1 : null,
     memberCount: p.members.length,
+    // The BOARD bubble wears the podium. Same guard as the rank: before
+    // anyone has a result the table is twelve zeroes in arbitrary order,
+    // and gilding the first three of those would be inventing a standing.
+    podium: seasonHasResults
+      ? p.leaderboard.slice(0, 3).map((e) => ({
+          userId: e.userId,
+          fullName: e.fullName,
+          email: e.email,
+          avatarUrl: e.avatarUrl,
+        }))
+      : [],
     me: {
       id: p.me.id,
       fullName: p.me.fullName,

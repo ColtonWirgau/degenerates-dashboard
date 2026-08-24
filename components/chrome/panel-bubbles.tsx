@@ -1,11 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Layers, ListTodo, Trophy } from 'lucide-react'
+import { Clock, ListTodo, Skull, Trophy } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   useLeagueChrome,
   useViewedWeek,
   type ChromeWeek,
+  type PodiumMember,
 } from '@/components/chrome/league-chrome-context'
 import {
   openPanel,
@@ -21,8 +23,9 @@ import { railC, setRailCount } from '@/components/chrome/bubble-layout'
  * RoarTracker, each bubble wearing its panel's live fact. In order,
  * always:
  *
- *   PARLAY  this week's twelve legs — who's in, who hit
- *   BOARD   your rank, opens the standings
+ *   PARLAY  how the lay is doing — a count while it's filling, then a
+ *           trophy or a skull once it's settled
+ *   BOARD   the season's podium, three faces in gold, silver and bronze
  *   POLLS   this week's open votes
  *
  * The week list is NOT here any more. It had a bubble wearing the week's
@@ -110,7 +113,7 @@ export function PanelBubbles() {
               style={{ left: 10, top: 15.5, width: 44, height: 44 }}
             >
               <span
-                key={`${p}-${open}-${faceKey(p, week, chrome.myRank)}`}
+                key={`${p}-${open}-${faceKey(p, week, chrome.podium)}`}
                 className="face-pop flex items-center justify-center"
               >
                 {open ? (
@@ -118,7 +121,7 @@ export function PanelBubbles() {
                     ✕
                   </span>
                 ) : (
-                  <Face panel={p} week={week} myRank={chrome.myRank} />
+                  <Face panel={p} week={week} podium={chrome.podium} />
                 )}
               </span>
             </span>
@@ -143,13 +146,13 @@ function arcText(panel: Rung): string {
 function faceKey(
   panel: Rung,
   week: ChromeWeek | null,
-  myRank: number | null
+  podium: PodiumMember[]
 ): string | number {
   switch (panel) {
     case 'parlay':
-      return week?.submissionCount ?? 0
+      return `${week?.parlayState ?? ''}:${week?.submissionCount ?? 0}`
     case 'board':
-      return myRank ?? '–'
+      return podium.map((m) => m.userId).join(',') || '–'
     case 'polls':
       return week?.openPollCount ?? 0
   }
@@ -158,24 +161,40 @@ function faceKey(
 function Face({
   panel,
   week,
-  myRank,
+  podium,
 }: {
   panel: Rung
   week: ChromeWeek | null
-  myRank: number | null
+  podium: PodiumMember[]
 }) {
   switch (panel) {
-    case 'parlay':
-      return (week?.submissionCount ?? 0) > 0 ? (
-        <span className="font-display text-[1.05rem] leading-none">
-          {week!.submissionCount}
-        </span>
-      ) : (
-        <Layers size={19} strokeWidth={2.25} />
-      )
+    case 'parlay': {
+      // How the lay is DOING, not just how full it is. While it's still
+      // taking legs the count is the state; once it's settled the count
+      // stops mattering and the verdict is the whole story.
+      switch (week?.parlayState) {
+        case 'won':
+          return <Trophy size={20} strokeWidth={2.25} />
+        case 'lost':
+          // The disc's own ink is the blue of a good outcome; a skull
+          // wearing it says the opposite of what it means.
+          return <Skull size={20} strokeWidth={2.25} className="text-destructive" />
+        case 'locked':
+        case 'graded':
+          return (
+            <Clock size={19} strokeWidth={2.25} className="text-muted-foreground" />
+          )
+        default:
+          return (
+            <span className="font-display text-[1.05rem] leading-none">
+              {week?.submissionCount ?? 0}
+            </span>
+          )
+      }
+    }
     case 'board':
-      return myRank != null ? (
-        <span className="font-display text-[0.95rem] leading-none">#{myRank}</span>
+      return podium.length > 0 ? (
+        <Podium members={podium} />
       ) : (
         <Trophy size={20} strokeWidth={2.25} />
       )
@@ -188,4 +207,73 @@ function Face({
         <ListTodo size={20} strokeWidth={2.25} />
       )
   }
+}
+
+/** Gold, silver, bronze — the only place in the app that reaches outside
+ *  the blue/pink grammar, because a podium is a podium. */
+const MEDAL = [
+  { ring: 'ring-[#FFD24A]', z: 'z-30' },
+  { ring: 'ring-[#CFD6DD]', z: 'z-20' },
+  { ring: 'ring-[#D08B4F]', z: 'z-10' },
+] as const
+
+/* The disc is 44px and round, so the cluster has to live inside its
+ * inscribed square, rings included — a 2px ring on each of three circles
+ * is 12px of the budget on its own. These numbers are that budget spent:
+ * first place high and centred, the other two tucked at the corners,
+ * nothing touching the disc's edge. */
+const PODIUM_BOX = 34
+const PODIUM_SPOTS = [
+  { left: 8, top: 0, size: 18 },
+  { left: 1, top: 15, size: 15 },
+  { left: 19, top: 15, size: 15 },
+] as const
+
+/**
+ * THE PODIUM, clustered the way iMessage stacks a group: first place
+ * front and centre, second and third tucked behind at the corners. It
+ * says who's winning without a number, which is what a rank is for.
+ */
+function Podium({ members }: { members: PodiumMember[] }) {
+  // Drawn back-to-front so first place overlaps the other two.
+  const placed = members.slice(0, 3)
+  const spots = PODIUM_SPOTS
+  return (
+    <span
+      className="relative block"
+      style={{ width: PODIUM_BOX, height: PODIUM_BOX }}
+    >
+      {placed
+        .map((m, i) => ({ m, i }))
+        .reverse()
+        .map(({ m, i }) => (
+          <Avatar
+            key={m.userId}
+            title={`${i + 1}. ${m.fullName ?? m.email}`}
+            className={`absolute ring-[1.5px] ${MEDAL[i]!.ring} ${MEDAL[i]!.z}`}
+            style={{
+              left: spots[i]!.left,
+              top: spots[i]!.top,
+              width: spots[i]!.size,
+              height: spots[i]!.size,
+            }}
+          >
+            <AvatarImage src={m.avatarUrl ?? undefined} alt="" />
+            <AvatarFallback className="bg-primary/80 text-primary-foreground text-[6px] font-bold">
+              {podiumInitials(m)}
+            </AvatarFallback>
+          </Avatar>
+        ))}
+    </span>
+  )
+}
+
+function podiumInitials(m: PodiumMember): string {
+  const name = m.fullName
+  if (name) {
+    const parts = name.split(' ').filter(Boolean)
+    if (parts.length >= 2) return `${parts[0]![0]}${parts[1]![0]}`.toUpperCase()
+    return name.slice(0, 2).toUpperCase()
+  }
+  return m.email.slice(0, 2).toUpperCase()
 }

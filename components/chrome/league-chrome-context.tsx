@@ -40,6 +40,13 @@ export type ChromeWeek = {
   pollCount: number
 }
 
+export interface PodiumMember {
+  userId: string
+  fullName: string | null
+  email: string
+  avatarUrl: string | null
+}
+
 export type LeagueChrome = {
   leagueId: string
   leagueName: string
@@ -52,6 +59,9 @@ export type LeagueChrome = {
   /** The viewer's leaderboard rank, 1-based; null when unranked. */
   myRank: number | null
   memberCount: number
+  /** Top three of the season, in order. Empty until somebody has a
+   *  result — a podium of three 0–0 records is not a podium. */
+  podium: PodiumMember[]
   me: {
     id: string
     fullName: string | null
