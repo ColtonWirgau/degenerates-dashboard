@@ -5,11 +5,11 @@
  * rows that the app *derives* were never written. Three holes, all of
  * them fillable from data we already have:
  *
- *   1. LOCK STAMPS. `league_weeks.lock_at_cached` is the moment a week
- *      stopped taking legs. Every past week's was null, which is how a
- *      finished week ends up reading "still open" — there was no deadline
- *      on file for it to be past. It's derivable: the league's slate
- *      config against the real kickoffs we've already loaded.
+ *   1. LOCK STAMPS. `league_weeks.locked_at` is the moment somebody
+ *      closed the week to new entries. Nobody was there to close the
+ *      imported ones, so they all read as still open. The best stand-in
+ *      is the moment the first game the league bets kicked off — by then
+ *      the ticket was certainly down.
  *
  *   2. GRADING STAMPS. Legs that carry a result but no `graded_at` /
  *      `graded_by`. They were graded by a human, off-app; say so, and
@@ -43,20 +43,18 @@ import {
   parlayLegs,
   parlays,
 } from '@/db/schema'
-import { computeLockAt, persistLockAt } from '@/lib/lock-time'
+import { firstSlateKickoff, getWeekLock, setWeekLocked } from '@/lib/lock-time'
 
 const DRY = process.argv.includes('--dry-run')
 
 // ─── 1. Lock stamps ────────────────────────────────────────────────────────
 
 /**
- * Give every league-week a computed lock moment.
+ * Close every week that already happened.
  *
- * Recomputes rather than only filling blanks, because a null lock is
- * ambiguous on its own: it means "no in-slate games this week" for a row
- * the app wrote, and "nobody ever asked" for a row that predates the
- * compute path. Recomputing collapses the ambiguity — if the week really
- * has no in-slate games, we write null again and it stays honestly TBD.
+ * Only ever fills blanks — a week somebody actually closed keeps the
+ * moment they closed it, and a week still ahead of its first kickoff is
+ * left open, because it genuinely is.
  */
 async function stampLocks(leagueId: string) {
   const weeks = await db
@@ -69,22 +67,25 @@ async function stampLocks(leagueId: string) {
     .where(inArray(nflWeeks.kind, ['preseason', 'regular']))
     .orderBy(asc(nflWeeks.season), asc(nflWeeks.weekNumber))
 
+  const now = new Date()
   let written = 0
-  let tbd = 0
+  let skipped = 0
   for (const week of weeks) {
-    const { lockAt } = await computeLockAt(leagueId, week.id)
-    if (lockAt === null) {
-      // Preseason has no games at all; a regular week without one is a
-      // schedule we haven't loaded yet. Either way there's no deadline.
-      tbd++
-    } else {
-      written++
+    if (await getWeekLock(leagueId, week.id)) {
+      skipped++ // already closed, by a person or a previous run
+      continue
     }
-    if (!DRY) await persistLockAt(leagueId, week.id, lockAt)
+    const kickoff = await firstSlateKickoff(leagueId, week.id)
+    // Preseason has no games; a future week hasn't happened yet. Neither
+    // is a week anybody failed to close.
+    if (kickoff === null || kickoff > now) {
+      skipped++
+      continue
+    }
+    if (!DRY) await setWeekLocked(leagueId, week.id, true, kickoff)
+    written++
   }
-  console.log(
-    `  locks: ${written} week(s) stamped, ${tbd} left TBD (no in-slate games)`
-  )
+  console.log(`  locks: ${written} past week(s) closed, ${skipped} left alone`)
 }
 
 // ─── 2. Grading stamps ─────────────────────────────────────────────────────
@@ -362,8 +363,8 @@ async function main() {
   const [{ open }] = await db
     .select({ open: sql<number>`count(*)::int` })
     .from(leagueWeeks)
-    .where(isNull(leagueWeeks.lockAtCached))
-  console.log(`\n${open} league-week(s) remain without a lock time (no slate).`)
+    .where(isNull(leagueWeeks.lockedAt))
+  console.log(`\n${open} league-week(s) still open.`)
 }
 
 main()

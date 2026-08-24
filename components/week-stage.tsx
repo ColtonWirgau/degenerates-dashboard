@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { getWeekStage, type WeekStagePayload } from '@/app/actions/week-stage'
 import { useLeagueChrome, useViewedWeek } from '@/components/chrome/league-chrome-context'
@@ -65,6 +65,20 @@ export function WeekStage({
     }
   }, [leagueId, targetId, isPreseason])
 
+  // The cache is the whole point of the stage, so anything that changes a
+  // week server-side has to say so. Refetch in place rather than dropping
+  // the entry — clearing it would blink the week away and back.
+  const reload = useCallback(
+    async (id: string) => {
+      const res = await getWeekStage(leagueId, id)
+      if (res.payload) {
+        cache.current.set(id, res.payload)
+        force((n) => n + 1)
+      }
+    },
+    [leagueId]
+  )
+
   if (isPreseason) return <>{preseason}</>
 
   if (!stage) {
@@ -82,11 +96,18 @@ export function WeekStage({
           message announcing it a third time is just something to dismiss
           before you can look at the thing you came for. */}
       <WeekHeader
+        leagueId={leagueId}
+        nflWeekId={stage.nflWeekId}
         weekNumber={stage.weekNumber}
         state={stage.submissionsOpen ? 'open' : stage.parlayState}
+        locked={stage.locked}
+        reopenable={stage.reopenable}
+        canLock={stage.canLock}
+        firstKickoff={stage.firstKickoff}
         lockAt={stage.lockAt}
         kickoff={stage.kickoff}
         scopeCounts={stage.scopeCounts}
+        onLockChanged={() => reload(stage.nflWeekId)}
       />
 
       <WeekSlate

@@ -1,10 +1,13 @@
 'use client'
 
-// 4-step league-creation wizard:
+// 3-step league-creation wizard:
 //   1. Name + invite code
 //   2. Slate config (which weekdays count + holidays toggle)
-//   3. Lock offset (5 / 10 / 15 / 30 / 60 min chips)
-//   4. Optional Sleeper import (currently a placeholder — defer per B7)
+//   3. Optional Sleeper import (currently a placeholder — defer per B7)
+//
+// There was a lock-offset step here. Weeks aren't closed by a clock any
+// more — whoever places the bet closes them — so there was nothing left
+// for it to configure.
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -16,7 +19,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
-  Lock,
   CalendarDays,
   Loader2,
   RefreshCw,
@@ -25,15 +27,14 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-type Step = 1 | 2 | 3 | 4
-const TOTAL_STEPS: Step = 4
+type Step = 1 | 2 | 3
+const TOTAL_STEPS: Step = 3
 
 interface WizardState {
   name: string
   inviteCode: string
   slateDays: string[]
   includeHolidays: boolean
-  lockOffset: number
   // Sleeper import deferred — placeholder only.
   skipSleeper: boolean
 }
@@ -41,15 +42,13 @@ interface WizardState {
 const STEP_TITLES: Record<Step, string> = {
   1: 'Identity',
   2: 'Slate',
-  3: 'Lock offset',
-  4: 'Sleeper import',
+  3: 'Sleeper import',
 }
 
 const STEP_EYEBROWS: Record<Step, string> = {
-  1: 'Step 1 of 4 · Name your crew',
-  2: 'Step 2 of 4 · Pick the slate',
-  3: 'Step 3 of 4 · Set the lock window',
-  4: 'Step 4 of 4 · One more thing',
+  1: 'Step 1 of 3 · Name your crew',
+  2: 'Step 2 of 3 · Pick the slate',
+  3: 'Step 3 of 3 · One more thing',
 }
 
 const INVITE_CHARSET = 'abcdefghjkmnpqrstuvwxyz23456789'
@@ -71,13 +70,6 @@ const DAY_CHIPS = [
   { id: 'sat', short: 'Sat' },
 ] as const
 
-const LOCK_OFFSET_PRESETS = [
-  { value: 5, hint: 'Cutting it close' },
-  { value: 10, hint: 'Default' },
-  { value: 15, hint: 'Comfortable' },
-  { value: 30, hint: 'Cautious' },
-  { value: 60, hint: 'Way ahead' },
-]
 
 export default function NewLeaguePage() {
   const router = useRouter()
@@ -91,7 +83,6 @@ export default function NewLeaguePage() {
     inviteCode: randomCode(),
     slateDays: ['sun', 'mon'],
     includeHolidays: true,
-    lockOffset: 10,
     skipSleeper: true,
   }))
 
@@ -104,7 +95,6 @@ export default function NewLeaguePage() {
       return state.name.trim().length >= 3 && /^[a-z0-9]{4,12}$/.test(state.inviteCode)
     }
     if (s === 2) return state.slateDays.length > 0
-    if (s === 3) return state.lockOffset >= 0 && state.lockOffset <= 240
     return true
   }
 
@@ -131,7 +121,6 @@ export default function NewLeaguePage() {
       inviteCode: state.inviteCode,
       slateDaysIncluded: state.slateDays,
       slateIncludeHolidays: state.includeHolidays,
-      lockOffsetMinutes: state.lockOffset,
     })
     if (res.error) {
       setError(res.error)
@@ -194,8 +183,7 @@ export default function NewLeaguePage() {
         <section className="mt-8">
           {step === 1 && <Step1 state={state} setState={setState} nameRef={nameRef} />}
           {step === 2 && <Step2 state={state} setState={setState} />}
-          {step === 3 && <Step3 state={state} setState={setState} />}
-          {step === 4 && <Step4 state={state} />}
+          {step === 3 && <Step3 state={state} />}
         </section>
       </main>
 
@@ -421,54 +409,9 @@ function Step2({
   )
 }
 
-// ─── Step 3: lock offset ──────────────────────────────────────────────────
+// ─── Step 3: Sleeper import (placeholder) ─────────────────────────────────
 
-function Step3({
-  state,
-  setState,
-}: {
-  state: WizardState
-  setState: (fn: (s: WizardState) => WizardState) => void
-}) {
-  return (
-    <div className="space-y-6">
-      <div className="flex items-start gap-2.5 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5">
-        <Lock className="h-4 w-4 shrink-0 mt-0.5 text-neon-pink" />
-        <p className="text-sm text-foreground/85">
-          How many minutes <em>before</em> the first kickoff legs lock. Most leagues
-          go with <span className="text-neon-pink font-semibold">10 minutes</span>{' '}
-          — enough time for laggards, no time to refresh the line.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-5 gap-1.5">
-        {LOCK_OFFSET_PRESETS.map((opt) => {
-          const active = state.lockOffset === opt.value
-          return (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setState((s) => ({ ...s, lockOffset: opt.value }))}
-              className={cn(
-                'flex flex-col items-center justify-center rounded-lg border h-20 transition-all',
-                active
-                  ? 'border-neon-pink/60 bg-neon-pink/10 text-neon-pink'
-                  : 'border-white/10 bg-white/[0.02] text-muted-foreground hover:border-white/20'
-              )}
-            >
-              <span className="font-mono text-xl font-bold tabular-nums">{opt.value}</span>
-              <span className="text-[9px] uppercase tracking-wider mt-1">{opt.hint}</span>
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-// ─── Step 4: Sleeper import (placeholder) ─────────────────────────────────
-
-function Step4({ state }: { state: WizardState }) {
+function Step3({ state }: { state: WizardState }) {
   return (
     <div className="space-y-5">
       <div className="rounded-lg border border-white/10 bg-white/[0.02] px-4 py-5">
@@ -503,8 +446,6 @@ function Step4({ state }: { state: WizardState }) {
               <span className="ml-1 text-neon-blue">+ holidays</span>
             )}
           </dd>
-          <dt className="text-muted-foreground">Lock offset</dt>
-          <dd className="text-foreground">{state.lockOffset}m before kickoff</dd>
         </dl>
         <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <Check className="h-3 w-3 text-neon-blue" />

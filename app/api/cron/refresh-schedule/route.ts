@@ -4,17 +4,16 @@
 // What it does:
 //   1. Re-pulls the NFL schedule from ESPN for the current season
 //   2. Upserts nfl_weeks + nfl_games (postponements, flex moves, scores)
-//   3. Recomputes lock_at_cached for every league × week pair
+//
+// It used to also recompute a derived lock time per league × week. It
+// doesn't any more: a week closes when the person placing the bet closes
+// it, and no nightly job can know when that happens.
 //
 // Auth: Vercel Cron sends a header `Authorization: Bearer $CRON_SECRET`.
 // In dev / local you can hit this with `curl -H "Authorization: Bearer $CRON_SECRET"`.
 
 import { NextResponse } from 'next/server'
-import { db } from '@/db/client'
-import { leagues, nflWeeks } from '@/db/schema'
-import { eq } from 'drizzle-orm'
 import { syncSeason } from '@/lib/nfl-schedule'
-import { computeLockAt, persistLockAt } from '@/lib/lock-time'
 
 // Cron jobs are async-heavy — disable Vercel's default 15s edge timeout.
 export const maxDuration = 300
@@ -48,29 +47,11 @@ export async function GET(request: Request) {
     )
   }
 
-  // Only recompute league_weeks for current-season weeks (past seasons
-  // don't change). Cheap: 22 weeks * 3 leagues right now.
-  const allLeagues = await db.select({ id: leagues.id }).from(leagues)
-  const seasonWeeks = await db
-    .select({ id: nflWeeks.id })
-    .from(nflWeeks)
-    .where(eq(nflWeeks.season, schedule.season))
-
-  let recomputed = 0
-  for (const lg of allLeagues) {
-    for (const wk of seasonWeeks) {
-      const computed = await computeLockAt(lg.id, wk.id)
-      await persistLockAt(lg.id, wk.id, computed.lockAt)
-      recomputed++
-    }
-  }
-
   return NextResponse.json({
     ok: true,
     season: schedule.season,
     games: schedule.totalGames,
     weeksTouched: schedule.weeksTouched.length,
-    lockTimesRecomputed: recomputed,
     elapsedMs: Date.now() - startedAt,
   })
 }

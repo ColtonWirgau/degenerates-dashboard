@@ -1,35 +1,28 @@
-// Lock-time derivation. Given a league's slate config + the NFL schedule
-// for a given week, returns the moment the parlay should lock.
+// THE WEEK'S LOCK.
 //
-// Rules:
-//   1. Collect every game whose scheduled day is in `slateDaysIncluded`.
-//   2. If `slateIncludeHolidays` is true, also include any game flagged
-//      `is_holiday_game = true` (Thanksgiving / Black Friday / Christmas)
-//      regardless of weekday. This is the "we'll still bet the Thursday
-//      Thanksgiving game even though we don't bet TNFs in general" rule.
-//   3. The lock moment is `earliest in-slate kickoff − lock_offset_minutes`.
-//   4. If no in-slate games exist (flex week, postseason mismatch, etc.),
-//      return null — the cache row is left null and the UI shows TBD.
+// A week closes when the person placing the league's bet closes it —
+// "no more entries, I'm putting the ticket in". That's a decision
+// somebody makes, so it's stamped (league_weeks.locked_at), not derived.
+// An earlier version of this file derived a deadline from the schedule
+// and closed the week when it passed; that modelled a clock, not the
+// league, and it's gone.
+//
+// What survives here is the slate predicate — which games this league
+// bets — because the slate is genuinely a rule about the schedule, and
+// the first in-slate kickoff is still worth showing as the nudge to go
+// lock the thing.
 
 import { db } from '@/db/client'
 import { nflGames, leagues, leagueWeeks } from '@/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
 
 export interface SlateConfig {
   slateDaysIncluded: string[]
   slateIncludeHolidays: boolean
-  lockOffsetMinutes: number
 }
 
-export interface LockComputation {
-  lockAt: Date | null
-  /** Kickoff that drove the calculation — useful for "Locks at 12:50p (PHI@DAL)" copy. */
-  anchorGameId: string | null
-  anchorKickoff: Date | null
-}
-
-/** The one slate-membership predicate. Both lock derivation and the week
- *  slate UI filter through here so the two can never drift. */
+/** The one slate-membership predicate. The week slate UI and the
+ *  first-kickoff lookup both filter through here so they can't drift. */
 export function isInSlate(
   game: { scheduledDay: string; isHolidayGame: boolean },
   config: Pick<SlateConfig, 'slateDaysIncluded' | 'slateIncludeHolidays'>
@@ -40,76 +33,82 @@ export function isInSlate(
   )
 }
 
-export async function computeLockAt(
+/**
+ * When the first game this league bets on kicks off.
+ *
+ * Not a deadline — nothing closes when it passes. It's the "you probably
+ * want to lock this soon" fact, and the line past which reopening a
+ * closed week stops making sense because the games are underway.
+ */
+export async function firstSlateKickoff(
   leagueId: string,
   nflWeekId: string
-): Promise<LockComputation> {
+): Promise<Date | null> {
   const [league] = await db
     .select({
       slateDaysIncluded: leagues.slateDaysIncluded,
       slateIncludeHolidays: leagues.slateIncludeHolidays,
-      lockOffsetMinutes: leagues.lockOffsetMinutes,
     })
     .from(leagues)
     .where(eq(leagues.id, leagueId))
     .limit(1)
-
-  if (!league) {
-    throw new Error(`computeLockAt: league ${leagueId} not found`)
-  }
+  if (!league) throw new Error(`firstSlateKickoff: league ${leagueId} not found`)
 
   const games = await db
     .select({
-      id: nflGames.id,
       kickoff: nflGames.kickoff,
       scheduledDay: nflGames.scheduledDay,
       isHolidayGame: nflGames.isHolidayGame,
     })
     .from(nflGames)
     .where(eq(nflGames.nflWeekId, nflWeekId))
+    .orderBy(asc(nflGames.kickoff))
 
-  const eligible = games.filter((g) => isInSlate(g, league))
-
-  if (eligible.length === 0) {
-    return { lockAt: null, anchorGameId: null, anchorKickoff: null }
-  }
-
-  // Earliest kickoff drives the lock. The "earliest" needs to be a real
-  // kickoff — synthetic 0/null kickoffs would skew this, but nfl_games
-  // requires kickoff NOT NULL so we can trust the field.
-  const sorted = eligible.slice().sort((a, b) => a.kickoff.getTime() - b.kickoff.getTime())
-  const anchor = sorted[0]
-  const lockAt = new Date(anchor.kickoff.getTime() - league.lockOffsetMinutes * 60_000)
-  return { lockAt, anchorGameId: anchor.id, anchorKickoff: anchor.kickoff }
+  return games.find((g) => isInSlate(g, league))?.kickoff ?? null
 }
 
-/** Cached lock moment for a league-week. A cache row with a null
- *  lock_at_cached is a legit "TBD" (no in-slate games) and is returned
- *  as-is; a missing row (league predates the prewarm) self-heals by
- *  computing + persisting on the spot. */
-export async function getCachedLockAt(
+/**
+ * When this week was closed to new entries, or null while it's open.
+ *
+ * The one read path, so everything downstream — parlay state, the
+ * header, submitLeg's enforcement — agrees on whether a week is taking
+ * legs.
+ */
+export async function getWeekLock(
   leagueId: string,
   nflWeekId: string
 ): Promise<Date | null> {
   const row = await db
-    .select({ lockAtCached: leagueWeeks.lockAtCached })
+    .select({ lockedAt: leagueWeeks.lockedAt })
     .from(leagueWeeks)
     .where(
       and(eq(leagueWeeks.leagueId, leagueId), eq(leagueWeeks.nflWeekId, nflWeekId))
     )
     .limit(1)
-  if (row[0]) return row[0].lockAtCached
-
-  const { lockAt } = await computeLockAt(leagueId, nflWeekId)
-  await persistLockAt(leagueId, nflWeekId, lockAt)
-  return lockAt
+  return row[0]?.lockedAt ?? null
 }
 
-export async function persistLockAt(
+/**
+ * Close a week, or reopen it.
+ *
+ * Reopening is refused once the first in-slate game has kicked off: at
+ * that point the ticket is down and the results are arriving, so taking
+ * new entries would be letting people bet on games they've watched.
+ */
+export async function setWeekLocked(
   leagueId: string,
   nflWeekId: string,
-  lockAt: Date | null
-) {
+  locked: boolean,
+  now: Date
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!locked) {
+    const kickoff = await firstSlateKickoff(leagueId, nflWeekId)
+    if (kickoff !== null && kickoff <= now) {
+      return { ok: false, error: 'These games have already kicked off.' }
+    }
+  }
+
+  const at = locked ? now : null
   const existing = await db
     .select({ leagueId: leagueWeeks.leagueId })
     .from(leagueWeeks)
@@ -121,16 +120,12 @@ export async function persistLockAt(
   if (existing[0]) {
     await db
       .update(leagueWeeks)
-      .set({ lockAtCached: lockAt, computedAt: new Date() })
+      .set({ lockedAt: at })
       .where(
         and(eq(leagueWeeks.leagueId, leagueId), eq(leagueWeeks.nflWeekId, nflWeekId))
       )
   } else {
-    await db.insert(leagueWeeks).values({
-      leagueId,
-      nflWeekId,
-      lockAtCached: lockAt,
-      computedAt: new Date(),
-    })
+    await db.insert(leagueWeeks).values({ leagueId, nflWeekId, lockedAt: at })
   }
+  return { ok: true }
 }

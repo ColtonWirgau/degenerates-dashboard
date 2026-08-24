@@ -3,6 +3,7 @@
 import { getDataAdapter } from '@/lib/data/adapter'
 import { getCurrentUser } from '@/lib/data/auth-bridge'
 import { getDevNow } from '@/lib/data/dev-now'
+import { firstSlateKickoff } from '@/lib/lock-time'
 import { getWeekSlate } from '@/lib/data/week-slate'
 import type { LegRoster } from '@/components/week-detail-sheet'
 import type { ParlayState } from '@/lib/data/types'
@@ -33,6 +34,17 @@ export interface WeekStagePayload {
   legs: LegRoster[]
   /** Whether the parlay is still taking legs (nobody's sealed it yet). */
   submissionsOpen: boolean
+  /** Somebody has closed this week to new entries. */
+  locked: boolean
+  /** Closing it can still be undone — the first game we bet hasn't
+   *  kicked off, so nobody knows anything yet. */
+  reopenable: boolean
+  /** First kickoff among the games this league bets. Not a deadline —
+   *  the nudge to go lock the week, and the line past which reopening
+   *  stops making sense. */
+  firstKickoff: string | null
+  /** The viewer runs the league, so the status pill is a control. */
+  canLock: boolean
 }
 
 export async function getWeekStage(
@@ -72,10 +84,16 @@ export async function getWeekStage(
   // A week still takes legs while its deadline is ahead of us. "Not
   // everyone's in yet" keeps the door open right up to the lock — but it
   // is not a reason to reopen a week that closed months ago.
-  const past = parlay.lockAt !== null && new Date(parlay.lockAt) <= (await getDevNow())
+  const now = await getDevNow()
+  const past = parlay.lockAt !== null && new Date(parlay.lockAt) <= now
   const everyoneIn = legs.length >= members.length && legs.length > 0
   const submissionsOpen =
     !past && (parlay.state === 'open' || (parlay.state === 'locked' && !everyoneIn))
+
+  // Who may close the week, and whether closing it can still be undone.
+  // Preseason has no slate to lock, so it never gets the control.
+  const role = await adapter.getUserRole(leagueId, me.id)
+  const kickoff = await firstSlateKickoff(leagueId, nflWeekId)
 
   return {
     error: null,
@@ -97,6 +115,11 @@ export async function getWeekStage(
       games: slate?.games ?? null,
       legs,
       submissionsOpen,
+      locked: parlay.lockAt !== null,
+      reopenable: kickoff === null || kickoff > now,
+      firstKickoff: kickoff?.toISOString() ?? null,
+      canLock:
+        parlay.week.kind !== 'preseason' && (role === 'owner' || role === 'admin'),
     },
   }
 }

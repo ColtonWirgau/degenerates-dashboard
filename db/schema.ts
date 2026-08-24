@@ -352,7 +352,20 @@ export const leagueWeeks = pgTable(
     nflWeekId: uuid('nfl_week_id')
       .notNull()
       .references(() => nflWeeks.id, { onDelete: 'cascade' }),
+    // Historical: the deadline this week WOULD have had under the old
+    // derived-lock model (earliest in-slate kickoff − offset). Nothing
+    // reads it any more — locking is a person's decision now, not a
+    // clock's — but it's what the past weeks' locked_at was backfilled
+    // from, so it stays as the record of where those stamps came from.
     lockAtCached: timestamp('lock_at_cached', { withTimezone: true }),
+    // THE LOCK. When somebody closed this week to new entries.
+    //
+    // Null means still open. This isn't a deadline that arrives on its
+    // own: it's stamped when whoever places the league's bet says "no
+    // more entries, I'm putting the ticket in". That's the real-world
+    // event the app is modelling, and no schedule can know when it
+    // happens.
+    lockedAt: timestamp('locked_at', { withTimezone: true }),
     computedAt: timestamp('computed_at', { withTimezone: true })
       .defaultNow()
       .notNull(),

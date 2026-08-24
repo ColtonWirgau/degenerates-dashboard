@@ -1,0 +1,1 @@
+ALTER TABLE "league_weeks" ADD COLUMN "locked_manually_at" timestamp with time zone;

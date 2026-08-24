@@ -13,7 +13,7 @@
 import { and, asc, desc, eq, inArray, gte, lte, ne, sql } from 'drizzle-orm'
 import { db } from '@/db/client'
 import { getDevNow } from './dev-now'
-import { getCachedLockAt } from '@/lib/lock-time'
+import { getWeekLock } from '@/lib/lock-time'
 import {
   charterApprovals,
   charterEntries,
@@ -187,7 +187,7 @@ async function buildParlay(parlayId: string): Promise<Parlay | null> {
   const legs: ParlayLeg[] = parlayRow.legs.map((l) =>
     parlayLegFromRow(l, userFromRow(l.user))
   )
-  const lockAt = await getCachedLockAt(parlayRow.leagueId, parlayRow.nflWeekId)
+  const lockAt = await getWeekLock(parlayRow.leagueId, parlayRow.nflWeekId)
   const { state, result } = computeParlayState(
     legs,
     count ?? 0,

@@ -8,7 +8,6 @@ import { db } from '@/db/client'
 import { leagues, leagueMembers, leagueInvitations } from '@/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { randomBytes } from 'crypto'
-import { recomputeAllLockTimesForLeague } from '@/app/actions/league-settings'
 import { sendLeagueInviteEmail } from '@/lib/email'
 
 // Read paths flow through the data adapter (mock or supabase). Mutations
@@ -104,7 +103,6 @@ export interface CreateLeagueInput {
   inviteCode?: string
   slateDaysIncluded?: string[]
   slateIncludeHolidays?: boolean
-  lockOffsetMinutes?: number
 }
 
 export async function createLeague(input: CreateLeagueInput) {
@@ -160,7 +158,6 @@ export async function createLeague(input: CreateLeagueInput) {
   const slateDays = input.slateDaysIncluded?.length
     ? input.slateDaysIncluded
     : ['sun', 'mon']
-  const lockOffset = input.lockOffsetMinutes ?? 10
   const includeHolidays = input.slateIncludeHolidays ?? true
 
   // Insert league + creator-as-owner row in sequence. Wrap in a tx if
@@ -173,7 +170,6 @@ export async function createLeague(input: CreateLeagueInput) {
       createdBy: me.id,
       slateDaysIncluded: slateDays,
       slateIncludeHolidays: includeHolidays,
-      lockOffsetMinutes: lockOffset,
     })
     .returning({ id: leagues.id })
 
@@ -183,14 +179,8 @@ export async function createLeague(input: CreateLeagueInput) {
     role: 'owner',
   })
 
-  // Pre-warm league_weeks cache with the right lock times so the league
-  // page renders correctly from the first load. Cheap.
-  try {
-    await recomputeAllLockTimesForLeague(created.id)
-  } catch (err) {
-    // Non-fatal: if it fails, the cron job will catch up.
-    console.warn('[createLeague] lock-time prewarm failed:', err)
-  }
+  // No lock-time prewarm: a new league's weeks are simply open until
+  // somebody closes them, so there's nothing to precompute.
 
   revalidatePath('/')
   return { leagueId: created.id, error: null }

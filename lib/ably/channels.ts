@@ -40,6 +40,8 @@ export const event = {
   // Settings
   settingsUpdated: 'settings-updated',
   lockAtRecomputed: 'lock-at-recomputed',
+  /** The commish closed a week early, or reopened one. */
+  weekLockChanged: 'week-lock-changed',
   // NFL games
   gameKickedOff: 'game-kicked-off',
   gameScoreUpdated: 'game-score-updated',

@@ -10,7 +10,7 @@
 import { db } from '@/db/client'
 import { leagues, nflGames, nflTeams, nflWeeks } from '@/db/schema'
 import { and, eq } from 'drizzle-orm'
-import { getCachedLockAt, isInSlate } from '@/lib/lock-time'
+import { getWeekLock, isInSlate } from '@/lib/lock-time'
 
 export interface SlateTeam {
   abbr: string
@@ -157,7 +157,7 @@ export async function getWeekSlate(
     .sort((a, b) => a.kickoff.localeCompare(b.kickoff))
 
   const inSlateGames = games.filter((g) => g.inSlate)
-  const lockAt = await getCachedLockAt(leagueId, nflWeekId)
+  const lockAt = await getWeekLock(leagueId, nflWeekId)
 
   return {
     nflWeekId,

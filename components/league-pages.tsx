@@ -84,8 +84,6 @@ const DAY_CHIPS: Array<{ id: 'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sa
   { id: 'sat', short: 'S' },
 ]
 
-const LOCK_OFFSET_PRESETS = [5, 10, 15, 30, 60]
-
 export function SlateSettings({
   canManage,
   leagueId,
@@ -95,11 +93,9 @@ export function SlateSettings({
 }) {
   const [days, setDays] = useState<string[]>(['sun', 'mon'])
   const [includeHolidays, setIncludeHolidays] = useState(true)
-  const [lockOffsetMin, setLockOffsetMin] = useState<number>(10)
   const [initial, setInitial] = useState<{
     days: string[]
     includeHolidays: boolean
-    lockOffsetMin: number
   } | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -117,11 +113,9 @@ export function SlateSettings({
       }
       setDays(settings.slateDaysIncluded)
       setIncludeHolidays(settings.slateIncludeHolidays)
-      setLockOffsetMin(settings.lockOffsetMinutes)
       setInitial({
         days: settings.slateDaysIncluded,
         includeHolidays: settings.slateIncludeHolidays,
-        lockOffsetMin: settings.lockOffsetMinutes,
       })
     })
     return () => { cancelled = true }
@@ -133,8 +127,7 @@ export function SlateSettings({
   const dirty =
     !!initial &&
     ([...initial.days].sort().join(',') !== [...days].sort().join(',') ||
-      initial.includeHolidays !== includeHolidays ||
-      initial.lockOffsetMin !== lockOffsetMin)
+      initial.includeHolidays !== includeHolidays)
 
   const toggleDay = (id: string) => {
     setDays((prev) =>
@@ -151,12 +144,11 @@ export function SlateSettings({
       const res = await updateLeagueSettings(leagueId, {
         slateDaysIncluded: days,
         slateIncludeHolidays: includeHolidays,
-        lockOffsetMinutes: lockOffsetMin,
       })
       if (!res.success) {
         setError(res.error ?? 'Save failed')
       } else {
-        setInitial({ days: [...days], includeHolidays, lockOffsetMin })
+        setInitial({ days: [...days], includeHolidays })
         setSavedAt(Date.now())
       }
     } catch (err) {
@@ -226,38 +218,6 @@ export function SlateSettings({
               )}
             />
           </button>
-        </div>
-      </div>
-
-      {/* Lock offset */}
-      <div>
-        <p className="text-[10px] font-bold tracking-[0.3em] uppercase text-muted-foreground mb-1">
-          Lock offset
-        </p>
-        <p className="text-[11px] text-muted-foreground mb-2.5">
-          Minutes before the first in-slate kickoff that legs lock.
-        </p>
-        <div className="flex items-center gap-1.5">
-          {LOCK_OFFSET_PRESETS.map((n) => {
-            const active = lockOffsetMin === n
-            return (
-              <button
-                key={n}
-                type="button"
-                disabled={disabled}
-                onClick={() => setLockOffsetMin(n)}
-                className={cn(
-                  'flex-1 rounded-lg border h-9 font-mono text-xs font-bold transition-all',
-                  active
-                    ? 'border-neon-pink/60 bg-neon-pink/10 text-neon-pink'
-                    : 'border-white/10 bg-white/[0.02] text-muted-foreground hover:border-white/20',
-                  disabled && 'opacity-50 cursor-not-allowed'
-                )}
-              >
-                {n}m
-              </button>
-            )
-          })}
         </div>
       </div>
 
