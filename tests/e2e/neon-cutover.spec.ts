@@ -135,10 +135,10 @@ test('a finished season is closed, not still taking legs', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'locked' })).toBeDisabled()
   await expect(page.getByRole('button', { name: 'closed' })).toBeDisabled()
 
-  // Week 0 of a finished season is closed too, even though a preseason
-  // week has no lock of its own to be past.
+  // And a week of a finished season that nobody entered says so in the
+  // past tense — "Nobody in", not "Nobody in yet".
   await page.getByRole('button', { name: 'slate panel' }).click()
-  await expect(page.getByText('Closed', { exact: true }).first()).toBeVisible({
+  await expect(page.getByText('Nobody in', { exact: true }).first()).toBeVisible({
     timeout: 10_000,
   })
 })

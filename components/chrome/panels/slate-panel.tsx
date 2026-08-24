@@ -17,10 +17,12 @@ import { cn } from '@/lib/utils'
  * business before a single ball is thrown. Picking one doesn't navigate:
  * the shell stays put and the stage swaps to that week.
  *
- * Each card says what happened, in the same three-band shape RoarTracker
- * uses for a game: a label strip on top, the week's headline in the
- * middle, and a footer of FACES — who hit, who missed, who still owes a
- * leg. A season you can read by scrolling.
+ * A card is a NUMBER and a CAST. The number takes the full height of the
+ * left edge, set large in the display face, because a week's name is a
+ * number and typesetting it as one costs no vertical space — where a
+ * "WEEK 1" label strip cost a whole band on every card. The rest of the
+ * card is the faces: who hit, who missed, who never picked. A season you
+ * can read by scrolling.
  */
 export function SlatePanel({
   laysByWeek,
@@ -38,9 +40,12 @@ export function SlatePanel({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <p className="text-muted-foreground mb-3 shrink-0 text-[10px] font-bold tracking-[0.3em] uppercase">
-        {chrome.season.split('-')[0]} weeks
-      </p>
+      {/* The panel's own masthead, in the app's display face and the
+          masthead's duotone: the year is the fact, WEEKS is the noun. */}
+      <h2 className="font-display mb-3 shrink-0 text-2xl leading-none tracking-tight uppercase">
+        <span className="text-neon-blue">{chrome.season.split('-')[0]}</span>{' '}
+        <span className="text-foreground/80">Weeks</span>
+      </h2>
       <div className="scrollbar-hide min-h-0 flex-1 space-y-2 overflow-y-auto pb-2">
         {ordered.map((w) => (
           <WeekCard
@@ -83,60 +88,121 @@ function WeekCard({
   const won = week.parlayState === 'won'
   const lost = week.parlayState === 'lost'
 
+  const open = () => {
+    setViewedWeek(week.id)
+    closePanel()
+  }
+
+  const shell = cn(
+    'group relative block w-full overflow-hidden rounded-xl border text-left transition-colors',
+    active
+      ? 'border-neon-blue/50 bg-neon-blue/[0.07]'
+      : won
+        ? 'border-neon-blue/25 bg-white/[0.02] hover:bg-white/[0.05]'
+        : lost
+          ? 'border-destructive/25 bg-white/[0.02] hover:bg-white/[0.05]'
+          : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05]'
+  )
+
+  // WEEK 0 IS ITS OWN ANIMAL. It has no slate, no legs and no result, so
+  // every field the other cards carry would be empty on it. It gets to be
+  // one word instead — the season's front cover.
+  if (preseason) {
+    return (
+      <button
+        type="button"
+        onClick={open}
+        aria-label="Preseason"
+        aria-current={active ? 'true' : undefined}
+        className={shell}
+      >
+        {isCurrent && <NowPip />}
+        <span
+          className={cn(
+            'font-display block px-4 py-4 text-[2.1rem] leading-none tracking-tight uppercase',
+            active || isCurrent ? 'text-neon-blue' : 'text-foreground/55'
+          )}
+        >
+          Preseason
+        </span>
+      </button>
+    )
+  }
+
   return (
     <button
       type="button"
-      onClick={() => {
-        setViewedWeek(week.id)
-        closePanel()
-      }}
+      onClick={open}
+      // The card SAYS "12" — which is the right thing to look at and the
+      // wrong thing to hear. The name is spelled out for anyone reading
+      // it aloud, and it keeps the card findable by week.
+      aria-label={`Week ${week.weekNumber}`}
       aria-current={active ? 'true' : undefined}
-      className={cn(
-        'block w-full overflow-hidden rounded-xl border text-left transition-colors',
-        active
-          ? 'border-neon-blue/50 bg-neon-blue/[0.07]'
-          : won
-            ? 'border-neon-blue/25 bg-white/[0.02] hover:bg-white/[0.05]'
-            : lost
-              ? 'border-destructive/25 bg-white/[0.02] hover:bg-white/[0.05]'
-              : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05]'
-      )}
+      className={cn(shell, 'flex')}
     >
-      {/* Label strip — which week, and whether it's the live one. */}
-      <div className="flex items-center gap-2 border-b border-white/[0.07] px-3 py-1.5">
+      {isCurrent && <NowPip />}
+
+      {/* THE NUMBER, full height on the left. A week's name is a number,
+          so it's typeset as one rather than spelled out in a label strip
+          that then has to be paid for in vertical space. Its slab is
+          slanted on the inside edge — the same diagonal the game cards
+          split their two teams on, so the two card families read as
+          relatives. */}
+      <div className="relative flex w-[4.25rem] shrink-0 items-center justify-center self-stretch">
+        <span
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            clipPath: 'polygon(0 0, 100% 0, calc(100% - 11px) 100%, 0 100%)',
+            background: active
+              ? 'linear-gradient(150deg, rgba(0,217,255,0.26), rgba(0,217,255,0.06))'
+              : won
+                ? 'linear-gradient(150deg, rgba(0,217,255,0.17), rgba(0,217,255,0.03))'
+                : lost
+                  ? 'linear-gradient(150deg, rgba(255,105,180,0.17), rgba(255,105,180,0.03))'
+                  : 'linear-gradient(150deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015))',
+          }}
+        />
         <span
           className={cn(
-            'text-[10px] font-bold tracking-[0.2em] uppercase',
-            active ? 'text-neon-blue' : 'text-muted-foreground'
+            'font-display relative -mr-2 text-[2.4rem] leading-none tabular-nums',
+            active
+              ? 'text-neon-blue'
+              : won
+                ? 'text-neon-blue/85'
+                : lost
+                  ? 'text-destructive/85'
+                  : 'text-foreground/40'
           )}
         >
-          {preseason ? 'Preseason' : `Week ${week.weekNumber}`}
-        </span>
-        {isCurrent && (
-          <span className="text-neon-blue/80 text-[9px] font-bold tracking-[0.2em] uppercase">
-            · Now
-          </span>
-        )}
-        <span className="text-muted-foreground/70 ml-auto text-[10px] tracking-wider uppercase">
-          {headline(week, memberCount)}
+          {week.weekNumber}
         </span>
       </div>
 
       {/* The week's cast. Once results land it splits in two — who
           survived, who went down — because that's the shape of the
           question you're asking when you scroll back through a season. */}
-      <div className="space-y-1 px-3 py-2">
-        {preseason ? (
-          <span className="text-foreground/70 text-xs">
-            {week.pollCount > 0
-              ? `${week.pollCount} ${week.pollCount === 1 ? 'vote' : 'votes'} on the charter`
-              : 'Charter and league business'}
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5 py-2.5 pr-3 pl-2.5">
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              'text-[10px] font-bold tracking-[0.2em] uppercase',
+              won
+                ? 'text-neon-blue'
+                : lost
+                  ? 'text-destructive'
+                  : 'text-muted-foreground/70'
+            )}
+          >
+            {headline(week, memberCount)}
           </span>
-        ) : !lay || lay.legs.length === 0 ? (
+        </div>
+
+        {!lay || lay.legs.length === 0 ? (
           // A week nobody has opened and a week nobody has picked in are
           // the same fact to a reader, so they get the same sentence —
           // minus the "yet" once the week can no longer be picked in.
-          <span className="text-muted-foreground/60 text-xs italic">
+          <span className="text-muted-foreground/60 block text-xs italic">
             {week.closed ? 'Nobody in' : 'Nobody in yet'}
           </span>
         ) : graded.length === 0 ? (
@@ -161,6 +227,17 @@ function WeekCard({
         )}
       </div>
     </button>
+  )
+}
+
+/** The live week, marked rather than spelled — one lit dot in the corner
+ *  says "here" without spending a word on it. */
+function NowPip() {
+  return (
+    <span
+      aria-label="Current week"
+      className="bg-neon-blue neon-glow-blue absolute top-2 right-2 z-10 size-1.5 rounded-full"
+    />
   )
 }
 
@@ -255,18 +332,14 @@ function OutcomeRow({
   )
 }
 
-/** What the week is doing, in three words or fewer. */
+/** What the week is doing, in three words or fewer. Preseason never gets
+ *  here — it returns above, as one big word. */
 function headline(week: ChromeWeek, memberCount: number): string {
-  if (week.kind === 'preseason') {
-    if (week.openPollCount > 0) {
-      return week.closed ? `${week.openPollCount} unsettled` : `${week.openPollCount} open`
-    }
-    if (week.pollCount > 0) return 'Settled'
-    return week.closed ? 'Closed' : 'Open'
-  }
   switch (week.parlayState) {
     case 'open':
-      return `${week.submissionCount}/${memberCount} in`
+      // "0/12 in" and "Nobody in yet" underneath are the same sentence
+      // twice. The count only earns its place once somebody is in.
+      return week.submissionCount === 0 ? 'Open' : `${week.submissionCount}/${memberCount} in`
     case 'locked':
       return 'Locked'
     case 'graded':
