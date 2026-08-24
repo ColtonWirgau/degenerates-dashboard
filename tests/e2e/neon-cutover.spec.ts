@@ -55,11 +55,18 @@ test('neon mode renders the league page with seeded charter', async ({ page, con
   await page.goto('http://localhost:3001/')
   await page.waitForURL(/\/leagues\//, { timeout: 10_000 })
 
-  // The Season Setup heading is always present in offseason mode.
-  await expect(page.getByText(/SEASON SETUP/i)).toBeVisible({ timeout: 10_000 })
+  // Off-season, the card carries the Season Setup doorway; the setup
+  // itself lives in the season sheet behind the masthead lockup.
+  await expect(page.getByText(/SEASON SETUP/i).first()).toBeVisible({
+    timeout: 10_000,
+  })
 
-  // The PeekCard for Buy-in renders with the locked value baked into
-  // the standard template — proves we're reading real seeded data.
-  await expect(page.getByText('$50 · 12 teams · $600 pot')).toBeVisible()
+  await page.getByRole('button', { name: 'Season, league and setup' }).first().click()
+
+  // The Buy-in entry renders with the locked value baked into the
+  // standard template — proves we're reading real seeded data.
+  await expect(page.getByText('$50 · 12 teams · $600 pot')).toBeVisible({
+    timeout: 10_000,
+  })
   await expect(page.getByText('Snake + 3rd Rd Reversal')).toBeVisible()
 })

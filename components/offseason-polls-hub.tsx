@@ -357,12 +357,12 @@ const GROUP_META: Record<
   }
 > = {
   Draft: { icon: Layers, palette: ['#FF69B4', '#00D9FF'] },
-  Stakes: { icon: DollarSign, palette: ['#39FF14', '#00D9FF'] },
+  Stakes: { icon: DollarSign, palette: ['#00D9FF', '#FF69B4'] },
   Trading: { icon: Repeat, palette: ['#00D9FF', '#FF69B4'] },
   Playoffs: { icon: Trophy, palette: ['#00D9FF', '#FF69B4'] },
-  Punishment: { icon: Skull, palette: ['#A855F7', '#FF69B4'] },
-  Rules: { icon: ScrollText, palette: ['#00D9FF', '#A855F7'] },
-  Logistics: { icon: Hourglass, palette: ['#FF69B4', '#A855F7'] },
+  Punishment: { icon: Skull, palette: ['#FF69B4', '#00D9FF'] },
+  Rules: { icon: ScrollText, palette: ['#00D9FF', '#FF69B4'] },
+  Logistics: { icon: Hourglass, palette: ['#FF69B4', '#00D9FF'] },
 }
 
 // 1–2-line preview shown on each group card. Prefers the first two locked

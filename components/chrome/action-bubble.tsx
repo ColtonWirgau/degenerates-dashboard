@@ -1,9 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Check, Plus, Vote } from 'lucide-react'
+import { Check, Plus } from 'lucide-react'
 import {
-  openPanel,
   openSubmit,
   subscribePanel,
   type CanvasPanel,
@@ -27,17 +26,21 @@ export function ActionBubble() {
   useEffect(() => subscribePanel(setPanel), [])
 
   if (!chrome) return null
+  // Off-season the card carries no action bubble — see bubble-layout:
+  // POLLS already sits on the left edge, and a second door to the same
+  // panel is just a second door.
   const offseason =
     chrome.seasonKind === 'offseason' || chrome.seasonKind === 'preseason'
-  const open = panel === (offseason ? 'polls' : 'submit')
-  const label = open ? 'CLOSE' : offseason ? 'VOTE' : chrome.submitted ? 'YOUR LEG' : 'SUBMIT'
+  if (offseason) return null
+  const open = panel === 'submit'
+  const label = open ? 'CLOSE' : chrome.submitted ? 'YOUR LEG' : 'SUBMIT'
 
   return (
     <button
       type="button"
       data-sheet-bubble
       data-action-bubble
-      onClick={() => (offseason ? openPanel('polls') : openSubmit())}
+      onClick={openSubmit}
       aria-label={label.toLowerCase()}
       aria-expanded={open}
       className="group hidden focus-visible:outline-none lg:block"
@@ -75,8 +78,6 @@ export function ActionBubble() {
             <span aria-hidden className="text-[1.15rem] leading-none">
               ✕
             </span>
-          ) : offseason ? (
-            <Vote size={22} strokeWidth={2.25} />
           ) : chrome.submitted ? (
             <Check size={22} strokeWidth={2.5} />
           ) : (

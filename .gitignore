@@ -74,3 +74,4 @@ CLAUDE.md
 
 # Real-data snapshot for Neon migration (PII — never commit)
 lib/data/fixtures/real-snapshot/
+db/backups/

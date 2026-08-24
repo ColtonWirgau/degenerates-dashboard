@@ -58,7 +58,7 @@ export function SubmitLegForm({ weekId, leagueId, existingLeg }: SubmitLegFormPr
           particleCount: 100,
           spread: 70,
           origin: { y: 0.6 },
-          colors: ['#00D9FF', '#FF69B4', '#39FF14', '#A855F7'],
+          colors: ['#00D9FF', '#FF69B4'],
         })
       }
 

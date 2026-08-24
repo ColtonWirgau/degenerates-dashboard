@@ -205,6 +205,10 @@ export function resolveBites(cardHeight: number, progress: number, third = 0): B
     r: b.r,
     fillet: b.fillet,
   }))
+  // The action bubble is the WEEK's verb (submit your leg). Off-season
+  // there is no week, so the bite goes with it — POLLS is already one
+  // tap away on the left edge and doesn't need a second door.
+  if (seasonMode === 'offseason') return resolved
   resolved.push({
     edge: 'right',
     y: cardHeight - ACTION_HOME_C,

@@ -120,7 +120,7 @@ export function PanelBubbles() {
                     <Trophy size={20} strokeWidth={2.25} />
                   )
                 ) : chrome.openPollCount > 0 ? (
-                  <span className="font-display text-[1.05rem] leading-none text-neon-purple">
+                  <span className="font-display text-[1.05rem] leading-none">
                     {chrome.openPollCount}
                   </span>
                 ) : (

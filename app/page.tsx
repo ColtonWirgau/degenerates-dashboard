@@ -20,8 +20,9 @@ export default async function Home({
   const me = await getCurrentUser()
 
   if (me) {
-    // No dedicated dashboard — route to a league directly. The avatar
-    // sheet handles switching once they're inside a league.
+    // Single-tenant: there is one league, and it IS the app. Signed-in
+    // members go straight in; the create wizard is only for the very
+    // first run (an empty database).
     const { leagues } = await getLeagues()
     if (leagues.length > 0) {
       redirect(`/leagues/${leagues[0].id}`)

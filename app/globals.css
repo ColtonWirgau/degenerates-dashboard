@@ -38,13 +38,11 @@
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
   /* Brand palette — bringing custom colours into the theme so utilities
-     like bg-neon-blue, border-neon-green/40, hover:bg-neon-pink/10 actually
+     like bg-neon-blue, border-neon-blue/40, hover:bg-neon-pink/10 actually
      compile. The custom .text-neon-* classes below still layer their
      text-shadow on top for the neon-glow look. */
   --color-neon-blue: var(--electric-blue);
-  --color-neon-green: var(--neon-green);
   --color-neon-pink: var(--hot-pink);
-  --color-neon-purple: var(--neon-purple);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -58,9 +56,7 @@
   --charcoal-deep: #0A0A0A;
   --charcoal-panel: #121212;
   --electric-blue: #00D9FF;
-  --neon-green: #39FF14;
   --hot-pink: #FF69B4;
-  --neon-purple: #A855F7;
 
   /* Theme Mappings */
   --background: #0A0A0A;
@@ -71,7 +67,7 @@
   --popover-foreground: #F9FAFB;
   --primary: #00D9FF;
   --primary-foreground: #0F1419;
-  --secondary: #A855F7;
+  --secondary: #FF69B4;
   --secondary-foreground: #F9FAFB;
   --muted: rgba(255, 255, 255, 0.05);
   --muted-foreground: #9CA3AF;
@@ -79,7 +75,7 @@
   --accent-foreground: #0F1419;
   --destructive: #FF69B4;
   --destructive-foreground: #F9FAFB;
-  --success: #39FF14;
+  --success: #00D9FF;
   --success-foreground: #0F1419;
   --warning: #FF69B4;
   --warning-foreground: #0F1419;
@@ -107,7 +103,7 @@
     @apply bg-background text-foreground;
     background:
       radial-gradient(ellipse at top left, rgba(0, 217, 255, 0.12) 0%, transparent 50%),
-      radial-gradient(ellipse at top right, rgba(168, 85, 247, 0.1) 0%, transparent 50%),
+      radial-gradient(ellipse at top right, rgba(0, 217, 255, 0.07) 0%, transparent 50%),
       radial-gradient(ellipse at bottom, rgba(255, 105, 180, 0.08) 0%, transparent 50%),
       linear-gradient(to bottom, #0A0A0A 0%, #121212 100%);
   }
@@ -119,32 +115,19 @@
     text-transform: uppercase;
   }
 
-  /* Custom scrollbar styling */
+  /* NO SCROLLBARS, anywhere. The affordance is the content itself: edges
+     blur out under a fade mask and a slim progress rail rides the side of
+     a scroller (see .scroll-veil / <ScrollArea>). A chrome bar over the
+     glass surfaces always read as a foreign object. */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 0;
+    height: 0;
+    display: none;
   }
 
-  ::-webkit-scrollbar-track {
-    background: #0A0A0A;
-    border-radius: 4px;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, rgba(0, 217, 255, 0.6), rgba(168, 85, 247, 0.6));
-    border-radius: 4px;
-    transition: all 0.3s ease;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, rgba(0, 217, 255, 0.8), rgba(168, 85, 247, 0.8));
-    box-shadow: 0 0 10px rgba(0, 217, 255, 0.5);
-  }
-
-  /* Firefox scrollbar */
   * {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(0, 217, 255, 0.6) #0A0A0A;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
 }
 
@@ -179,19 +162,9 @@
                 0 0 40px rgba(0, 217, 255, 0.1);
   }
 
-  .neon-glow-green {
-    box-shadow: 0 0 20px rgba(57, 255, 20, 0.3),
-                0 0 40px rgba(57, 255, 20, 0.1);
-  }
-
   .neon-glow-pink {
     box-shadow: 0 0 20px rgba(255, 105, 180, 0.3),
                 0 0 40px rgba(255, 105, 180, 0.1);
-  }
-
-  .neon-glow-purple {
-    box-shadow: 0 0 20px rgba(168, 85, 247, 0.3),
-                0 0 40px rgba(168, 85, 247, 0.1);
   }
 
   /* Neon text */
@@ -200,25 +173,15 @@
     text-shadow: 0 0 10px rgba(0, 217, 255, 0.5);
   }
 
-  .text-neon-green {
-    color: #39FF14;
-    text-shadow: 0 0 10px rgba(57, 255, 20, 0.5);
-  }
-
   .text-neon-pink {
     color: #FF69B4;
     text-shadow: 0 0 10px rgba(255, 105, 180, 0.5);
   }
 
-  .text-neon-purple {
-    color: #A855F7;
-    text-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
-  }
-
   /* Animated gradient border */
   .gradient-border {
     position: relative;
-    background: linear-gradient(90deg, #00D9FF, #A855F7, #FF69B4, #00D9FF);
+    background: linear-gradient(90deg, #00D9FF, #FF69B4, #00D9FF);
     background-size: 200% 200%;
     animation: gradient-shift 3s ease infinite;
   }
@@ -262,7 +225,7 @@
     min-height: 100dvh;
     background:
       radial-gradient(ellipse at 20% 30%, rgba(0, 217, 255, 0.08) 0%, transparent 40%),
-      radial-gradient(ellipse at 80% 20%, rgba(168, 85, 247, 0.08) 0%, transparent 40%),
+      radial-gradient(ellipse at 80% 20%, rgba(0, 217, 255, 0.05) 0%, transparent 40%),
       radial-gradient(ellipse at 40% 80%, rgba(255, 105, 180, 0.06) 0%, transparent 40%);
     pointer-events: none;
     z-index: 0;
@@ -409,6 +372,20 @@
 }
 
 /* A disc's changing face POPS into place; the dock rides up on mount. */
+/* The scroll chip's chevron nods — a keyframe, not JS. */
+@keyframes hint-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(3px);
+  }
+}
+.hint-bob {
+  animation: hint-bob 1.6s ease-in-out infinite;
+}
+
 @keyframes face-pop {
   from {
     opacity: 0;
@@ -433,7 +410,8 @@
     transition: none;
   }
   .face-pop,
-  .dock-up {
+  .dock-up,
+  .hint-bob {
     animation: none;
   }
 }

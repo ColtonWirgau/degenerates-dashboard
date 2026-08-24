@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   closePanel,
   subscribePanel,
   type CanvasPanel,
 } from '@/components/chrome/canvas-store'
 import { ResponsiveSheet, SheetPage } from '@/components/ui/responsive-sheet'
+import { ScrollHint } from '@/components/ui/scroll-hint'
 
 /**
  * Dual-posture wrapper for a canvas panel (the RoarTracker pattern, on
@@ -24,6 +25,7 @@ export function PanelReveal({
   title: string
   children: React.ReactNode
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
   const [current, setCurrent] = useState<CanvasPanel>(null)
   const [wide, setWide] = useState<boolean | null>(null)
   useEffect(() => subscribePanel(setCurrent), [])
@@ -38,7 +40,15 @@ export function PanelReveal({
   // Before hydration settles, render the wide posture (harmless: the slot
   // is hidden below lg and no sheet can be open yet).
   if (wide !== false) {
-    return <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+    return (
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col">
+          {children}
+        </div>
+        {/* Fog only — the panels are narrow and a chip would crowd them. */}
+        <ScrollHint containerRef={scrollRef} showChip={false} />
+      </div>
+    )
   }
 
   return (

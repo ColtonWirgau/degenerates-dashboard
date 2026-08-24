@@ -1,8 +1,16 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { openLeagueSheet } from '@/components/chrome/canvas-store'
+import { ChevronDown } from 'lucide-react'
+import {
+  openLeagueSheet,
+  openSeasonSheet,
+  subscribeSeasonSheet,
+} from '@/components/chrome/canvas-store'
+import { seasonLabel } from '@/components/chrome/season-sheet'
+import { cn } from '@/lib/utils'
 import { useLeagueChrome } from '@/components/chrome/league-chrome-context'
 import { leagueInitials } from '@/components/league-avatar'
 
@@ -25,14 +33,9 @@ export function Masthead() {
   const chrome = useLeagueChrome()
   if (!chrome) return null
 
-  const chip =
-    chrome.weekNumber != null
-      ? `${chrome.season.split('-')[0]} · WK ${chrome.weekNumber}`
-      : chrome.season
-
   return (
     <header
-      className="relative z-50 border-b border-primary/15"
+      className="relative z-50"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
       <div className="flex items-center justify-between gap-3 px-4 py-3 lg:h-16 lg:px-11">
@@ -50,6 +53,13 @@ export function Masthead() {
         </Link>
 
         {/* Mobile: you + the league badge, opening the combined sheet. */}
+        <SeasonLockup
+          season={chrome.season}
+          weekNumber={chrome.weekNumber}
+          className="lg:hidden"
+          compact
+        />
+
         <button
           type="button"
           onClick={openLeagueSheet}
@@ -73,17 +83,73 @@ export function Masthead() {
           </span>
         </button>
 
-        {/* Desktop: the league's name and where the season stands. The
-            avatar rides the card's edge notch instead. */}
-        <div className="hidden min-w-0 items-center gap-3 lg:flex">
-          <span className="text-foreground/80 truncate text-sm font-bold tracking-wide uppercase">
-            {chrome.leagueName}
-          </span>
-          <span className="text-neon-pink font-display rounded-full border border-neon-pink/30 bg-neon-pink/10 px-2.5 py-1 text-xs tracking-wider whitespace-nowrap uppercase">
-            {chip}
-          </span>
-        </div>
+        {/* Desktop: the strip's other lockup — same face and weight as
+            DEGENERATES DASHBOARD on the left, so the band's two ends
+            answer each other. It's also the control that opens the
+            season sheet (league + year + setup). */}
+        <SeasonLockup
+          season={chrome.season}
+          weekNumber={chrome.weekNumber}
+          className="hidden lg:inline-flex"
+        />
       </div>
     </header>
+  )
+}
+
+/**
+ * The masthead's other lockup: "{year} SEASON ⌄" in the wordmark's own
+ * duotone grammar — the year in electric blue, SEASON in hot pink — so
+ * the strip's right end answers DEGENERATES DASHBOARD on its left. It
+ * opens the season sheet (year, league, and off-season setup).
+ */
+function SeasonLockup({
+  season,
+  weekNumber,
+  className,
+  compact = false,
+}: {
+  season: string
+  weekNumber: number | null
+  className?: string
+  compact?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  useEffect(() => subscribeSeasonSheet(setOpen), [])
+
+  return (
+    <button
+      type="button"
+      onClick={openSeasonSheet}
+      aria-expanded={open}
+      aria-label="Season, league and setup"
+      className={cn(
+        'group inline-flex shrink-0 items-center gap-1.5 leading-none font-bold whitespace-nowrap transition-opacity hover:opacity-80',
+        className
+      )}
+    >
+      <span
+        className={cn(
+          'text-neon-blue tracking-tight',
+          compact ? 'text-xl' : 'text-2xl'
+        )}
+      >
+        {seasonLabel(season)}
+      </span>
+      <span
+        className={cn(
+          'text-neon-pink tracking-tight',
+          compact ? 'text-xl' : 'text-2xl'
+        )}
+      >
+        {weekNumber != null ? `WK${weekNumber}` : 'SEASON'}
+      </span>
+      <ChevronDown
+        className={cn(
+          'text-muted-foreground h-3.5 w-3.5 transition-transform',
+          open && 'rotate-180'
+        )}
+      />
+    </button>
   )
 }

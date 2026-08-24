@@ -8,6 +8,8 @@ import { CanvasSheet } from '@/components/chrome/canvas-sheet'
 import { PageSheet } from '@/components/chrome/page-sheet'
 import { MobileDock } from '@/components/chrome/mobile-dock'
 import { LeagueSheetHost } from '@/components/chrome/league-sheet-host'
+import { SeasonSheet } from '@/components/chrome/season-sheet'
+import { OffseasonPollsHub } from '@/components/offseason-polls-hub'
 import { PanelReveal } from '@/components/chrome/panel-reveal'
 import { SlatePanel, type SlatePanelWeek } from '@/components/chrome/panels/slate-panel'
 import { BoardPanel } from '@/components/chrome/panels/board-panel'
@@ -58,6 +60,8 @@ export default async function LeagueShellLayout({
     p.seasonState.kind === 'playoffs' ||
     p.seasonState.kind === 'super-bowl'
   const myRankIdx = p.leaderboard.findIndex((e) => e.userId === p.me.id)
+  const isOffOrPreseason =
+    p.seasonState.kind === 'offseason' || p.seasonState.kind === 'preseason'
 
   const chrome: LeagueChrome = {
     leagueId: p.league.id,
@@ -138,6 +142,30 @@ export default async function LeagueShellLayout({
           <PageSheet>{children}</PageSheet>
         </CanvasSheet>
         <MobileDock />
+        <SeasonSheet
+          season={p.season}
+          availableSeasons={p.availableSeasons}
+          leagues={switcherRows}
+          activeLeagueId={p.league.id}
+          setup={
+            isOffOrPreseason ? (
+              <OffseasonPollsHub
+                leagueId={p.league.id}
+                polls={p.polls}
+                charter={p.charter}
+                seasonState={p.seasonState}
+                currentUserId={p.me.id}
+                membersCount={p.members.length}
+                members={p.members.map((m) => ({
+                  id: m.user_id,
+                  fullName: m.full_name,
+                  email: m.email,
+                  avatarUrl: m.avatar_url,
+                }))}
+              />
+            ) : undefined
+          }
+        />
         {me && (
           <LeagueSheetHost
             leagueId={p.league.id}

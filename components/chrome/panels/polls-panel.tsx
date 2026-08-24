@@ -72,7 +72,7 @@ function PollRow({
       className={cn(
         'flex items-center gap-2.5 rounded-lg border px-2.5 py-2 transition-colors',
         open
-          ? 'border-neon-purple/40 bg-neon-purple/10 hover:bg-neon-purple/15'
+          ? 'border-neon-blue/40 bg-neon-blue/10 hover:bg-neon-blue/15'
           : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.06]'
       )}
     >
@@ -82,7 +82,7 @@ function PollRow({
         <Circle
           className={cn(
             'h-3.5 w-3.5 shrink-0',
-            open ? 'text-neon-purple' : 'text-muted-foreground/50'
+            open ? 'text-neon-blue' : 'text-muted-foreground/50'
           )}
         />
       )}

@@ -56,6 +56,31 @@ export function subscribeLeagueSheet(listener: (open: boolean) => void): () => v
   return () => leagueListeners.delete(listener)
 }
 
+/* ---------- The season sheet ---------- */
+
+/* THE SEASON — which league, which year, and (off-season) the charter
+ * that defines it: one sheet, opened from the masthead lockup at every
+ * width, so a click on the season means one thing everywhere. */
+let seasonOpen = false
+const seasonListeners = new Set<(open: boolean) => void>()
+
+export function openSeasonSheet() {
+  seasonOpen = true
+  closePanel()
+  seasonListeners.forEach((l) => l(seasonOpen))
+}
+
+export function closeSeasonSheet() {
+  seasonOpen = false
+  seasonListeners.forEach((l) => l(seasonOpen))
+}
+
+export function subscribeSeasonSheet(listener: (open: boolean) => void): () => void {
+  seasonListeners.add(listener)
+  listener(seasonOpen)
+  return () => seasonListeners.delete(listener)
+}
+
 /* ---------- The submit reveal's arm counter ---------- */
 
 /** Versioned so re-tapping SUBMIT while the reveal is open re-focuses the

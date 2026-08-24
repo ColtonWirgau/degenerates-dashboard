@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { SectionDock } from '@/components/ui/section-dock'
+import type { SectionAccent } from '@/components/ui/section-header'
 import { deleteLeg } from '@/app/actions/legs'
 import { updateLegResult } from '@/app/actions/parlays'
 import {
@@ -248,10 +249,10 @@ function iconFor(state: ParlayState, result: 'won' | 'lost' | null) {
 function accentFor(
   state: ParlayState,
   result: 'won' | 'lost' | null
-): 'blue' | 'pink' | 'green' {
-  if (result === 'won') return 'blue'
+): SectionAccent {
+  // Blue carries the whole scale except an outright loss.
   if (result === 'lost') return 'pink'
-  if (state === 'graded') return 'blue'
+  void state
   return 'blue'
 }
 

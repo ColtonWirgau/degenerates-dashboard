@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Check, ListTodo, Plus, ScrollText, Trophy, Vote } from 'lucide-react'
+import { Check, ListTodo, Plus, Trophy } from 'lucide-react'
 import { openLeagueSheet, openPanel, openSubmit } from '@/components/chrome/canvas-store'
 import { useLeagueChrome } from '@/components/chrome/league-chrome-context'
 import { leagueInitials } from '@/components/league-avatar'
@@ -12,7 +12,7 @@ import { leagueInitials } from '@/components/league-avatar'
  * electric-blue disc, the one distinguished thing on the bar.
  *
  *   in-season:  SLATE · BOARD · (+/✓) · POLLS · LEAGUE
- *   offseason:  BOARD · POLLS · (VOTE) · CHARTER · LEAGUE
+ *   offseason:  BOARD ·  ·  (POLLS)  ·  · LEAGUE
  *
  * Each slot crossfades its face (face-pop) when its live fact changes.
  * Identity (the avatar) lives up in the masthead; there is no Home cell
@@ -48,6 +48,8 @@ export function MobileDock() {
 
   const slots: (Face | 'park' | null)[] = offseason
     ? [
+        // Off-season the league does exactly one thing: settle its
+        // business. POLLS is the disc, so it doesn't also need a cell.
         {
           key: `board-${chrome.myRank ?? ''}`,
           label: 'Leaderboard',
@@ -60,30 +62,11 @@ export function MobileDock() {
             ),
           below: 'Board',
         },
-        {
-          key: `polls-${chrome.openPollCount}`,
-          label: 'Polls',
-          onClick: () => openPanel('polls'),
-          content:
-            chrome.openPollCount > 0 ? (
-              <span className="font-display text-[0.82rem] text-neon-purple">
-                {chrome.openPollCount}
-              </span>
-            ) : (
-              <ListTodo size={16} strokeWidth={2.25} />
-            ),
-          below: 'Polls',
-        },
+        null,
         'park',
+        null,
         {
-          key: 'charter',
-          label: 'Charter',
-          onClick: () => openPanel('polls'),
-          content: <ScrollText size={16} strokeWidth={2.25} />,
-          below: 'Charter',
-        },
-        {
-          key: `league`,
+          key: 'league',
           label: 'League',
           onClick: openLeagueSheet,
           content: (
@@ -125,7 +108,7 @@ export function MobileDock() {
           onClick: () => openPanel('polls'),
           content:
             chrome.openPollCount > 0 ? (
-              <span className="font-display text-[0.82rem] text-neon-purple">
+              <span className="font-display text-[0.82rem] text-neon-blue">
                 {chrome.openPollCount}
               </span>
             ) : (
@@ -149,10 +132,17 @@ export function MobileDock() {
   const disc = offseason
     ? {
         at: 0.5,
-        faceKey: 'vote',
-        label: 'Vote',
+        faceKey: `polls-${chrome.openPollCount}`,
+        label: 'Polls',
         onClick: () => openPanel('polls'),
-        icon: <Vote size={20} strokeWidth={2.5} />,
+        icon:
+          chrome.openPollCount > 0 ? (
+            <span className="font-display text-[1rem] leading-none">
+              {chrome.openPollCount}
+            </span>
+          ) : (
+            <ListTodo size={20} strokeWidth={2.5} />
+          ),
       }
     : chrome.submitted
       ? {

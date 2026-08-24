@@ -10,9 +10,10 @@ import {
   isValidElement,
   type ReactNode,
 } from 'react';
-import { createPortal } from 'react-dom';
+import { createPortal } from 'react-dom'
+import { ScrollHint } from '@/components/ui/scroll-hint';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, ChevronDown, ChevronLeft, X } from 'lucide-react';
+import { Check, ChevronLeft, X } from 'lucide-react';
 import { BottomSheet, usePortalContainer } from './bottom-sheet';
 import { SheetPage, type SheetPageProps } from './sheet-page';
 import { CollapsibleHeader, type CollapsibleHeaderProps } from './collapsible-header';
@@ -240,7 +241,6 @@ export function ResponsiveSheet({
   const [mode, setMode] = useState<SheetMode>('sheet');
   const [currentPage, setCurrentPage] = useState(defaultPage);
   const [history, setHistory] = useState<string[]>([defaultPage]);
-  const [showScrollIndicator, setShowScrollIndicator] = useState(false);
   const [mounted, setMounted] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -340,47 +340,6 @@ export function ResponsiveSheet({
       setCurrentPage(KEBAB_PAGE_NAME);
     });
   }, []);
-
-  const checkScrollIndicator = useCallback(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    const hasMoreContent = container.scrollHeight > container.clientHeight + 5;
-    const isAtBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 20;
-
-    setShowScrollIndicator(hasMoreContent && !isAtBottom);
-  }, []);
-
-  useEffect(() => {
-    if (mode !== 'modal' || !open) return;
-
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    checkScrollIndicator();
-
-    const timeouts = [
-      setTimeout(checkScrollIndicator, 50),
-      setTimeout(checkScrollIndicator, 150),
-      setTimeout(checkScrollIndicator, 300),
-    ];
-
-    container.addEventListener('scroll', checkScrollIndicator);
-    window.addEventListener('resize', checkScrollIndicator);
-
-    const resizeObserver = new ResizeObserver(checkScrollIndicator);
-    resizeObserver.observe(container);
-    if (container.firstElementChild) {
-      resizeObserver.observe(container.firstElementChild);
-    }
-
-    return () => {
-      timeouts.forEach(clearTimeout);
-      container.removeEventListener('scroll', checkScrollIndicator);
-      window.removeEventListener('resize', checkScrollIndicator);
-      resizeObserver.disconnect();
-    };
-  }, [mode, open, currentPage, checkScrollIndicator]);
 
   const pages: {
     name: string;
@@ -603,27 +562,8 @@ export function ResponsiveSheet({
                 />
               </div>
 
-              <AnimatePresence>
-                {showScrollIndicator && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex justify-center"
-                  >
-                    <div className="flex items-center gap-1.5 text-[10px] font-bold tracking-[0.25em] uppercase text-neon-blue [text-shadow:0_0_12px_rgba(0,217,255,0.5)]">
-                      <span>Scroll for more</span>
-                      <motion.div
-                        animate={{ y: [0, 3, 0] }}
-                        transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
-                      >
-                        <ChevronDown className="h-3 w-3" />
-                      </motion.div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {/* Overflow cue — blur mask at the edges + a chip. */}
+              <ScrollHint containerRef={scrollContainerRef} />
             </motion.div>
           </div>
         )}

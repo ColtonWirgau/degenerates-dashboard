@@ -2,16 +2,14 @@
 
 import {
   createContext,
-  useCallback,
   useContext,
   useEffect,
   useRef,
   useState,
   type ReactNode,
 } from 'react';
-import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown } from 'lucide-react';
+import { createPortal } from 'react-dom'
+import { ScrollHint } from '@/components/ui/scroll-hint';
 
 const PortalContainerContext = createContext<HTMLElement | null>(null);
 
@@ -72,7 +70,6 @@ export function BottomSheet({
   const touchStartTime = useRef<number | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [showIndicator, setShowIndicator] = useState(false);
   const [mounted, setMounted] = useState(false);
   const portalContainer = useContext(PortalContainerContext);
 
@@ -80,51 +77,16 @@ export function BottomSheet({
     setMounted(true);
   }, []);
 
-  const checkScrollIndicator = useCallback(() => {
-    if (!showScrollIndicator) return;
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    const hasMoreContent = container.scrollHeight > container.clientHeight + 5;
-    const isAtBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 20;
-
-    setShowIndicator(hasMoreContent && !isAtBottom);
-  }, [showScrollIndicator]);
-
+  // <ScrollHint> owns the overflow affordance now; this listener exists
+  // only to feed onContentScroll (the collapsible header's trigger).
   useEffect(() => {
-    if (!showScrollIndicator || !open) return;
-
+    if (!open || !onContentScroll) return;
     const container = scrollContainerRef.current;
     if (!container) return;
-
-    checkScrollIndicator();
-    const timeouts = [
-      setTimeout(checkScrollIndicator, 50),
-      setTimeout(checkScrollIndicator, 150),
-      setTimeout(checkScrollIndicator, 300),
-    ];
-
-    const handleScroll = () => {
-      checkScrollIndicator();
-      onContentScroll?.(container.scrollTop);
-    };
-
-    container.addEventListener('scroll', handleScroll);
-    window.addEventListener('resize', checkScrollIndicator);
-
-    const resizeObserver = new ResizeObserver(checkScrollIndicator);
-    resizeObserver.observe(container);
-    if (container.firstElementChild) {
-      resizeObserver.observe(container.firstElementChild);
-    }
-
-    return () => {
-      timeouts.forEach(clearTimeout);
-      container.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('resize', checkScrollIndicator);
-      resizeObserver.disconnect();
-    };
-  }, [open, showScrollIndicator, checkScrollIndicator, onContentScroll]);
+    const handleScroll = () => onContentScroll(container.scrollTop);
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [open, onContentScroll]);
 
   useEffect(() => {
     if (!open) {
@@ -319,27 +281,9 @@ export function BottomSheet({
           {children}
         </div>
 
-        <AnimatePresence>
-          {showIndicator && (
-            <motion.div
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center"
-            >
-              <div className="flex items-center gap-1.5 text-[10px] font-bold tracking-[0.25em] uppercase text-neon-blue [text-shadow:0_0_12px_rgba(0,217,255,0.5)]">
-                <span>Scroll for more</span>
-                <motion.div
-                  animate={{ y: [0, 3, 0] }}
-                  transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
-                >
-                  <ChevronDown className="h-3 w-3" />
-                </motion.div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Overflow cue: the content blurs out under a mask at the
+            edges, plus a chip while there's real distance left. */}
+        <ScrollHint containerRef={scrollContainerRef} />
       </div>
     </div>,
     portalContainer ?? document.body

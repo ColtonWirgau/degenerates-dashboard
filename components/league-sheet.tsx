@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   ResponsiveSheet,
@@ -46,7 +45,6 @@ import {
   AlertCircle,
   ArrowRight,
   Check,
-  ChevronDown,
   ChevronRight,
   Copy,
   Crown,
@@ -56,7 +54,6 @@ import {
   Lock,
   LogOut,
   Mail,
-  Plus,
   RefreshCw,
   Settings as SettingsIcon,
   Settings2,
@@ -214,14 +211,6 @@ export function LeagueSheet(props: LeagueSheetProps) {
             user={props.user}
             devPhase={props.devPhase ?? null}
             mockEnabled={!!props.mock}
-          />
-        </SheetPage>
-
-        <SheetPage name="leagues" title="Your Leagues">
-          <LeaguesPage
-            leagues={props.leagues}
-            currentLeagueId={props.leagueId}
-            onClose={props.onClose}
           />
         </SheetPage>
 
@@ -383,18 +372,13 @@ function MainPage({
         </button>
       </div>
 
-      {/* League hero — doubles as the league switcher trigger. */}
-      <button
-        type="button"
-        onClick={() => navigate('leagues')}
-        className="group flex w-full items-center gap-4 border-t border-white/10 pt-4 pb-5 text-left"
-        aria-label="Switch league"
-      >
+      {/* League identity. Single-tenant — this IS the league, so the hero
+          states it rather than offering a switch. */}
+      <div className="flex w-full items-center gap-4 border-t border-white/10 pt-4 pb-5 text-left">
         <LeagueAvatar leagueId={leagueId} size="lg" name={leagueName} />
         <div className="min-w-0 flex-1">
           <h2 className="flex items-center gap-1.5 text-xl font-bold text-foreground leading-tight">
             <span className="min-w-0 break-words">{leagueName}</span>
-            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-neon-blue transition-colors" />
           </h2>
           <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1">
@@ -403,7 +387,7 @@ function MainPage({
             </span>
           </div>
         </div>
-      </button>
+      </div>
 
       {/* Nav tiles — Settings / Members / Invite / History */}
       <div className="grid grid-cols-4 gap-1.5">
@@ -557,73 +541,6 @@ function MainPage({
           Sign Out
         </button>
       </form>
-    </div>
-  )
-}
-
-// Your Leagues — reached from the league hero's chevron. Tap another
-// league to switch; "+ New" creates one.
-function LeaguesPage({
-  leagues,
-  currentLeagueId,
-  onClose,
-}: {
-  leagues: LeagueSwitcherRow[]
-  currentLeagueId: string
-  onClose: () => void
-}) {
-  const router = useRouter()
-  return (
-    <div className="px-5 sm:px-6 pb-6 pt-2 space-y-1.5">
-      {leagues.map((l) => {
-        const isCurrent = l.id === currentLeagueId
-        const Roi = ROLE_VISUALS[l.role].icon
-        return (
-          <button
-            key={l.id}
-            type="button"
-            disabled={isCurrent}
-            onClick={() => {
-              onClose()
-              router.push(`/leagues/${l.id}`)
-            }}
-            className={cn(
-              'group flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left transition-all',
-              isCurrent
-                ? 'border-neon-blue/50 bg-neon-blue/5 cursor-default'
-                : 'border-white/10 hover:border-neon-blue/40 hover:bg-white/5'
-            )}
-          >
-            <LeagueAvatar leagueId={l.id} size="sm" name={l.name} />
-            <div className="min-w-0 flex-1">
-              <p
-                className={cn(
-                  'text-sm font-semibold truncate',
-                  isCurrent && 'text-neon-blue'
-                )}
-              >
-                {l.name}
-              </p>
-              <p className="inline-flex items-center gap-1 text-[11px] text-muted-foreground capitalize">
-                <Roi className="h-3 w-3" />
-                {ROLE_VISUALS[l.role].label}
-                {isCurrent && ' · Current'}
-              </p>
-            </div>
-            {!isCurrent && (
-              <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-neon-blue group-hover:translate-x-0.5 transition-all" />
-            )}
-          </button>
-        )
-      })}
-      <Link
-        href="/leagues/new"
-        onClick={onClose}
-        className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/10 px-3 py-3 text-[11px] font-bold tracking-widest uppercase text-muted-foreground hover:border-neon-blue/30 hover:text-neon-blue transition-colors"
-      >
-        <Plus className="h-3 w-3" />
-        New league
-      </Link>
     </div>
   )
 }

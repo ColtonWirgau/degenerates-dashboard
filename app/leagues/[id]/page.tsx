@@ -3,7 +3,6 @@ import { Header } from '@/components/header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { PerformanceSection } from '@/components/performance-section'
-import { OffseasonPollsHub } from '@/components/offseason-polls-hub'
 import { WeekSlate } from '@/components/week-slate'
 import { WeekSlateDock } from '@/components/week-slate-dock'
 import { SaveLastLeague } from '@/components/save-last-league'
@@ -11,6 +10,7 @@ import { getWeekSlate, getSeasonOpenerSlate } from '@/lib/data/week-slate'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Lock } from 'lucide-react'
+import { SeasonSetupCallout } from '@/components/season-setup-callout'
 
 export default async function LeaguePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -88,25 +88,15 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
       <SaveLastLeague leagueId={id} />
 
       <main className="container mx-auto px-4 py-8 pb-28 lg:pb-12">
-        {/* Dual-dock — for off-/preseason the dual-dock pivots to polls
-            (results aggregate up top, single-poll editor at the bottom).
-            In-season the league-context dock is folded into the WeekSlate
-            section's heading (<WeekSlateDock>), so this slot only mounts
-            <OffseasonPollsHub>'s top dock for the polls flow. */}
+        {/* Season Setup lives in the SEASON SHEET now (masthead lockup),
+            not the main card — it's league business, not the week's
+            content. This is just the doorway. */}
         {isOffOrPreseason && (
-          <OffseasonPollsHub
-            leagueId={league.id}
-            polls={polls}
-            charter={charter}
-            seasonState={seasonState}
-            currentUserId={me.id}
-            membersCount={members.length}
-            members={members.map((m) => ({
-              id: m.user_id,
-              fullName: m.full_name,
-              email: m.email,
-              avatarUrl: m.avatar_url,
-            }))}
+          <SeasonSetupCallout
+            season={season}
+            openPolls={polls.filter((poll) => poll.status === 'open').length}
+            lockedEntries={charter.filter((e) => e.status === 'locked').length}
+            totalEntries={charter.length}
           />
         )}
 

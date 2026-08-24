@@ -2,7 +2,6 @@
 
 import {
   createContext,
-  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -12,13 +11,12 @@ import {
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronDown, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ScrollHint } from '@/components/ui/scroll-hint'
 import type { SectionAccent } from '@/components/ui/section-header'
 
 const ACCENT: Record<SectionAccent, { text: string }> = {
   blue: { text: 'text-neon-blue' },
   pink: { text: 'text-neon-pink' },
-  green: { text: 'text-neon-green' },
-  purple: { text: 'text-neon-purple' },
 }
 
 // ─── Context — exposes expanded state to children (trailing slot, etc.) ────
@@ -71,7 +69,6 @@ export function SectionDock({
   const [expanded, setExpanded] = useState(false)
   const dockRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const [showScrollIndicator, setShowScrollIndicator] = useState(false)
   const expandable = !!expandedContent
 
   useEffect(() => {
@@ -85,42 +82,6 @@ export function SectionDock({
     document.addEventListener('pointerdown', handle, true)
     return () => document.removeEventListener('pointerdown', handle, true)
   }, [expanded])
-
-  // Scroll-indicator visibility — recomputed on scroll, resize, and any
-  // content-size change inside the panel. Mirrors `<ResponsiveSheet>`'s
-  // approach so dock and sheet read consistently.
-  const checkScrollIndicator = useCallback(() => {
-    const el = scrollContainerRef.current
-    if (!el) return
-    const hasMore = el.scrollHeight > el.clientHeight + 5
-    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 20
-    setShowScrollIndicator(hasMore && !atBottom)
-  }, [])
-
-  useEffect(() => {
-    if (!expanded) return
-    const el = scrollContainerRef.current
-    if (!el) return
-    // Recheck a few times after open in case child charts mount + lay
-    // out in a few frames (animated lines/labels can shift the
-    // effective content height).
-    const ts = [
-      setTimeout(checkScrollIndicator, 50),
-      setTimeout(checkScrollIndicator, 200),
-      setTimeout(checkScrollIndicator, 500),
-    ]
-    el.addEventListener('scroll', checkScrollIndicator)
-    window.addEventListener('resize', checkScrollIndicator)
-    const ro = new ResizeObserver(checkScrollIndicator)
-    ro.observe(el)
-    if (el.firstElementChild) ro.observe(el.firstElementChild)
-    return () => {
-      ts.forEach(clearTimeout)
-      el.removeEventListener('scroll', checkScrollIndicator)
-      window.removeEventListener('resize', checkScrollIndicator)
-      ro.disconnect()
-    }
-  }, [expanded, checkScrollIndicator])
 
   const HeadingTag = expandable ? 'button' : 'div'
 
@@ -221,29 +182,10 @@ export function SectionDock({
                   {expandedContent}
                 </div>
 
-                {/* Scroll-for-more affordance — fades when content fits
-                    or the user has scrolled to the bottom. */}
-                <AnimatePresence>
-                  {showScrollIndicator && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex justify-center"
-                    >
-                      <div className="flex items-center gap-1.5 text-[10px] font-bold tracking-[0.25em] uppercase text-neon-blue [text-shadow:0_0_12px_rgba(0,217,255,0.5)]">
-                        <span>Scroll for more</span>
-                        <motion.div
-                          animate={{ y: [0, 3, 0] }}
-                          transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
-                        >
-                          <ChevronDown className="h-3 w-3" />
-                        </motion.div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                {/* The overflow cue: content blurs out under a mask at
+                    the edges, with a chip while there's real distance
+                    left. See components/ui/scroll-hint. */}
+                <ScrollHint containerRef={scrollContainerRef} />
               </motion.div>
             )}
           </AnimatePresence>

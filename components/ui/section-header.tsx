@@ -1,13 +1,13 @@
 import { type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export type SectionAccent = 'blue' | 'pink' | 'green' | 'purple'
+// The palette is closed: blue carries "good/primary", pink carries
+// "bad/destructive". Anything neutral simply wears less color.
+export type SectionAccent = 'blue' | 'pink'
 
 const ACCENT: Record<SectionAccent, { text: string }> = {
   blue: { text: 'text-neon-blue' },
   pink: { text: 'text-neon-pink' },
-  green: { text: 'text-neon-green' },
-  purple: { text: 'text-neon-purple' },
 }
 
 interface SectionHeaderProps {

@@ -3,6 +3,7 @@
 import { getDataAdapter } from '@/lib/data/adapter'
 import { getCurrentUser } from '@/lib/data/auth-bridge'
 import { getActiveScenario } from '@/lib/data/active-scenario'
+import { getViewSeason } from '@/lib/data/view-season'
 import { generateMockPolls } from '@/lib/data/mock-polls'
 import type { LeaguePoll } from '@/lib/data/mock-polls'
 import { generateMockCharter } from '@/lib/data/mock-charter'
@@ -33,7 +34,7 @@ export async function getLeagueOverview(leagueId: string) {
   // offseason / preseason there's no current season to populate the page
   // with, so we recap the most recently completed one.
   const seasonState = await adapter.getSeasonState()
-  const displaySeason =
+  const naturalSeason =
     seasonState.kind === 'offseason'
       ? seasonState.lastSeason ?? scenario.currentSeason
       : seasonState.kind === 'preseason'
@@ -62,6 +63,19 @@ export async function getLeagueOverview(leagueId: string) {
     await adapter.ensureWeekParlay(leagueId, seasonState.activeWeek.id)
   }
 
+  // The viewer can pin a different season from the masthead's season
+  // picker; the calendar's answer is the default and the fallback.
+  const pinnedSeason = await getViewSeason()
+  const prevOfNatural = (() => {
+    const startYear = parseInt(naturalSeason.split('-')[0]!, 10)
+    return `${startYear - 1}-${startYear}`
+  })()
+  const availableSeasons = [naturalSeason, prevOfNatural]
+  const displaySeason =
+    pinnedSeason && availableSeasons.includes(pinnedSeason)
+      ? pinnedSeason
+      : naturalSeason
+
   const [members, role, currentWeek, parlays, leaderboard, userStats] = await Promise.all([
     adapter.getLeagueMembers(leagueId),
     adapter.getUserRole(leagueId, me.id),
@@ -71,15 +85,6 @@ export async function getLeagueOverview(leagueId: string) {
     adapter.getUserStats(leagueId, me.id, displaySeason),
   ])
   const season = displaySeason
-
-  // Seasons the user can switch between in the user-detail sheet picker.
-  // Mock generates the current scenario season + the immediately-prior one.
-  // Future Sleeper history walking will extend this list.
-  const prevSeason = (() => {
-    const startYear = parseInt(displaySeason.split('-')[0]!, 10)
-    return `${startYear - 1}-${startYear}`
-  })()
-  const availableSeasons = [displaySeason, prevSeason]
 
   // Build per-week summaries the league page expects.
   const allWeeksData = parlays.map((p) => {
