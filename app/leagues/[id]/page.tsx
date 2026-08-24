@@ -74,7 +74,12 @@ export default async function LeaguePage({
           hole, not beside it. On desktop the gutter has to clear the
           bite and then leave air, or the content looks like it's being
           crowded off the card by the rail. */}
-      <main className="container mx-auto px-4 py-8 pb-28 lg:px-14 lg:pb-12">
+      {/* No `container mx-auto` here: the CARD is the container, and it
+          already floats inset from the canvas. Centring a second, capped
+          box inside it left an auto margin that grew with the viewport —
+          which the corner slab's negative margin can't reach, so it
+          could never actually touch the card's edge. */}
+      <main className="w-full px-4 py-8 pb-28 lg:px-14 lg:pb-12">
         <WeekStage
           leagueId={id}
           initial={initial}
