@@ -58,6 +58,17 @@ export function useResponsiveSheet() {
 
 const KEBAB_PAGE_NAME = '__sheetKebabActions';
 
+/**
+ * A sheet panel must never be transparent: callers often pass panelClassName
+ * for layout tweaks without realizing it REPLACES the default panel chrome.
+ * If the caller didn't bring a background themselves (a bg-* or glass-*
+ * utility), keep the default chrome underneath whatever they passed.
+ */
+function withPanelDefaults(defaults: string, panelClassName?: string): string {
+  const hasBg = /(^|\s)(bg-|glass)/.test(panelClassName ?? '');
+  return hasBg ? panelClassName! : `${defaults} ${panelClassName ?? ''}`.trim();
+}
+
 const pageVariants = {
   enter: (direction: number) => ({
     x: direction > 0 ? '100%' : '-100%',
@@ -133,7 +144,11 @@ function SheetContent({
       style={{ overflow: 'hidden' }}
       className={`relative ${topPadding}`}
     >
-      <div ref={measureRef}>
+      {/* flow-root: contain child margins (the back-strip's mt-*) so they
+          count in offsetHeight. Without it the margin collapses out of this
+          div but renders inside the overflow-hidden parent, leaving the
+          animated height short and clipping the page's bottom padding. */}
+      <div ref={measureRef} className="flow-root">
         <AnimatePresence>
           {(canGoBack || activePage?.backBarTrailing) && (
             <motion.div
@@ -250,6 +265,47 @@ export function ResponsiveSheet({
     window.addEventListener('resize', checkMode);
     return () => window.removeEventListener('resize', checkMode);
   }, [modalBreakpoint]);
+
+  // Lock body scroll while the desktop modal is open. Sheet mode gets this
+  // from BottomSheet; the modal branch renders its own overlay and otherwise
+  // leaves the page scrollable behind the backdrop. Escape-to-close comes
+  // along for parity with the sheet. Skipped for custom portal containers
+  // (a widget doesn't own the host page's scroll).
+  useEffect(() => {
+    if (mode !== 'modal' || !open) return;
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleEscape);
+
+    if (!portalContainer) {
+      const scrollY = window.scrollY;
+      // Lock both html and body (needed for iOS Safari)
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.left = '0';
+      document.body.style.right = '0';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      if (!portalContainer) {
+        const top = document.body.style.top;
+        document.documentElement.style.overflow = '';
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.left = '';
+        document.body.style.right = '';
+        if (top) {
+          window.scrollTo(0, parseInt(top, 10) * -1);
+        }
+      }
+    };
+  }, [mode, open, onClose, portalContainer]);
 
   useEffect(() => {
     if (open) {
@@ -461,7 +517,7 @@ export function ResponsiveSheet({
   // a subtle primary-tinted border so it reads as part of the cyberpunk
   // chrome rather than a foreign sheet.
   const defaultPanelClass = 'bg-[#0A0A0A] border-t border-primary/20';
-  const panelClass = panelClassName || defaultPanelClass;
+  const panelClass = withPanelDefaults(defaultPanelClass, panelClassName);
 
   if (mode === 'sheet') {
     return (
@@ -494,7 +550,7 @@ export function ResponsiveSheet({
   }
 
   const modalPanelDefault = 'bg-[#0F0F12] border border-primary/30 rounded-2xl';
-  const modalPanelClass = panelClassName || modalPanelDefault;
+  const modalPanelClass = withPanelDefaults(modalPanelDefault, panelClassName);
 
   const modal = (
     <ResponsiveSheetContext.Provider value={contextValue}>
@@ -506,7 +562,7 @@ export function ResponsiveSheet({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="absolute inset-0 bg-black/40"
+              className="absolute inset-0 bg-black/30 backdrop-blur-sm"
               onClick={onClose}
             />
 

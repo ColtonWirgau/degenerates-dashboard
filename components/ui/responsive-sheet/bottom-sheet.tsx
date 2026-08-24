@@ -279,7 +279,7 @@ export function BottomSheet({
       }`}
     >
       <div
-        className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${
+        className={`absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity duration-300 ${
           open ? 'opacity-100' : 'opacity-0'
         }`}
         style={{ touchAction: 'none' }}
