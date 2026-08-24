@@ -3,10 +3,12 @@
 // since teams change rarely enough that a hand-curated list is fine.
 //
 // Usage:
-//   npx tsx scripts/load-nfl-schedule.ts                # 2026 season + teams
+//   npx tsx scripts/load-nfl-schedule.ts                    # current season + teams
 //   npx tsx scripts/load-nfl-schedule.ts --year 2026
+//   npx tsx scripts/load-nfl-schedule.ts --years 2023,2024,2025
+//   npx tsx scripts/load-nfl-schedule.ts --from 2021 --to 2026   # backfill
 //   npx tsx scripts/load-nfl-schedule.ts --year 2025 --weeks 10,11,12
-//   npx tsx scripts/load-nfl-schedule.ts --teams-only   # refresh nfl_teams only
+//   npx tsx scripts/load-nfl-schedule.ts --teams-only       # refresh nfl_teams only
 //
 // Requires DATABASE_URL in .env.local.
 
@@ -26,7 +28,35 @@ function getArg(name: string): string | undefined {
 
 const flag = (name: string) => process.argv.includes(`--${name}`)
 
-const yearArg = parseInt(getArg('year') ?? '2026', 10)
+// One season (--year 2026), an explicit list (--years 2023,2024,2025), or a
+// range (--from 2021 --to 2026). Defaults to the current season year.
+function defaultSeasonYear(): number {
+  const now = new Date()
+  const yr = now.getUTCFullYear()
+  return now.getUTCMonth() + 1 >= 4 ? yr : yr - 1
+}
+
+function resolveYears(): number[] {
+  const list = getArg('years')
+  if (list) {
+    return list
+      .split(',')
+      .map((n) => parseInt(n.trim(), 10))
+      .filter((n) => Number.isFinite(n))
+  }
+  const from = getArg('from')
+  const to = getArg('to')
+  if (from && to) {
+    const a = parseInt(from, 10)
+    const b = parseInt(to, 10)
+    if (Number.isFinite(a) && Number.isFinite(b) && b >= a) {
+      return Array.from({ length: b - a + 1 }, (_, i) => a + i)
+    }
+  }
+  return [parseInt(getArg('year') ?? String(defaultSeasonYear()), 10)]
+}
+
+const years = resolveYears()
 const weeksArg = getArg('weeks')
   ?.split(',')
   .map((n) => parseInt(n.trim(), 10))
@@ -130,33 +160,42 @@ async function main() {
     process.exit(0)
   }
 
-  const season = `${yearArg}-${yearArg + 1}`
   const weeksToLoad = weeksArg
     ? WEEK_CATALOG.filter((w) => weeksArg.includes(w.weekNumber))
     : WEEK_CATALOG
-  console.log(
-    `\n📅  Loading NFL ${season} schedule for ${weeksToLoad.length} week(s)\n`
-  )
 
   // syncSeason runs the whole catalog; we recreate per-week progress
   // output by calling it once per week so the CLI still streams. (The
   // cron route uses syncSeason whole-cloth.)
   const { syncSeason } = await import('../lib/nfl-schedule')
-  let totalGames = 0
-  for (const spec of weeksToLoad) {
-    process.stdout.write(`  Week ${spec.weekNumber.toString().padStart(2)} (${spec.kind})… `)
-    try {
-      const result = await syncSeason(yearArg, { weekNumbers: [spec.weekNumber] })
-      const inserted = result.totalGames
-      totalGames += inserted
-      console.log(`${inserted} game${inserted === 1 ? '' : 's'} ✓`)
-    } catch (err) {
-      console.log(`failed`)
-      console.error(`    ${err instanceof Error ? err.message : err}`)
+  let grandTotal = 0
+  for (const year of years) {
+    const season = `${year}-${year + 1}`
+    console.log(
+      `\n📅  Loading NFL ${season} schedule for ${weeksToLoad.length} week(s)\n`
+    )
+    let totalGames = 0
+    for (const spec of weeksToLoad) {
+      process.stdout.write(
+        `  Week ${spec.weekNumber.toString().padStart(2)} (${spec.kind})… `
+      )
+      try {
+        const result = await syncSeason(year, { weekNumbers: [spec.weekNumber] })
+        const inserted = result.totalGames
+        totalGames += inserted
+        console.log(`${inserted} game${inserted === 1 ? '' : 's'} ✓`)
+      } catch (err) {
+        console.log(`failed`)
+        console.error(`    ${err instanceof Error ? err.message : err}`)
+      }
     }
+    grandTotal += totalGames
+    console.log(`\n   ${season}: ${totalGames} games upserted.`)
   }
 
-  console.log(`\n✅  Done. ${totalGames} games upserted for ${season}.\n`)
+  console.log(
+    `\n✅  Done. ${grandTotal} games across ${years.length} season(s).\n`
+  )
   process.exit(0)
 }
 

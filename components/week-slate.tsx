@@ -22,6 +22,7 @@ import {
 import { cn } from '@/lib/utils'
 import type { LegRoster } from '@/components/week-detail-sheet'
 import type { SlateGame, SlateTeam } from '@/lib/data/week-slate'
+import { useLiveScores } from '@/lib/hooks/use-live-scores'
 
 interface WeekSlateProps {
   weekNumber: number
@@ -29,6 +30,8 @@ interface WeekSlateProps {
   /** Real schedule for the week (lib/data/week-slate). Null/empty renders
    *  an honest "schedule not loaded" state (e.g. mock mode). */
   games?: SlateGame[] | null
+  /** nfl_weeks id — enables live score polling while the slate runs. */
+  nflWeekId?: string | null
   legs?: LegRoster[]
   currentUserId?: string
   /** Drives default filter state — pre-lock ("open") shows all
@@ -46,6 +49,13 @@ interface WeekSlateProps {
 // ─── Team display helpers (real nfl_teams rows via the slate payload) ──────
 
 const teamColor = (team: SlateTeam): string => team.primaryColor ?? '#1a1a1a'
+
+/** 1–4 → Q1–Q4, 5+ → OT/2OT. Null before kickoff. */
+const periodLabel = (period: number | null): string => {
+  if (period == null) return ''
+  if (period <= 4) return `Q${period}`
+  return period === 5 ? 'OT' : `${period - 4}OT`
+}
 
 // Kickoff time in ET (the group header carries the day).
 const fmtKickoffTime = (iso: string): string =>
@@ -130,12 +140,12 @@ export function SlateCountdown({
 
   if (live) {
     return (
-      <div className="inline-flex items-center gap-2 rounded-full bg-white/[0.04] ring-1 ring-red-500/30 px-2.5 py-1">
+      <div className="inline-flex items-center gap-2 rounded-full bg-white/[0.04] ring-1 ring-neon-pink/30 px-2.5 py-1">
         <span className="relative inline-flex h-2 w-2">
-          <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-ping" />
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+          <span className="absolute inline-flex h-full w-full rounded-full bg-neon-pink opacity-75 animate-ping" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-neon-pink" />
         </span>
-        <span className="text-[10px] font-bold tracking-[0.25em] uppercase text-red-400">
+        <span className="text-[10px] font-bold tracking-[0.25em] uppercase text-neon-pink">
           Slate Live
         </span>
       </div>
@@ -264,12 +274,32 @@ export function WeekSlate({
   weekNumber,
   firstKickoff,
   games: gamesProp,
+  nflWeekId = null,
   legs = [],
   currentUserId,
   parlayState,
   hideHeader = false,
 }: WeekSlateProps) {
-  const games = useMemo(() => gamesProp ?? [], [gamesProp])
+  // Live scores are merged over the server-rendered schedule. The hook is
+  // idle outside the slate window, so this costs nothing most of the week.
+  const { byId: liveById, anyLive } = useLiveScores(nflWeekId)
+  const games = useMemo(() => {
+    const base = gamesProp ?? []
+    if (liveById.size === 0) return base
+    return base.map((g) => {
+      const live = liveById.get(g.id)
+      return live
+        ? {
+            ...g,
+            status: live.status,
+            homeScore: live.homeScore,
+            awayScore: live.awayScore,
+            period: live.period,
+            displayClock: live.displayClock,
+          }
+        : g
+    })
+  }, [gamesProp, liveById])
   const legsByGameIdx = useMemo(
     () => distributeLegsAcrossGames(legs, games.length),
     [legs, games.length]
@@ -329,7 +359,10 @@ export function WeekSlate({
             trailing={
               <SlateCountdown
                 firstKickoff={firstKickoff ?? null}
-                isLive={postLock && parlayState !== 'won' && parlayState !== 'lost'}
+                isLive={
+                  anyLive ||
+                  (postLock && parlayState !== 'won' && parlayState !== 'lost')
+                }
               />
             }
           />
@@ -493,10 +526,17 @@ function GameCard({
         {/* Subtle dark scrim so light logos + names stay readable on
             bright team colors (Steelers yellow, Saints gold, etc). */}
         <div aria-hidden className="absolute inset-0 bg-black/20" />
-        {game.isPrimetime && (
-          <Flame
-            className="absolute right-1.5 top-1.5 h-3 w-3 text-white drop-shadow z-10"
-          />
+        {game.status === 'in-progress' ? (
+          <span className="absolute right-1.5 top-1.5 z-10 inline-flex h-2 w-2" title="Live">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-neon-pink opacity-75" />
+            <span className="bg-neon-pink relative inline-flex h-2 w-2 rounded-full" />
+          </span>
+        ) : (
+          game.isPrimetime && (
+            <Flame
+              className="absolute right-1.5 top-1.5 h-3 w-3 text-white drop-shadow z-10"
+            />
+          )
         )}
         {/* Logos centered in each color half. */}
         <div className="absolute inset-0 flex items-center">
@@ -535,12 +575,18 @@ function GameCard({
         <span
           className={cn(
             'text-[10px] font-bold tracking-widest uppercase tabular-nums',
-            game.isPrimetime ? 'text-foreground/90' : 'text-muted-foreground/80'
+            game.status === 'in-progress'
+              ? 'text-neon-pink'
+              : game.isPrimetime
+                ? 'text-foreground/90'
+                : 'text-muted-foreground/80'
           )}
         >
           {game.status === 'final'
             ? `Final · ${game.awayScore ?? 0}–${game.homeScore ?? 0}`
-            : time}
+            : game.status === 'in-progress'
+              ? `${game.awayScore ?? 0}–${game.homeScore ?? 0} · ${periodLabel(game.period)}`
+              : time}
         </span>
 
         {/* Avatar row — always reserves space so cards stay uniform. */}
@@ -832,7 +878,7 @@ function GameStateBlock({ game }: { game: SlateGame }) {
         homeLabel={game.home.name}
         awayScore={game.awayScore ?? 0}
         homeScore={game.homeScore ?? 0}
-        statusLabel="Final"
+        statusLabel={game.period && game.period > 4 ? 'Final · OT' : 'Final'}
         statusTone="text-muted-foreground"
       />
     )
@@ -849,16 +895,21 @@ function GameStateBlock({ game }: { game: SlateGame }) {
   }
 
   if (game.status === 'in-progress') {
-    // Real scores when the sync caught them; quarter/clock stays
-    // illustrative (hash-derived) until a live feed exists.
-    const h = hashStrSlate(game.away.abbr + game.home.abbr)
-    const quarterIdx = (h >> 8) % 4
-    const quarter = (['Q1', 'Q2', 'Q3', 'Q4'] as const)[quarterIdx]!
-    const clockMin = (h >> 12) % 15
-    const clockSec = (h >> 16) % 60
+    // All real now: score, quarter and clock come off the live feed.
+    const quarter = periodLabel(game.period)
+    const clock = game.displayClock
+    // Rough progress through regulation for the bar — quarters are 15
+    // minutes and the clock counts down.
+    const [clockMin, clockSec] = (clock ?? '').split(':').map((n) => parseInt(n, 10))
+    const elapsedInQuarter = Number.isFinite(clockMin)
+      ? 15 - (clockMin + (Number.isFinite(clockSec) ? clockSec / 60 : 0))
+      : 0
     const gameProgressPct = Math.min(
       100,
-      Math.round(((quarterIdx * 15 + (15 - clockMin)) / 60) * 100)
+      Math.max(
+        0,
+        Math.round((((game.period ?? 1) - 1) * 15 + elapsedInQuarter) / 60 * 100)
+      )
     )
     return (
       <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 space-y-3">
@@ -869,23 +920,21 @@ function GameStateBlock({ game }: { game: SlateGame }) {
           homeScore={game.homeScore ?? 0}
         />
         <div className="flex items-center gap-2.5">
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase text-red-400 shrink-0">
+          <span className="text-neon-pink inline-flex shrink-0 items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase">
             <span className="relative inline-flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-ping" />
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
+              <span className="bg-neon-pink absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
+              <span className="bg-neon-pink relative inline-flex h-1.5 w-1.5 rounded-full" />
             </span>
-            {quarter} · {clockMin}:{clockSec.toString().padStart(2, '0')}
+            {quarter}
+            {clock ? ` · ${clock}` : ''}
           </span>
-          <div className="flex-1 h-1 rounded-full bg-white/5 overflow-hidden">
+          <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/5">
             <div
-              className="h-full bg-red-500/70 rounded-full"
+              className="bg-neon-pink/70 h-full rounded-full transition-[width] duration-500"
               style={{ width: `${gameProgressPct}%` }}
             />
           </div>
         </div>
-        <p className="text-center text-[9px] tracking-widest uppercase text-muted-foreground/50">
-          Clock illustrative — live feed pending
-        </p>
       </div>
     )
   }

@@ -120,7 +120,7 @@ export function ParlayResultAnimation({ result, userParlay }: ParlayResultAnimat
 
     if (hasLoss) {
       return {
-        bg: 'from-red-500/20 to-destructive/20',
+        bg: 'from-neon-pink/20 to-destructive/20',
         text: 'text-destructive',
         border: 'border-destructive/50',
         glow: 'shadow-[0_0_30px_rgba(239,68,68,0.5)]'

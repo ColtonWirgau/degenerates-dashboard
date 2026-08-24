@@ -46,6 +46,14 @@ interface EspnCompetitor {
   team: { abbreviation: string; displayName: string; name?: string }
 }
 
+interface EspnStatus {
+  /** Quarter (1–4, 5+ = OT). Absent before kickoff. */
+  period?: number
+  /** "7:24" — game clock as ESPN formats it. */
+  displayClock?: string
+  type?: { name?: string }
+}
+
 interface EspnEvent {
   id: string
   date: string
@@ -55,9 +63,9 @@ interface EspnEvent {
     competitors: EspnCompetitor[]
     venue?: { fullName?: string }
     broadcasts?: Array<{ market?: string; names?: string[] }>
-    status?: { type?: { name?: string } }
+    status?: EspnStatus
   }>
-  status?: { type?: { name?: string } }
+  status?: EspnStatus
 }
 
 interface EspnResponse {
@@ -211,9 +219,21 @@ export async function upsertGames(
     if (!home || !away) {
       throw new Error(`Missing home/away competitor on event ${ev.id}`)
     }
-    const status = mapStatus(ev.status?.type?.name ?? comp?.status?.type?.name)
-    const homeScore = home.score != null ? parseInt(String(home.score), 10) : null
-    const awayScore = away.score != null ? parseInt(String(away.score), 10) : null
+    const espnStatus = ev.status ?? comp?.status
+    const status = mapStatus(espnStatus?.type?.name)
+    // ESPN reports 0–0 for games that haven't kicked off; storing that as a
+    // real score makes every future game look played. Scores are null until
+    // the ball is actually in the air.
+    const played = status === 'in-progress' || status === 'final'
+    const parseScore = (raw: string | number | undefined) => {
+      if (!played || raw == null) return null
+      const n = parseInt(String(raw), 10)
+      return Number.isFinite(n) ? n : null
+    }
+    const homeScore = parseScore(home.score)
+    const awayScore = parseScore(away.score)
+    const period = played && espnStatus?.period != null ? espnStatus.period : null
+    const displayClock = status === 'in-progress' ? espnStatus?.displayClock ?? null : null
     const kickoff = new Date(ev.date)
     const row = {
       id: ev.id,
@@ -225,9 +245,11 @@ export async function upsertGames(
       kickoff,
       scheduledDay: scheduledDayOf(kickoff),
       isHolidayGame: isHolidayKickoff(kickoff),
-      homeScore: Number.isFinite(homeScore as number) ? homeScore : null,
-      awayScore: Number.isFinite(awayScore as number) ? awayScore : null,
+      homeScore,
+      awayScore,
       status,
+      period,
+      displayClock,
       network: extractNetwork(ev),
       venue: comp?.venue?.fullName ?? null,
       finalAt: status === 'final' ? new Date() : null,
@@ -250,6 +272,8 @@ export async function upsertGames(
           homeScore: row.homeScore,
           awayScore: row.awayScore,
           status: row.status,
+          period: row.period,
+          displayClock: row.displayClock,
           network: row.network,
           venue: row.venue,
           finalAt: row.finalAt,

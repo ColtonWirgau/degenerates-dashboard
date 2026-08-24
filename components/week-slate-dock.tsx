@@ -22,6 +22,8 @@ interface WeekSlateDockProps {
   data: WeekDetailData
   /** Real NFL schedule for the week (null when unavailable, e.g. mock mode). */
   games?: SlateGame[] | null
+  /** nfl_weeks id — enables live score polling in the slate. */
+  nflWeekId?: string | null
   currentUserId: string
   membersCount: number
 }
@@ -84,6 +86,7 @@ function useNow(intervalMs = 60_000) {
 export function WeekSlateDock({
   data,
   games,
+  nflWeekId,
   currentUserId,
   membersCount,
 }: WeekSlateDockProps) {
@@ -146,6 +149,7 @@ export function WeekSlateDock({
           weekNumber={week.week_number}
           firstKickoff={week.deadline || null}
           games={games}
+          nflWeekId={nflWeekId}
           legs={legs}
           currentUserId={currentUserId}
           parlayState={parlayState}
@@ -286,12 +290,12 @@ function LiveTrailing({
           <MiniLiveLegsRow legs={legs} width={Math.min(160, legs.length * 14)} />
         </div>
       )}
-      <div className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.04] ring-1 ring-red-500/30 px-2 py-1">
+      <div className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.04] ring-1 ring-neon-pink/30 px-2 py-1">
         <span className="relative inline-flex h-2 w-2">
-          <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-ping" />
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+          <span className="absolute inline-flex h-full w-full rounded-full bg-neon-pink opacity-75 animate-ping" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-neon-pink" />
         </span>
-        <span className="text-[10px] font-bold tracking-[0.25em] uppercase text-red-400">
+        <span className="text-[10px] font-bold tracking-[0.25em] uppercase text-neon-pink">
           Live
         </span>
       </div>

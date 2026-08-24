@@ -297,12 +297,12 @@ function TrailingSlot({
         </span>
       )}
       {isLive && (
-        <div className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.04] ring-1 ring-red-500/30 px-2 py-1">
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.04] ring-1 ring-neon-pink/30 px-2 py-1">
           <span className="relative inline-flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-ping" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+            <span className="absolute inline-flex h-full w-full rounded-full bg-neon-pink opacity-75 animate-ping" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-neon-pink" />
           </span>
-          <span className="text-[10px] font-bold tracking-[0.25em] uppercase text-red-400">
+          <span className="text-[10px] font-bold tracking-[0.25em] uppercase text-neon-pink">
             Live
           </span>
         </div>
@@ -640,10 +640,10 @@ function LiveScoreCard({
   legCount: number
 }) {
   return (
-    <div className="group relative overflow-hidden rounded-xl border border-red-500/30 bg-gradient-to-br from-red-500/[0.07] via-transparent to-transparent px-4 py-3.5">
+    <div className="group relative overflow-hidden rounded-xl border border-neon-pink/30 bg-gradient-to-br from-neon-pink/[0.07] via-transparent to-transparent px-4 py-3.5">
       <Flame
         aria-hidden
-        className="pointer-events-none absolute -bottom-3 -right-3 h-20 w-20 text-red-500 opacity-[0.08]"
+        className="pointer-events-none absolute -bottom-3 -right-3 h-20 w-20 text-neon-pink opacity-[0.08]"
       />
       <div className="relative flex items-center gap-1.5">
         <motion.span
@@ -651,10 +651,10 @@ function LiveScoreCard({
           transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
           className="relative inline-flex h-2 w-2"
         >
-          <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-ping" />
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+          <span className="absolute inline-flex h-full w-full rounded-full bg-neon-pink opacity-75 animate-ping" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-neon-pink" />
         </motion.span>
-        <p className="text-[10px] font-bold tracking-[0.28em] uppercase text-red-400">
+        <p className="text-[10px] font-bold tracking-[0.28em] uppercase text-neon-pink">
           Live
         </p>
       </div>

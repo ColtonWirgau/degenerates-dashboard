@@ -37,11 +37,17 @@ export interface SlateGame {
   status: 'scheduled' | 'in-progress' | 'final' | 'postponed' | 'canceled'
   homeScore: number | null
   awayScore: number | null
+  /** Quarter (5+ = OT); survives to final. */
+  period: number | null
+  /** Game clock while in progress ("7:24"); null otherwise. */
+  displayClock: string | null
   network: string | null
   venue: string | null
 }
 
 export interface WeekSlatePayload {
+  /** nfl_weeks id — the key the live-score endpoint is addressed by. */
+  nflWeekId: string
   weekNumber: number
   season: string
   /** ALL games in the week, kickoff-ascending. UI filters on `inSlate`. */
@@ -143,6 +149,8 @@ export async function getWeekSlate(
       status: game.status,
       homeScore: game.homeScore,
       awayScore: game.awayScore,
+      period: game.period,
+      displayClock: game.displayClock,
       network: game.network,
       venue: game.venue,
     }))
@@ -152,6 +160,7 @@ export async function getWeekSlate(
   const lockAt = await getCachedLockAt(leagueId, nflWeekId)
 
   return {
+    nflWeekId,
     weekNumber: week.weekNumber,
     season: week.season,
     games,

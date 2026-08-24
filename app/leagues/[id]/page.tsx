@@ -120,6 +120,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
               <WeekSlateDock
                 data={currentWeekData}
                 games={slate?.games ?? null}
+                nflWeekId={slate?.nflWeekId ?? null}
                 currentUserId={me.id}
                 membersCount={members.length}
               />
@@ -152,6 +153,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
             weekNumber={1}
             firstKickoff={slate?.firstInSlateKickoff ?? seasonState.nextKickoff}
             games={slate?.games ?? null}
+            nflWeekId={slate?.nflWeekId ?? null}
           />
         )}
       </main>

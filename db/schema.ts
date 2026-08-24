@@ -308,9 +308,15 @@ export const nflGames = pgTable(
     scheduledDay: text('scheduled_day').notNull(),
     isHolidayGame: boolean('is_holiday_game').notNull().default(false),
 
+    // Null until the ball is in the air — ESPN reports 0–0 pre-kickoff.
     homeScore: integer('home_score'),
     awayScore: integer('away_score'),
     status: gameStatusEnum('status').notNull().default('scheduled'),
+    // Live game state, refreshed while a slate is running. `period` is the
+    // quarter (5+ = OT) and survives to final; `displayClock` ("7:24") is
+    // only meaningful in-progress and is cleared otherwise.
+    period: integer('period'),
+    displayClock: text('display_clock'),
 
     network: text('network'),
     venue: text('venue'),
