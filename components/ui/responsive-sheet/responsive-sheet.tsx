@@ -43,6 +43,8 @@ interface ResponsiveSheetProps {
   sheetMaxHeight?: string;
   panelStyle?: React.CSSProperties;
   hideCloseButton?: boolean;
+  /** Names the dialog, and the control that dismisses it. */
+  label?: string;
 }
 
 /**
@@ -134,7 +136,11 @@ function SheetContent({
   const activePage = pages.find((p) => p.name === currentPage);
   const direction = currentPage === 'main' ? -1 : 1;
 
-  const topPadding = !hasHeader ? 'pt-2' : '';
+  // A headerless sheet has nothing under the grab rail but this, so it
+  // owes the rail its height. `pt-2` was eight pixels against a rail
+  // that needs about twenty-six, which is why every panel's heading came
+  // out with the handle drawn straight through it.
+  const topPadding = !hasHeader ? 'pt-1.5' : '';
 
   const [measureRef, contentHeight] = useMeasuredHeight();
 
@@ -236,6 +242,7 @@ export function ResponsiveSheet({
   sheetMaxHeight,
   panelStyle,
   hideCloseButton = false,
+  label,
 }: ResponsiveSheetProps) {
   const portalContainer = usePortalContainer();
   const [mode, setMode] = useState<SheetMode>('sheet');
@@ -491,6 +498,10 @@ export function ResponsiveSheet({
           panelStyle={panelStyle}
           onContentScroll={isCollapsible ? handleCollapsibleScroll : undefined}
           resetScrollKey={currentPage}
+          // Same rule the modal branch uses: a page that brought its own
+          // top-right actions owns that corner.
+          hideCloseButton={hideCloseButton || !!activeHeaderActions}
+          label={label}
         >
           <SheetContent
             pages={pages}

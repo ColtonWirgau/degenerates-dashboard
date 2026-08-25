@@ -63,13 +63,43 @@ export function PanelReveal({
   }
 
   return (
-    <ResponsiveSheet open={current === panel} onClose={closePanel} sheetMaxHeight="92dvh">
+    <ResponsiveSheet
+      open={current === panel}
+      onClose={closePanel}
+      sheetMaxHeight="92dvh"
+      label={PANEL_LABELS[panel]}
+    >
       {/* No title here: every panel already opens with its own heading,
           and SheetPage only paints one on a drilled-in page anyway. One
-          heading, one place, at every width. */}
-      <SheetPage name="main">{body}</SheetPage>
+          heading, one place, at every width.
+
+          THE SAME BOX THE DESKTOP SLOT GIVES. A panel is written once
+          and shown in two places, and several of them reach their own
+          corner with a negative margin that cancels this padding — the
+          slab behind THE LAY, the one behind THE BOARD. The sheet used
+          to hand them no padding at all, so those margins had nothing to
+          cancel: the slab hung a full 20px off the left edge with the
+          heading cut in half, and the odds ran off the right. */}
+      <SheetPage name="main">
+        <div className="flex min-h-0 flex-1 flex-col px-5 pt-3 pb-4">{body}</div>
+      </SheetPage>
     </ResponsiveSheet>
   )
+}
+
+/** What the sheet is called when it announces itself, and what its close
+ *  button says it closes. */
+const PANEL_LABELS: Record<Exclude<CanvasPanel, null>, string> = {
+  slate: 'weeks',
+  board: 'the board',
+  season: 'the season',
+  parlay: 'the lay',
+  profile: 'your profile',
+  submit: 'your leg',
+  ask: 'ask the league',
+  compose: 'the book',
+  keeper: 'keepers',
+  venue: 'the room',
 }
 
 /** Every season-bound panel is the same object: a heading, then a column
