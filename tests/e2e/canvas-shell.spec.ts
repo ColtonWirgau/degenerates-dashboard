@@ -158,7 +158,7 @@ test.describe('desktop', () => {
     await expect(page.getByRole('button', { name: '+ New' })).toBeVisible()
   })
 
-  test('RULES panel pages into a topic and hands a row to the charter', async ({
+  test('RULES pages topic → item without ever leaving the column', async ({
     page,
     context,
   }) => {
@@ -179,13 +179,37 @@ test.describe('desktop', () => {
     const buyIn = page.getByRole('button', { name: /^Buy-in —/ })
     await expect(buyIn).toBeVisible()
 
-    // Tapping a row closes the panel and opens the charter's own sheet on
-    // that item — the panel reads, the sheet writes.
+    // …and one more page in, to the item itself. This used to close the
+    // panel and raise the charter's sheet over the page — the same
+    // content, in a second kind of surface, somewhere else on screen.
+    // Now it pages in place: the card stays pulled back, no dialog.
     await buyIn.click()
-    await expect(page.locator('.sheet-track.is-slid-right')).toHaveCount(0)
+    await expect(page.getByText('Ratified', { exact: false })).toBeVisible()
+    await expect(page.getByText('$50 · 12 teams · $600 pot')).toBeVisible()
+    await expect(page.locator('.sheet-track.is-slid-right')).toHaveCount(1)
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+
+    // Back walks the same stairs down: item → topic → the book.
+    await page.getByRole('button', { name: /^Stakes$/ }).click()
+    await expect(buyIn).toBeVisible()
+    await page.getByRole('button', { name: /^Rules$/ }).click()
+    await expect(stakes).toBeVisible()
+  })
+
+  test('the draft fixture opens the book at that line', async ({ page, context }) => {
+    await signIn(context)
+    await page.goto('http://localhost:3001/')
+    await page.waitForURL(/\/leagues\//, { timeout: 10_000 })
     await expect(
-      page.getByRole('dialog').getByText('Buy-in', { exact: false }).first()
-    ).toBeVisible({ timeout: 5_000 })
+      page.getByRole('heading', { name: 'Preseason', level: 1 })
+    ).toBeVisible({ timeout: 15_000 })
+
+    // The last thing on the page that pointed at a charter item. It used
+    // to raise the sheet; now it opens the panel, paged to the item.
+    await page.getByRole('button', { name: /Draft date/i }).click()
+    await expect(page.locator('.sheet-track.is-slid-right')).toHaveCount(1)
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect(page.getByText('Mon, Aug 31 · 8:30pm')).toBeVisible()
   })
 })
 

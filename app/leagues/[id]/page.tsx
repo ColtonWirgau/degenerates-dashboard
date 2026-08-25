@@ -143,8 +143,6 @@ async function PreseasonStage({ payload: p }: { payload: Payload }) {
         seasonState={p.seasonState}
         currentUserId={p.me.id}
         membersCount={p.members.length}
-        canManage={p.currentUserRole === 'owner' || p.currentUserRole === 'admin'}
-        nflWeekId={preseasonWeek?.nflWeekId ?? ''}
         members={p.members.map((m) => ({
           id: m.user_id,
           fullName: m.full_name,

@@ -32,6 +32,7 @@ import {
 import { ProfilePanel } from '@/components/chrome/panels/profile-panel'
 import { RulesPanel } from '@/components/chrome/panels/rules-panel'
 import { groupCharter, unsettledCount } from '@/lib/charter-groups'
+import { getCharterPollsCached } from '@/lib/data/charter-polls-cached'
 import { ComposePanel } from '@/components/chrome/panels/compose-panel'
 import { AskPanel } from '@/components/chrome/panels/ask-panel'
 
@@ -154,6 +155,17 @@ export default async function LeagueShellLayout({
   const preseasonWeekId =
     chromeWeeks.find((w) => w.kind === 'preseason')?.id ?? ''
 
+  // The book's own votes, so paging into an item in the RULES panel can
+  // show the question rather than send you somewhere else to answer it.
+  // Shared with the preseason page through React cache().
+  const charterPolls = await getCharterPollsCached(p.league.id, preseasonWeekId)
+  const pollMembers = p.members.map((m) => ({
+    id: m.user_id,
+    fullName: m.full_name,
+    email: m.email,
+    avatarUrl: m.avatar_url,
+  }))
+
   // The roster, each carrying their record for the season being shown —
   // the season panel is where "who was in it and how did they do" gets
   // answered, so the two facts travel together.
@@ -237,7 +249,15 @@ export default async function LeagueShellLayout({
           }
           rulesPanel={
             <PanelReveal panel="rules">
-              <RulesPanel charter={p.charter} editable={canManage} />
+              <RulesPanel
+                leagueId={p.league.id}
+                season={p.season}
+                charter={p.charter}
+                polls={charterPolls}
+                members={pollMembers}
+                currentUserId={p.me.id}
+                canManage={canManage}
+              />
             </PanelReveal>
           }
           submitPanel={
