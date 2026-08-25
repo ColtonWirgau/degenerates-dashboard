@@ -125,12 +125,18 @@ test('the ballot is voted on in place, not behind a sheet', async ({ page }) => 
   // say "Rank your top 3", which described the control rather than the
   // job. The chips number themselves as you tap.
   await expect(stage.getByText('Cast Your Vote')).toHaveCount(2)
-  await expect(stage.getByText('Yes', { exact: true })).toBeVisible()
+  // The CHIP, by role — not the bare word. This asserted on any text
+  // reading exactly "Yes", which is unique only while nobody has voted:
+  // once someone does, the entry row summarises their answer in the same
+  // word and the locator matches two things. The claim here is that the
+  // control is on the page, so ask for the control.
+  const yes = stage.getByRole('button', { name: /^Yes\b/ })
+  await expect(yes.first()).toBeVisible()
   await expect(page.getByRole('dialog')).toHaveCount(0)
 
   // Pressing the question doesn't put it away — there's nothing to press.
   await stage.getByText('League Median Game').click()
-  await expect(stage.getByText('Yes', { exact: true })).toBeVisible()
+  await expect(yes.first()).toBeVisible()
 
   // An open poll is votable whatever the row's provenance. This entry is
   // source='manual' with a live poll attached, and requiring

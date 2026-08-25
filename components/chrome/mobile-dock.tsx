@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Check,
-  Layers,
   Lock,
   LockOpen,
   MessageCircleQuestion,
@@ -35,17 +34,20 @@ import { setWeekLock } from '@/app/actions/week-lock'
  * five fixed SLOTS that never move — the center slot is THE button, an
  * electric-blue disc, the one distinguished thing on the bar.
  *
- *   root:     LAY · BOARD · (+) · SEASON
- *   verbs:      (✕) · the week's verbs, blooming to its right
+ *   root:      BOARD · (+) · SEASON
+ *   verbs:     (✕) · the week's verbs, blooming to its right
  *
- * NO WEEK CELL. RoarTracker's dock carries the games because nothing
- * else does; DD's hero opens with "‹ ALL WEEKS" above the week's name
- * set in 60px type, on every stage — the week hero, the draft hero and
- * the recap. A WK 1 cell was a second door to the same room, one screen
- * inch away, whispering what the page was already shouting. Dropping it
- * also squares the bar: on week 0 and the recap the lay collapses too,
- * leaving BOARD · (+) · SEASON with the disc on dead centre instead of
- * parked a third of the way in with a hole beside it.
+ * NO WEEK CELL, NO LAY CELL. RoarTracker's dock carries the games and
+ * the money because nothing else does. DD's HERO carries both: it opens
+ * with "‹ ALL WEEKS" over the week's name in 60px type, and the far end
+ * of the same band is "THE LAY ›". Both were second doors to rooms the
+ * hero already had a door to, an inch up the screen, whispering what
+ * the page was saying out loud.
+ *
+ * What's left is what the hero does NOT say: the standings, and the
+ * season. Three slots, and the disc parks dead centre in every posture
+ * — no cell appearing or vanishing with the week, so the bar never
+ * reshuffles under a thumb.
  *
  * It is the phone's whole navigation, so it has to carry what the
  * desktop carries — and the desktop carries TWO things a phone can't
@@ -118,19 +120,6 @@ export function MobileDock() {
   // must not reshuffle under a thumb — and go quiet until the real ones
   // land. Same treatment as the desktop rail's faces.
   const waiting = chrome.switching
-  const layCell: Face = {
-    key: `lay-${waiting ? 'switching' : (week?.submissionCount ?? 0)}`,
-    label: 'The lay',
-    onClick: () => openPanel('parlay'),
-    content: waiting ? (
-      <Waiting />
-    ) : (week?.submissionCount ?? 0) > 0 ? (
-      <span className="font-display text-[0.82rem]">{week!.submissionCount}</span>
-    ) : (
-      <Layers size={16} strokeWidth={2.25} />
-    ),
-    below: 'Lay',
-  }
   const boardCell: Face = {
     key: `board-${waiting ? 'switching' : (chrome.myRank ?? '')}`,
     label: 'Leaderboard',
@@ -256,22 +245,16 @@ export function MobileDock() {
           ...verbs,
           ...Array<null>(Math.max(0, 4 - verbs.length)).fill(null),
         ].slice(0, 5) as (Face | 'park' | null)[])
-      : [
-          week?.parlayId != null && !onRecap ? layCell : null,
-          boardCell,
-          'park',
-          seasonCell,
-          null,
-        ]
+      : [boardCell, 'park', seasonCell]
 
   // WHERE THE DISC SITS: over its park, wherever that lands.
   //
   // It used to be pinned at 50%, which is only the park's centre when
-  // all five slots are live. Week 0 has no lay, that slot collapses,
-  // and the disc drifted off its own hole to sit on the boundary
-  // between the park and BOARD. Counting the slots that actually hold a
-  // share puts it back on the park in every posture — including the
-  // verbs page, where the park is the left end.
+  // every slot is live — a collapsed cell slid the park out from under
+  // it, onto the boundary with its neighbour. Root is symmetric now and
+  // 50% happens to be right, but the VERBS page parks at the left end
+  // and a member's page holds fewer verbs than a commissioner's, so the
+  // position still has to be counted rather than assumed.
   const shares = slots.filter((sl) => sl !== null)
   const parkAt = shares.indexOf('park')
   const at = shares.length > 0 && parkAt >= 0 ? (parkAt + 0.5) / shares.length : 0.5
