@@ -76,7 +76,7 @@ export function SeasonRecap({
           type="button"
           onClick={() => openPanel('slate')}
           aria-label={`${data.season} — open the week list`}
-          className="relative -mt-8 -ml-4 flex w-[7.5rem] shrink-0 items-center justify-center overflow-hidden rounded-tl-[20px] pt-8 pb-5 transition-[filter] hover:brightness-125 lg:-ml-14 lg:w-[8.75rem] lg:pl-6"
+          className="relative -mt-8 -ml-4 flex w-[7.5rem] shrink-0 items-center justify-center overflow-hidden rounded-tl-[20px] pt-8 pb-5 transition-[filter] hover:brightness-125 lg:-ml-20 lg:w-[8.75rem] lg:pl-6"
           style={{
             clipPath: 'polygon(0 0, 100% 0, calc(100% - 13px) 100%, 0 100%)',
             background:
@@ -264,7 +264,7 @@ function RecapSkeleton() {
       <header className="flex items-stretch gap-4">
         <div
           aria-hidden
-          className="relative -mt-8 -ml-4 flex w-[7.5rem] shrink-0 items-center justify-center overflow-hidden rounded-tl-[20px] pt-8 pb-5 lg:-ml-14 lg:w-[8.75rem] lg:pl-6"
+          className="relative -mt-8 -ml-4 flex w-[7.5rem] shrink-0 items-center justify-center overflow-hidden rounded-tl-[20px] pt-8 pb-5 lg:-ml-20 lg:w-[8.75rem] lg:pl-6"
           style={{
             clipPath: 'polygon(0 0, 100% 0, calc(100% - 13px) 100%, 0 100%)',
             background:

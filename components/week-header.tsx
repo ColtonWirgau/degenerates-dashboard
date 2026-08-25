@@ -159,7 +159,7 @@ export function WeekCornerDoor({
           : `Week ${weekNumber} — open the week list`
       }
       className={cn(
-        'group relative -mt-8 -ml-4 flex shrink-0 items-center justify-center overflow-hidden rounded-tl-[20px] pt-8 pb-5 transition-[filter] hover:brightness-125 lg:-ml-14',
+        'group relative -mt-8 -ml-4 flex shrink-0 items-center justify-center overflow-hidden rounded-tl-[20px] pt-8 pb-5 transition-[filter] hover:brightness-125 lg:-ml-20',
         // A digit gets a fixed box; a word gets the width it needs. The
         // slanted edge and the corner radius don't care how wide it is.
         label

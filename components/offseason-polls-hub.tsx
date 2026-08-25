@@ -277,7 +277,12 @@ function SeasonSetup({
             // weight, and a heading isn't obliged to have a right-hand
             // end just because the one under it does.
           />
-          <div className="mb-8 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
+          {/* Capped and centred. A date, a place, a format and five
+              keeper rules is a small object; at the card's full width the
+              two halves ended up a thousand pixels apart with nothing
+              between them. The section's rule above still spans the whole
+              width — it's the heading of the section, not of the card. */}
+          <div className="mx-auto mb-8 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02] lg:max-w-4xl">
             <DraftCard
               entries={draftEntries.map((e) => ({
                 key: e.key,

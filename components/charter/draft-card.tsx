@@ -83,11 +83,9 @@ export function DraftCard({
   const settled = when.raw != null
 
   return (
-    // TWO COLUMNS from lg. The fixture was a band across the top with the
-    // keeper rules in a band underneath, which left the right half of the
-    // fixture empty at any real width — a date, a place and a format
-    // stretched across 1700px. Side by side, the card is full and the two
-    // halves are what they are: when and where, then the small print.
+    // TWO COLUMNS from lg. The card's own width is capped and centred by
+    // its wrapper — a fixture is a small object and stretching it across
+    // a 1700px card put a thousand pixels of nothing between the halves.
     <div className="lg:flex lg:items-stretch">
       {/* THE FIXTURE. Date on its slab, the two facts you'd text someone
           beside it. */}
@@ -150,7 +148,7 @@ export function DraftCard({
           material, and they take the card's right half rather than a
           band under everything. */}
       {keepers.length > 0 && (
-        <div className="px-3 py-2.5 lg:w-[46%] lg:shrink-0 lg:py-3">
+        <div className="px-3 py-2.5 lg:w-[21rem] lg:shrink-0 lg:py-3">
           <p className="text-muted-foreground/60 mb-2 text-[9px] font-bold tracking-[0.3em] uppercase">
             Keepers
           </p>
