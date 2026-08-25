@@ -22,7 +22,6 @@ import { cn } from '@/lib/utils'
 import type {
   LeaguePoll,
   PollOption,
-  PollOptionPolicy,
   RankedSelection,
 } from '@/lib/data/mock-polls'
 import {
@@ -46,6 +45,7 @@ export function InlinePollVote({
   onOptionReaction,
   sessionAddedOptions,
   onAddOption,
+  canManage = false,
 }: {
   poll: LeaguePoll
   currentUserId: string
@@ -56,6 +56,8 @@ export function InlinePollVote({
   onOptionReaction: (optionId: string, value: 1 | -1 | null) => void
   sessionAddedOptions: PollOption[]
   onAddOption: (label: string) => void
+  /** Owners and admins put things on the ballot; everyone else votes. */
+  canManage?: boolean
 }) {
   // Merge session-added options into the poll's roster so the user
   // sees their just-added option immediately.
@@ -111,12 +113,10 @@ export function InlinePollVote({
         />
       )}
 
-      {/* Add-option control — visible when the poll allows it */}
-      {(poll.optionPolicy === 'open' || poll.optionPolicy === 'curated') && (
-        <AddOptionControl
-          policy={poll.optionPolicy}
-          onSubmit={onAddOption}
-        />
+      {/* Add-option control — the commish's, on a poll whose options
+          aren't fixed. */}
+      {canManage && poll.optionPolicy !== 'closed' && (
+        <AddOptionControl onSubmit={onAddOption} />
       )}
     </div>
   )
@@ -610,12 +610,10 @@ export function PendingOptionsLane({
   )
 }
 
-// ─── Add option (open + curated polls) ─────────────────────────────────────
+// ─── Add option (commish only) ─────────────────────────────────────────────
 export function AddOptionControl({
-  policy,
   onSubmit,
 }: {
-  policy: PollOptionPolicy
   onSubmit: (label: string) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -630,9 +628,6 @@ export function AddOptionControl({
       >
         <Hammer className="h-3 w-3" />
         Add an option
-        <span className="text-muted-foreground/80 normal-case font-medium tracking-normal ml-1">
-          {policy === 'curated' ? '(commish approves)' : '(goes live immediately)'}
-        </span>
       </button>
     )
   }
@@ -652,11 +647,7 @@ export function AddOptionControl({
       <textarea
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
-        placeholder={
-          policy === 'curated'
-            ? 'Pitch an idea — commish reviews before it joins the vote'
-            : 'Add your option — goes live immediately'
-        }
+        placeholder="Another thing they could be made to do…"
         rows={2}
         className="w-full rounded-md bg-black/30 border border-white/10 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-neon-pink/50 resize-none"
       />
@@ -677,7 +668,7 @@ export function AddOptionControl({
           disabled={draft.trim().length === 0}
           className="px-3 py-1.5 rounded-md text-[11px] font-bold tracking-widest uppercase text-primary-foreground bg-neon-pink disabled:opacity-40 disabled:cursor-not-allowed hover:bg-neon-pink/90 transition-colors"
         >
-          {policy === 'curated' ? 'Submit for review' : 'Add option'}
+          Add option
         </button>
       </div>
     </div>

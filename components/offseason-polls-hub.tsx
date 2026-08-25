@@ -47,6 +47,8 @@ interface OffseasonPollsHubProps {
   membersCount: number
   /** Roster — drives avatars on chart bars and open-text responses. */
   members: PollMember[]
+  /** Owners and admins put things on the ballot; everyone else votes. */
+  canManage: boolean
 }
 
 // Ranked-choice tally — plurality-weighted (3 pts for 1st, 2 for 2nd, 1
@@ -69,6 +71,7 @@ export function OffseasonPollsHub({
   currentUserId,
   membersCount,
   members,
+  canManage,
 }: OffseasonPollsHubProps) {
   void seasonState
   void membersCount
@@ -132,6 +135,7 @@ export function OffseasonPollsHub({
       membersById={membersById}
       membersCount={membersCount}
       currentUserId={currentUserId}
+      canManage={canManage}
       sessionPollVotes={sessionVotes}
       onPollVote={recordVote}
       sessionOptionReactions={sessionOptionReactions}
@@ -166,6 +170,7 @@ function SeasonSetup({
   membersById,
   membersCount,
   currentUserId,
+  canManage,
   sessionPollVotes,
   onPollVote,
   sessionOptionReactions,
@@ -180,6 +185,7 @@ function SeasonSetup({
   membersById: Map<string, PollMember>
   membersCount: number
   currentUserId: string
+  canManage: boolean
   sessionPollVotes: Map<string, SessionVote>
   onPollVote: (pollId: string, vote: SessionVote) => void
   sessionOptionReactions: Map<string, 1 | -1 | null>
@@ -330,6 +336,7 @@ function SeasonSetup({
                   onOptionReaction={onOptionReaction}
                   sessionAddedOptions={sessionAddedOptions}
                   onAddOption={onAddOption}
+                  canManage={canManage}
                 />
               </BallotCard>
             ))}

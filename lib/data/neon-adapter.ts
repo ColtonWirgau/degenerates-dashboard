@@ -1013,12 +1013,15 @@ export const neonAdapter: DataAdapter = {
     const p = await db.select().from(polls).where(eq(polls.id, pollId)).limit(1)
     if (!p[0]) throw new Error(`poll ${pollId} not found`)
     if (p[0].optionPolicy === 'closed') {
-      throw new Error('Poll is closed to member option additions.')
+      throw new Error('This poll has a fixed set of options.')
     }
-    const status = p[0].optionPolicy === 'open' ? 'approved' : 'pending'
+    // Straight onto the ballot. A 'curated' poll used to land additions
+    // in a pending lane for the commish to promote — but the action above
+    // now only lets the commish add at all, so the approver and the
+    // author are the same person and the queue was one waiting on itself.
     await db
       .insert(pollOptions)
-      .values({ pollId, label, addedBy: userId, status, sortOrder: 999 })
+      .values({ pollId, label, addedBy: userId, status: 'approved', sortOrder: 999 })
   },
 
   async reactToPollOption(pollId, optionId, userId, value) {

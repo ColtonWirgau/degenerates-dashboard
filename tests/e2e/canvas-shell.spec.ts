@@ -9,10 +9,13 @@ import { eq } from 'drizzle-orm'
 import { randomBytes } from 'crypto'
 
 const VIEWER_EMAIL = 'coltonwirgau@gmail.com'
+/** Somebody with no role — the league's controls must not offer to him. */
+const MEMBER_EMAIL = 'joecrabb85@gmail.com'
 
 let pool: Pool
 let db: ReturnType<typeof drizzle>
 let sessionToken = ''
+let memberToken = ''
 
 test.beforeAll(async () => {
   pool = new Pool({ connectionString: process.env.DATABASE_URL })
@@ -29,18 +32,32 @@ test.beforeAll(async () => {
     userId: viewer[0].id,
     expires: new Date(Date.now() + 24 * 3600 * 1000),
   })
+
+  const member = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, MEMBER_EMAIL))
+    .limit(1)
+  if (!member[0]) throw new Error(`No user ${MEMBER_EMAIL}`)
+  memberToken = randomBytes(32).toString('hex')
+  await db.insert(sessions).values({
+    sessionToken: memberToken,
+    userId: member[0].id,
+    expires: new Date(Date.now() + 24 * 3600 * 1000),
+  })
 })
 
 test.afterAll(async () => {
   await db.delete(sessions).where(eq(sessions.sessionToken, sessionToken))
+  await db.delete(sessions).where(eq(sessions.sessionToken, memberToken))
   await pool.end()
 })
 
-async function signIn(context: BrowserContext) {
+async function signIn(context: BrowserContext, token = sessionToken) {
   await context.addCookies([
     {
       name: 'authjs.session-token',
-      value: sessionToken,
+      value: token,
       domain: 'localhost',
       path: '/',
       httpOnly: true,
@@ -198,6 +215,31 @@ test.describe('desktop', () => {
     // …and one step back is the whole book again.
     await page.getByRole('button', { name: /^Rules$/ }).click()
     await expect(page.getByText('Flag to commish team')).toBeVisible()
+  })
+
+  test('a plain member gets neither the pod nor the ballot’s controls', async ({
+    page,
+    context,
+  }) => {
+    await signIn(context, memberToken)
+    await page.goto('http://localhost:3001/')
+    await page.waitForURL(/\/leagues\//, { timeout: 10_000 })
+    await expect(
+      page.getByRole('heading', { name: 'Preseason', level: 1 })
+    ).toBeVisible({ timeout: 15_000 })
+
+    // He votes like everyone else…
+    await expect(page.locator('.sheet-track').getByText('Cast Your Vote')).toHaveCount(2)
+
+    // …but putting things ON the ballot is the commish's. Both of these
+    // were open to anyone: the add-option control said "(commish
+    // approves)" and queued a pitch for promotion, which was two steps
+    // and an approval lane to reach somewhere one person could just type.
+    await expect(
+      page.locator('.sheet-track').getByRole('button', { name: /add an option/i })
+    ).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'actions' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'rules panel' })).toBeVisible()
   })
 
   test('the draft fixture opens the book at that line', async ({ page, context }) => {

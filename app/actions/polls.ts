@@ -43,6 +43,14 @@ export async function addPollOption(
   const trimmed = label.trim()
   if (!trimmed) return { success: false, error: 'Option label is empty' }
   const adapter = await getDataAdapter()
+  // Adding to the ballot is the commish's, same as opening the question
+  // in the first place. It used to be anyone's, with a curated flow where
+  // a member pitched and the commish promoted — two steps and an approval
+  // queue to get to a place one person could just type.
+  const role = await adapter.getUserRole(leagueId, me.id)
+  if (role !== 'owner' && role !== 'admin') {
+    return { success: false, error: 'Only the commish can add options' }
+  }
   try {
     await adapter.addPollOption(pollId, me.id, trimmed)
   } catch (err) {

@@ -141,6 +141,7 @@ export function WeekPolls({
                 onAddOption={(label) =>
                   voting.addOption(poll.id, label, poll.optionPolicy)
                 }
+                canManage={canAsk}
               />
               {canAsk && (
                 <Settle

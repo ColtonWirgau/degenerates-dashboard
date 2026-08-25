@@ -305,6 +305,7 @@ function ItemPage({
           onOptionReaction={voting.setOptionReaction}
           sessionAddedOptions={voting.sessionAddedOptions}
           onAddOption={voting.addOption}
+          canManage={canManage}
         />
         {canManage && (
           <NameControls
