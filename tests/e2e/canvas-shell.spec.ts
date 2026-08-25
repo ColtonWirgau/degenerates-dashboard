@@ -250,9 +250,9 @@ test.describe('desktop', () => {
       page.getByRole('heading', { name: 'Preseason', level: 1 })
     ).toBeVisible({ timeout: 15_000 })
 
-    // The last thing on the page that pointed at a charter item. It used
-    // to raise the sheet; now it opens the panel, paged to the item.
-    await page.getByRole('button', { name: /Draft date/i }).click()
+    // The hero's facts each point at their own line in the book. This
+    // used to raise the charter's sheet; now it pages the panel to it.
+    await page.getByRole('button', { name: /^Draft date/i }).click()
     await expect(page.locator('.sheet-track.is-slid-right')).toHaveCount(1)
     await expect(page.getByRole('dialog')).toHaveCount(0)
     await expect(page.getByText('Mon, Aug 31 · 8:30pm')).toBeVisible()

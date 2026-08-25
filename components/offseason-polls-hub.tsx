@@ -16,7 +16,7 @@ import {
   type SessionVote,
 } from '@/components/polls/types'
 import { usePollVoting } from '@/components/polls/use-poll-voting'
-import { DraftCard } from '@/components/charter/draft-card'
+import { KeepersCard } from '@/components/charter/keepers-card'
 import { EntryAction } from '@/components/charter/entry-action'
 import type {
   LeaguePoll,
@@ -30,7 +30,6 @@ import {
   groupFor,
   type EntryGroup,
 } from '@/lib/charter-groups'
-import { openCharterGroup } from '@/components/chrome/canvas-store'
 import type { SeasonState } from '@/lib/data/types'
 
 export type { PollMember }
@@ -260,39 +259,19 @@ function SeasonSetup({
           inside a list of groups, and a section that isn't in a list
           doesn't need one — the heading names it and the count moves to
           the far end like every other section's does. */}
-      {draftEntries.length > 0 && (
-        <>
-          {/* No heading over this one. The card IS the draft — a slab
-              with the date on it, the place, the format — so a ruled row
-              above saying DRAFT was labelling something that had already
-              introduced itself. The word moved onto the card, next to
-              KEEPERS, where it names the half it belongs to. */}
-          {/* THE SAME COLUMN AS EVERYTHING ELSE. It was capped at 4xl,
-              which put its right edge 168px inside the right-hand VOTE
-              card — an edge that lined up with nothing, on a page where
-              every other edge lines up. The void it was capped to escape
-              was never the width; it was the keepers hugging the far
-              right of a half-empty row. That's fixed inside the card. */}
-          <div className="mt-6 mb-10 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
-            <DraftCard
-              entries={draftEntries.map((e) => ({
-                key: e.key,
-                label: e.label,
-                value: e.value,
-                status: e.status,
-              }))}
-              // Pressing a fact on the fixture opens the book at that
-              // line — the RULES panel, paged to it. It used to raise a
-              // sheet over the page instead, which is the same content
-              // in a second kind of surface for no reason.
-              onOpenEntry={(key) => {
-                const entry = draftEntries.find((e) => e.key === key)
-                openCharterGroup('Draft', entry?.id)
-              }}
-            />
-          </div>
-        </>
-      )}
+      {/* THE KEEPER RULES. The rest of the draft — when, where, what
+          format — is the page's hero now; what's left is the small print
+          you look up mid-argument, so it's set as reference material and
+          nothing more. */}
+      <KeepersCard
+        entries={draftEntries.map((e) => ({
+          id: e.id,
+          key: e.key,
+          label: e.label,
+          value: e.value,
+          status: e.status,
+        }))}
+      />
 
       {ballot.length > 0 && (
         <>
