@@ -42,6 +42,32 @@ import { CalendarDays } from 'lucide-react'
 import { openCharterGroup, openPanel } from '@/components/chrome/canvas-store'
 import { cn } from '@/lib/utils'
 
+/**
+ * WHERE THE DIAGONAL FALLS — and why these are written out longhand.
+ *
+ * The ROOM's half is deliberately narrower than half. object-cover on a
+ * 9:1 slot from 16:9 footage crops away four fifths of the frame's
+ * height, so the WIDER that half gets the LESS of the room you can
+ * actually see. But it still has to hold a venue's name — at 700px, 36%
+ * is 250px and DON CHRISTOS doesn't fit — so it only reaches its
+ * narrowest once there's width to spare.
+ *
+ * These are literal strings on purpose. Tailwind reads the source as
+ * text: a class built from a template literal is invisible to it and no
+ * CSS is generated, which is exactly what happened here — the whole
+ * right-hand half disappeared at every size. The seam is one number
+ * repeated in four places, so it's stated once here, in full, and the
+ * two that must agree sit on adjacent lines.
+ *
+ *   the slant:   46px
+ *   the seam:    52% at sm, 64% at lg
+ */
+const SEAM_WIDTH = 'sm:w-[52%] lg:w-[64%]'
+const SEAM_CLIP =
+  'sm:[clip-path:polygon(0_0,100%_0,calc(100%-46px)_100%,0_100%)]'
+const FOOTAGE_LEFT = 'sm:left-[calc(52%-46px)] lg:left-[calc(64%-46px)]'
+const FOOTAGE_CLIP = 'sm:[clip-path:polygon(46px_0,100%_0,100%_100%,0_100%)]'
+
 export interface DraftHeroEntry {
   id: string
   key: string
@@ -100,7 +126,7 @@ export function DraftHero({ entries, leagueName, memberCount }: DraftHeroProps) 
           the picture. Sitting it inside the right-hand half instead left
           a hard vertical edge where the video started, cutting across
           the slant it was supposed to be hidden behind. */}
-      <div className="relative flex h-[9.5rem] items-stretch overflow-hidden lg:h-[11.5rem]">
+      <div className="relative flex flex-col overflow-hidden sm:h-[10.5rem] sm:flex-row sm:items-stretch lg:h-[12.5rem]">
         <VenueFootage />
         {/* THE WEEK — its name, and the door to the list of them. Tinted
             and slanted, the same slab grammar every other week's corner
@@ -112,9 +138,12 @@ export function DraftHero({ entries, leagueName, memberCount }: DraftHeroProps) 
           type="button"
           onClick={openWeeks}
           aria-label="Preseason — open the week list"
-          className="group relative z-20 flex w-[58%] shrink-0 flex-col items-start justify-center pr-12 pl-4 text-left transition-[filter] hover:brightness-110 sm:w-[54%] lg:pl-20"
+          className={cn(
+            'group relative z-20 flex w-full flex-col items-start justify-center px-4 py-5 text-left transition-[filter] hover:brightness-110 sm:shrink-0 sm:py-0 sm:pr-12 lg:pl-20',
+            SEAM_WIDTH,
+            SEAM_CLIP
+          )}
           style={{
-            clipPath: 'polygon(0 0, 100% 0, calc(100% - 46px) 100%, 0 100%)',
             // Opaque base, THEN the tint. A translucent panel would let
             // the footage through the half that's meant to be ink.
             backgroundColor: '#0A0A0A',
@@ -132,7 +161,7 @@ export function DraftHero({ entries, leagueName, memberCount }: DraftHeroProps) 
             date that opened the LOCATION entry because it happened to
             sit inside that button is the kind of thing nobody notices
             until they're editing the wrong row. */}
-        <div className="relative z-10 flex min-w-0 flex-1 flex-col items-end justify-center pr-4 pl-14 text-right lg:pr-20">
+        <div className="relative z-10 flex min-w-0 flex-1 flex-col items-start justify-center px-4 py-5 text-left sm:items-end sm:py-0 sm:pl-14 sm:text-right lg:pr-20">
           <button
             type="button"
             onClick={() => openEntry('draft-date')}
@@ -174,13 +203,16 @@ export function DraftHero({ entries, leagueName, memberCount }: DraftHeroProps) 
         >
           {format ?? 'Format not settled'}
         </button>
-        <span aria-hidden className="text-muted-foreground/30 hidden text-[10px] sm:inline">
+        <span aria-hidden className="text-muted-foreground/30 text-[10px]">
           ·
         </span>
-        <span className="text-muted-foreground hidden shrink-0 text-[10px] font-bold tracking-[0.22em] uppercase sm:inline">
+        <span className="text-muted-foreground shrink-0 text-[10px] font-bold tracking-[0.22em] uppercase">
           {memberCount} teams
         </span>
-        <span className="text-muted-foreground/50 ml-auto min-w-0 truncate text-[10px] font-bold tracking-[0.22em] uppercase">
+        {/* The league's name is the first thing to go: it's the least
+            useful of the four and the only one that can't be shortened
+            without lying. */}
+        <span className="text-muted-foreground/50 ml-auto hidden min-w-0 truncate text-[10px] font-bold tracking-[0.22em] uppercase lg:block">
           {leagueName}
         </span>
         <Perforation />
@@ -199,7 +231,16 @@ export function DraftHero({ entries, leagueName, memberCount }: DraftHeroProps) 
  */
 function VenueFootage() {
   return (
-    <span aria-hidden className="absolute inset-0 overflow-hidden">
+    <span
+      aria-hidden
+      className={cn(
+        // Below sm the band is stacked, so the footage takes the bottom
+        // half and there's no diagonal to match.
+        'absolute inset-x-0 top-1/2 bottom-0 overflow-hidden sm:inset-y-0 sm:right-0 sm:top-0',
+        FOOTAGE_LEFT,
+        FOOTAGE_CLIP
+      )}
+    >
       <video
         autoPlay
         muted
@@ -207,24 +248,27 @@ function VenueFootage() {
         playsInline
         poster="/media/don-christos.jpg"
         preload="metadata"
-        className="h-full w-full object-cover opacity-45 motion-reduce:hidden"
-        style={{ objectPosition: 'center 42%', filter: 'blur(3px)' }}
+        className="h-full w-full object-cover opacity-[0.65] motion-reduce:hidden"
+        style={{ objectPosition: 'center 52%', filter: 'blur(2px)' }}
       >
         <source src="/media/don-christos.mp4" type="video/mp4" />
       </video>
       <span
-        className="absolute inset-0 hidden opacity-45 motion-reduce:block"
+        className="absolute inset-0 hidden opacity-[0.65] motion-reduce:block"
         style={{
           backgroundImage: "url('/media/don-christos.jpg')",
           backgroundSize: 'cover',
-          backgroundPosition: 'center 42%',
-          filter: 'blur(3px)',
+          backgroundPosition: 'center 52%',
+          filter: 'blur(2px)',
         }}
       />
-      {/* Ink under the words. Heaviest at the seam, where the WHEN half
-          is about to take over, and thinnest at the outer edge. */}
-      <span className="absolute inset-0 bg-gradient-to-l from-[#0A0A0A]/35 via-[#0A0A0A]/70 to-[#0A0A0A]/95" />
-      <span className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A]/60 to-transparent" />
+      {/* Ink under the WORDS, which are at the outer edge — so the
+          gradient runs the other way from the one you'd guess: open at
+          the seam, where there's nothing but room, and heaviest under
+          DON CHRISTOS. It ran the other way for a while, which put the
+          only legible part of the footage behind the only text. */}
+      <span className="absolute inset-0 bg-gradient-to-r from-[#0A0A0A]/15 via-[#0A0A0A]/40 to-[#0A0A0A]/82" />
+      <span className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A]/45 to-transparent" />
     </span>
   )
 }

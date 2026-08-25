@@ -40,14 +40,18 @@ export function Masthead() {
       className="relative z-50"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
-      <div className="flex items-center justify-between gap-3 px-4 py-3 lg:h-16 lg:px-11">
+      {/* Taller, and set bigger. The band was 64px with 24px type in it,
+          which made the app's own name the quietest thing on a screen it
+          sits at the top of. px-11 is not arbitrary — it puts both
+          lockups exactly on the card's edges below. */}
+      <div className="flex items-center justify-between gap-3 px-4 py-3 lg:h-24 lg:px-11">
         <Link href="/" className="group shrink-0">
           <h1 className="flex items-center leading-none font-bold whitespace-nowrap sm:gap-2">
-            <span className="text-neon-blue group-hover:text-primary relative z-10 text-3xl tracking-[-0.18em] transition-colors sm:text-2xl sm:tracking-tight">
+            <span className="text-neon-blue group-hover:text-primary relative z-10 text-3xl tracking-[-0.18em] transition-colors sm:text-3xl sm:tracking-tight lg:text-[2.6rem]">
               <span className="sm:hidden">D</span>
               <span className="hidden sm:inline">DEGENERATES</span>
             </span>
-            <span className="text-neon-pink group-hover:text-neon-blue relative z-0 text-3xl tracking-tight transition-colors sm:text-2xl">
+            <span className="text-neon-pink group-hover:text-neon-blue relative z-0 text-3xl tracking-tight transition-colors sm:text-3xl lg:text-[2.6rem]">
               <span className="sm:hidden">D</span>
               <span className="hidden sm:inline">DASHBOARD</span>
             </span>
@@ -122,7 +126,7 @@ function SeasonLockup({
         <span
           className={cn(
             'text-neon-blue tracking-tight',
-            compact ? 'text-xl' : 'text-2xl'
+            compact ? 'text-xl' : 'text-3xl lg:text-[2.6rem]'
           )}
         >
           {seasonLabel(season)}
@@ -130,7 +134,7 @@ function SeasonLockup({
         <span
           className={cn(
             'text-neon-pink tracking-tight',
-            compact ? 'text-xl' : 'text-2xl'
+            compact ? 'text-xl' : 'text-3xl lg:text-[2.6rem]'
           )}
         >
           SEASON
@@ -138,7 +142,7 @@ function SeasonLockup({
       </span>
       <ChevronDown
         className={cn(
-          'text-muted-foreground h-3.5 w-3.5 transition-transform',
+          'text-muted-foreground h-3.5 w-3.5 transition-transform lg:h-5 lg:w-5',
           open && 'rotate-180'
         )}
       />
