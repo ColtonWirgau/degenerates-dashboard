@@ -76,11 +76,17 @@ export function ParlayPanel({
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Same masthead as everywhere else the app names a week: the
           number on its tinted slab, the panel's noun beside it, and the
-          one number that matters at the far end. */}
+          one number that matters at the far end.
+
+          The slab reaches the panel's corner the way the page header
+          reaches the card's — negative margins cancelling the panel's
+          own px-5/pt-5, so it sits ON the corner rather than floating
+          inside it. The panel clips to its 20px radius, so the corner
+          comes out rounded without asking. */}
       <div className="mb-3 flex shrink-0 items-stretch gap-2.5">
         <div
           aria-hidden
-          className="relative flex w-[3.25rem] shrink-0 items-center justify-center overflow-hidden rounded-lg py-1.5"
+          className="relative -mt-5 -ml-5 flex w-[4.75rem] shrink-0 items-center justify-center overflow-hidden rounded-tl-[20px] pt-5 pb-1.5 pl-5"
           style={{
             clipPath: 'polygon(0 0, 100% 0, calc(100% - 9px) 100%, 0 100%)',
             background: won
