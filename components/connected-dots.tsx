@@ -9,11 +9,22 @@ export interface ConnectedDotsResult {
   weekId: string
   result: 'win' | 'loss' | 'push' | null
   description?: string
+  /**
+   * What sits under the dot. Absent, it's the week number — which is
+   * right when the row is ONE PERSON'S SEASON. When the row is one
+   * week's LEAGUE, every dot shares a week and differs by whose leg it
+   * is, so the label is their face instead.
+   */
+  label?: React.ReactNode
+  /** Overrides the "Wk n · Win" tooltip when the row isn't weeks. */
+  title?: string
 }
 
 interface ConnectedDotsProps {
   results: ConnectedDotsResult[] // chronological (oldest → newest)
   onOpenWeek?: (weekId: string) => void
+  /** How tall the label band is. A number needs 12px; a face needs more. */
+  labelHeight?: number
 }
 
 type Outcome = 'win' | 'loss' | 'push' | 'pending'
@@ -32,7 +43,8 @@ const TONES: Record<Outcome, { dot: string; line: string; ring: string; Icon: Lu
 const DOT_PX = 22
 const NUMBER_GAP = 4
 const NUMBER_HEIGHT = 12
-const ROW_HEIGHT = 2 * (DOT_PX / 2 + NUMBER_GAP + NUMBER_HEIGHT) // 44 → symmetric
+const rowHeight = (labelHeight: number) =>
+  2 * (DOT_PX / 2 + NUMBER_GAP + labelHeight) // symmetric about the dots
 const PAD_X_PCT = 3
 
 const outcomeKind = (r: ConnectedDotsResult['result']): Outcome =>
@@ -48,7 +60,11 @@ const outcomeText = (k: Outcome) =>
  * small watermark below each dot. Line segments between dots take the
  * LEFT dot's color, tracing win/loss runs.
  */
-export function ConnectedDots({ results, onOpenWeek }: ConnectedDotsProps) {
+export function ConnectedDots({
+  results,
+  onOpenWeek,
+  labelHeight = NUMBER_HEIGHT,
+}: ConnectedDotsProps) {
   // No history yet (e.g., opening week with no graded legs) — render
   // nothing rather than an empty placeholder bar; the caller already
   // surfaces the stats above it.
@@ -59,7 +75,7 @@ export function ConnectedDots({ results, onOpenWeek }: ConnectedDotsProps) {
   const xFor = (i: number) => (n > 1 ? PAD_X_PCT + i * stepPct : 50)
 
   return (
-    <div className="relative w-full" style={{ height: ROW_HEIGHT }}>
+    <div className="relative w-full" style={{ height: rowHeight(labelHeight) }}>
       {/* Line segments — colored by the LEFT dot's result. Sit at the
           wrapper's vertical mid (which is where the dots also sit). */}
       {results.slice(0, -1).map((r, i) => {
@@ -86,9 +102,11 @@ export function ConnectedDots({ results, onOpenWeek }: ConnectedDotsProps) {
         const tone = TONES[k]
         const Icon = tone.Icon
         const interactive = !!onOpenWeek
-        const title = r.description
-          ? `Wk ${r.weekNumber} · ${outcomeText(k)} — ${r.description}`
-          : `Wk ${r.weekNumber} · ${outcomeText(k)}`
+        const title =
+          r.title ??
+          (r.description
+            ? `Wk ${r.weekNumber} · ${outcomeText(k)} — ${r.description}`
+            : `Wk ${r.weekNumber} · ${outcomeText(k)}`)
         // Interactive: 44x44 invisible hit target wraps the visible 22px
         // dot so mobile tap is comfortable (Apple HIG minimum). Non-
         // interactive: render the visible dot directly.
@@ -152,7 +170,8 @@ export function ConnectedDots({ results, onOpenWeek }: ConnectedDotsProps) {
         )
       })}
 
-      {/* Week-number watermark — sits in its own band below the dots. */}
+      {/* The label band, below the dots. A week number by default; a
+          face when the row is a league rather than a season. */}
       {results.map((r, i) => {
         const k = outcomeKind(r.result)
         return (
@@ -160,8 +179,13 @@ export function ConnectedDots({ results, onOpenWeek }: ConnectedDotsProps) {
             key={`label-${r.weekId}`}
             aria-hidden
             className={cn(
-              'absolute text-[9px] font-bold tabular-nums leading-none tracking-tighter',
-              k === 'pending' ? 'text-muted-foreground/50' : 'text-muted-foreground/70'
+              'absolute leading-none',
+              r.label == null &&
+                'text-[9px] font-bold tracking-tighter tabular-nums',
+              r.label == null &&
+                (k === 'pending'
+                  ? 'text-muted-foreground/50'
+                  : 'text-muted-foreground/70')
             )}
             style={{
               left: `${xFor(i)}%`,
@@ -169,7 +193,7 @@ export function ConnectedDots({ results, onOpenWeek }: ConnectedDotsProps) {
               transform: 'translateX(-50%)',
             }}
           >
-            {r.weekNumber}
+            {r.label ?? r.weekNumber}
           </span>
         )
       })}
@@ -268,7 +292,7 @@ export function MorphingConnectedDots({ results, onOpenWeek }: ConnectedDotsProp
   const DOT_DURATION = 0.3
 
   return (
-    <div className="relative w-full" style={{ height: ROW_HEIGHT }}>
+    <div className="relative w-full" style={{ height: rowHeight(NUMBER_HEIGHT) }}>
       {results.slice(0, -1).map((r, i) => {
         const k = outcomeKind(r.result)
         const tone = TONES[k]

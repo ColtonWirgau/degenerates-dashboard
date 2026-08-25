@@ -156,8 +156,24 @@ export function WeekStage({
       <WeekHeader
         weekNumber={stage.weekNumber}
         state={stage.submissionsOpen ? 'open' : stage.parlayState}
-        locked={stage.locked}
         scopeCounts={stage.scopeCounts}
+        currentUserId={chrome?.me.id}
+        // EVERYONE, not just whoever submitted. The chart's job is the
+        // shape of the week — who's in, who's missing, how it went — and
+        // a run of dots that silently omits the four people who haven't
+        // picked is a chart that lies by omission. The roster's order is
+        // kept, so a face stays in the same place from week to week.
+        legs={members.map((m) => {
+          const leg = stage.legs.find((l) => l.userId === m.id)
+          return {
+            userId: m.id,
+            fullName: m.fullName,
+            email: m.email,
+            avatarUrl: m.avatarUrl,
+            result: leg?.result ?? null,
+            description: leg?.description ?? null,
+          }
+        })}
       />
 
       <WeekSlate
@@ -196,8 +212,8 @@ export function WeekStage({
  * THE STAGE, before it knows anything.
  *
  * Built out of the real thing's own geometry rather than a stack of grey
- * bars: the corner slab at its actual size and clip, the state word's
- * line, the lock's square, the slate's rule, then rows on the same grid
+ * bars: the hero band at its actual height with its actual seam, the run
+ * of dots on their real centres, the slate's rule, then rows on the grid
  * the games use. The point is that nothing MOVES when the content lands —
  * the layout is already correct and only the facts are missing, which is
  * the honest description of what's happening.
@@ -205,32 +221,45 @@ export function WeekStage({
 function StageSkeleton() {
   return (
     <div aria-busy="true" aria-label="Loading the week">
-      <header className="flex items-stretch justify-between gap-3">
-        {/* Same negative margins and slant as WeekCornerDoor, so the
-            corner is occupied from the first frame. */}
-        <div
-          aria-hidden
-          className="relative -mt-8 -ml-4 flex w-[7.5rem] shrink-0 items-center justify-center overflow-hidden rounded-tl-[20px] pt-8 pb-5 lg:-ml-20 lg:w-[8.75rem] lg:pl-6"
-          style={{
-            clipPath: 'polygon(0 0, 100% 0, calc(100% - 13px) 100%, 0 100%)',
-            background:
-              'linear-gradient(150deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))',
-          }}
-        >
-          <Skeleton className="-mr-2 h-11 w-12 rounded-lg" />
+      {/* THE HERO'S OWN GEOMETRY — full bleed, the same height, and the
+          same slanted seam. It stood in for the old corner-slab header
+          for a while after the hero replaced it, so every week switch
+          flashed a shape the page no longer had. */}
+      <section className="relative -mx-4 -mt-8 mb-8 lg:-mx-20">
+        <div className="relative flex flex-col overflow-hidden sm:h-[10.5rem] sm:flex-row sm:items-stretch lg:h-[12.5rem]">
+          <div
+            aria-hidden
+            className="flex w-full flex-col items-start justify-center px-4 py-5 sm:w-[42%] sm:shrink-0 sm:py-0 sm:[clip-path:polygon(0_0,100%_0,calc(100%-46px)_100%,0_100%)] lg:w-[38%] lg:pl-20"
+            style={{
+              backgroundColor: '#0A0A0A',
+              backgroundImage:
+                'linear-gradient(115deg, rgba(0,217,255,0.14), rgba(0,217,255,0.04) 62%, rgba(0,217,255,0.01))',
+            }}
+          >
+            <Skeleton className="mb-2 h-2.5 w-20" />
+            <Skeleton className="h-9 w-44 sm:h-11 lg:h-14" />
+          </div>
+
+          {/* The run of dots and the faces under it, on their real
+              centres — so the chart lands rather than arrives. */}
+          <div
+            aria-hidden
+            className="relative flex min-w-0 flex-1 flex-col justify-center px-4 py-6 sm:py-0 sm:pl-14 lg:pr-20"
+          >
+            <Skeleton className="mb-3 h-2.5 w-16" />
+            <div className="flex items-center gap-[2.6%]">
+              {Array.from({ length: 12 }, (_, i) => (
+                <div key={i} className="flex flex-1 flex-col items-center gap-1">
+                  <Skeleton className="size-[22px] rounded-full" />
+                  <Skeleton className="size-6 rounded-full" />
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
+      </section>
 
-        {/* The state word is flex-1 with its text left-aligned, so the
-            bar standing in for it has to be too — a centred bar drifts
-            into the middle of the card and then jumps left on arrival. */}
-        <div className="min-w-0 flex-1 self-center pt-1">
-          <Skeleton className="h-8 w-40 sm:h-9" />
-        </div>
-
-        <Skeleton className="size-14 shrink-0 rounded-2xl" />
-      </header>
-
-      <div className="mt-4 mb-3 flex items-end justify-between gap-3 border-b border-white/[0.07] pb-2.5">
+      <div className="mb-3 flex items-end justify-between gap-3 border-b border-white/[0.07] pb-2.5">
         <Skeleton className="h-5 w-32" />
         <Skeleton className="h-6 w-44 rounded-full" />
       </div>
