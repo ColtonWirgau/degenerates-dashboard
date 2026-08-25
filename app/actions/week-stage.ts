@@ -6,6 +6,7 @@ import { getDevNow } from '@/lib/data/dev-now'
 import { firstSlateKickoff } from '@/lib/lock-time'
 import { getWeekSlate } from '@/lib/data/week-slate'
 import type { LegRoster } from '@/components/week-detail-sheet'
+import type { LeaguePoll } from '@/lib/data/mock-polls'
 import type { ParlayState } from '@/lib/data/types'
 import type { SlateGame } from '@/lib/data/week-slate'
 
@@ -45,6 +46,12 @@ export interface WeekStagePayload {
   firstKickoff: string | null
   /** The viewer runs the league, so the status pill is a control. */
   canLock: boolean
+  /** Questions raised in this week — the league's own business, as
+   *  opposed to the bets. Usually empty; the preseason is where most of
+   *  it happens. */
+  polls: LeaguePoll[]
+  /** The viewer may open a question here, and close or delete one. */
+  canAskLeague: boolean
 }
 
 export async function getWeekStage(
@@ -95,6 +102,17 @@ export async function getWeekStage(
   const role = await adapter.getUserRole(leagueId, me.id)
   const kickoff = await firstSlateKickoff(leagueId, nflWeekId)
 
+  // This week's questions. Closed ones travel too — a settled vote is a
+  // record, and hiding it the moment it's decided is how a league forgets
+  // what it agreed.
+  const polls =
+    dataSource === 'neon'
+      ? await adapter.getPolls(leagueId, {
+          statuses: ['open', 'closed'],
+          nflWeekId,
+        })
+      : []
+
   return {
     error: null,
     payload: {
@@ -120,6 +138,8 @@ export async function getWeekStage(
       firstKickoff: kickoff?.toISOString() ?? null,
       canLock:
         parlay.week.kind !== 'preseason' && (role === 'owner' || role === 'admin'),
+      polls,
+      canAskLeague: role === 'owner' || role === 'admin',
     },
   }
 }

@@ -84,6 +84,12 @@ export default async function LeaguePage({
           leagueId={id}
           initial={initial}
           preseason={<PreseasonStage payload={p} />}
+          members={p.members.map((m) => ({
+            id: m.user_id,
+            fullName: m.full_name,
+            email: m.email,
+            avatarUrl: m.avatar_url,
+          }))}
         />
       </main>
     </div>
@@ -126,7 +132,7 @@ async function PreseasonStage({ payload: p }: { payload: Payload }) {
           <h1 className="text-3xl font-bold sm:text-4xl">Preseason</h1>
           <p className="text-muted-foreground mt-1 text-sm">
             No slate to bet yet — this is the week the league writes its own
-            rules. Settle the charter, take the votes, then football.
+            rules. Settle the house rules, take the votes, then football.
           </p>
         </div>
       </header>

@@ -63,7 +63,7 @@ async function openLeague(page: Page) {
   })
 }
 
-test('the league opens on the current week — week 0, the charter', async ({ page }) => {
+test('the league opens on the current week — week 0, the house rules', async ({ page }) => {
   await openLeague(page)
   // Week 0's identity is now the corner door — the "0" slab that opens
   // the week list, same as every other week.
@@ -80,7 +80,7 @@ test('the league opens on the current week — week 0, the charter', async ({ pa
   // And the record of what IS settled sits under it, read from real
   // seeded rows.
   await expect(
-    page.getByRole('heading', { name: /The Charter/i, level: 2 })
+    page.getByRole('heading', { name: /House Rules/i, level: 2 })
   ).toBeVisible()
   await expect(page.getByText('$50 · 12 teams · $600 pot')).toBeVisible()
   await expect(page.getByText('Snake + 3rd Rd Reversal')).toBeVisible()
@@ -183,31 +183,35 @@ test('switching seasons repaints immediately and needs no server action', async 
 }) => {
   await openLeague(page)
 
-  // Nothing about picking a year may go through a server action. Action
-  // ids are minted per build, so a tab that outlives one is holding ids
-  // the server has never heard of — which is exactly how this used to
-  // fail, with an UnrecognizedActionError instead of a season change.
-  // The cookie is the browser's to write, so no POST should leave here.
-  // A server action is precisely a POST carrying Next-Action; Ably's
-  // token calls are POSTs too and have nothing to do with us.
-  const actions: string[] = []
+  // Picking a year must not go through a server action. Action ids are
+  // minted per build, so a tab that outlives one is holding ids the
+  // server has never heard of — which is exactly how this used to fail,
+  // with an UnrecognizedActionError instead of a season change.
+  //
+  // The guard is on the SEASON travelling to the server, not on actions
+  // in general: other things on this page hydrate through actions of
+  // their own on mount, and when those land is nobody's business here.
+  const seasonSentToServer: string[] = []
   page.on('request', (r) => {
-    if (r.method() === 'POST' && r.headers()['next-action']) {
-      actions.push(`${r.headers()['next-action']} ${String(r.postData()).slice(0, 120)}`)
-    }
+    if (r.method() !== 'POST' || !r.headers()['next-action']) return
+    const body = String(r.postData() ?? '')
+    if (/\d{4}-\d{4}/.test(body)) seasonSentToServer.push(body.slice(0, 120))
   })
 
   await page.getByRole('button', { name: 'Season and league' }).first().click()
   const other = page.getByRole('button', { name: /2025-2026/ })
   await expect(other).toBeVisible({ timeout: 10_000 })
-  // Opening the panel hydrates the slate settings, which is its own
-  // action and not what this test is about. The clock starts at the
-  // click on a year.
-  actions.length = 0
   await other.click()
 
-  // The YEAR changes on the click, before any data for it exists — the
-  // masthead is reading the switch, not the server.
+  // The cookie is written by the BROWSER, so it's already there — no
+  // round trip has had time to happen. This is the whole fix in one
+  // assertion.
+  expect(await page.evaluate(() => document.cookie)).toContain(
+    'degens_view_season=2025-2026'
+  )
+
+  // And the year changes on the click, before any data for it exists —
+  // the masthead is reading the switch, not the server.
   await expect(page.getByRole('button', { name: 'Season and league' }).first()).toContainText(
     '2025',
     { timeout: 1_000 }
@@ -220,5 +224,8 @@ test('switching seasons repaints immediately and needs no server action', async 
   })
   await expect(page.locator('[aria-busy="true"]')).toHaveCount(0)
 
-  expect(actions, `season switch fired a server action: ${actions.join(', ')}`).toEqual([])
+  expect(
+    seasonSentToServer,
+    `the season went to a server action: ${seasonSentToServer.join(', ')}`
+  ).toEqual([])
 })

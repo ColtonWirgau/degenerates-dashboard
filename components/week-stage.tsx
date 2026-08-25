@@ -6,7 +6,9 @@ import { useLeagueChrome, useViewedWeek } from '@/components/chrome/league-chrom
 import { setWeekActions, subscribeWeekDirty } from '@/components/chrome/canvas-store'
 import { WeekHeader, WeekTiming } from '@/components/week-header'
 import { WeekSlate } from '@/components/week-slate'
+import { WeekPolls } from '@/components/week-polls'
 import { Skeleton } from '@/components/ui/skeleton'
+import type { PollMember } from '@/components/polls/types'
 
 /**
  * THE STAGE — the one thing on the page, showing the one week you're on.
@@ -25,6 +27,7 @@ export function WeekStage({
   leagueId,
   initial,
   preseason,
+  members,
 }: {
   leagueId: string
   /** The season's current week, rendered on the server. */
@@ -32,6 +35,8 @@ export function WeekStage({
   /** Week 0's content — the charter and the votes, server-rendered once
    *  because it's league-level and doesn't change with the week. */
   preseason: React.ReactNode
+  /** The roster — whose faces appear against a week's votes. */
+  members: PollMember[]
 }) {
   const chrome = useLeagueChrome()
   const viewed = useViewedWeek()
@@ -160,6 +165,20 @@ export function WeekStage({
         lockAt={stage.lockAt}
         firstKickoff={stage.firstKickoff ?? stage.kickoff}
       />
+
+      {/* The week's own business, under the week's own games. Absent on
+          the weeks — most of them — where nobody asked anything. */}
+      {chrome && (
+        <WeekPolls
+          leagueId={leagueId}
+          nflWeekId={stage.nflWeekId}
+          polls={stage.polls}
+          currentUserId={chrome.me.id}
+          members={members}
+          canAsk={stage.canAskLeague}
+          onChanged={() => void reload(stage.nflWeekId)}
+        />
+      )}
     </div>
   )
 }

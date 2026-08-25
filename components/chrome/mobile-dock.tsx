@@ -139,7 +139,7 @@ export function MobileDock() {
         // long on a phone, and this is the way back up.
         at: 0.5,
         faceKey: `ballot-${openPolls}`,
-        label: openPolls > 0 ? 'Go to the ballot' : 'Go to the charter',
+        label: openPolls > 0 ? 'Go to the ballot' : 'Go to the house rules',
         onClick: toBallot,
         icon:
           openPolls > 0 ? (
