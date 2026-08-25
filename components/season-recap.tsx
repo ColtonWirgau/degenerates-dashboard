@@ -5,9 +5,12 @@
  *
  * A season that's over stops being a thing you navigate and becomes a
  * thing you read. So this doesn't open on week 1 with 17 more to click
- * through: it opens on the number that decides how the year is
- * remembered, then you, then everyone else, then the awards nobody
- * wanted.
+ * through: it opens on the awards nobody wanted, then the board.
+ *
+ * It used to lead with four stat cards and a section about you. Both
+ * went: the totals were true and dull, and "your season" was a second
+ * telling of the row you already occupy on the board — the honours are
+ * the part anyone actually reads out loud, so they go first.
  *
  * The dot trace is the chart that used to live in FinalStandings and had
  * fallen out of the app entirely — colored connectors tracing each
@@ -58,7 +61,6 @@ export function SeasonRecap({
     )
   }
 
-  const me = data.people.find((p) => p.userId === data.meId) ?? null
   const year = data.season.split('-')[0]
 
   return (
@@ -96,25 +98,8 @@ export function SeasonRecap({
         </div>
       </header>
 
-      <ScoreLine data={data} />
-
-      {me && <YourSeason me={me} weeks={data.weeks} />}
-
-      <Section title="The Board" accent="blue">
-        <div className="space-y-1.5">
-          {data.people.map((p, i) => (
-            <PersonRow
-              key={p.userId}
-              rank={i + 1}
-              person={p}
-              isMe={p.userId === data.meId}
-            />
-          ))}
-        </div>
-      </Section>
-
       {data.awards.length > 0 && (
-        <Section title="The Honours" accent="pink">
+        <Section title="The Honors" accent="pink">
           <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
             {data.awards.map((a) => (
               <div
@@ -139,9 +124,13 @@ export function SeasonRecap({
                         : 'linear-gradient(150deg, rgba(255,105,180,0.18), rgba(255,105,180,0.03))',
                   }}
                 >
+                  {/* Figures range from "+175" to "6 no-shows", and the
+                      long ones ran into the slab's slanted edge at a
+                      single size. */}
                   <span
                     className={cn(
-                      'font-display -mr-2 text-center text-xl leading-none tabular-nums',
+                      'font-display -mr-2 text-center leading-none tabular-nums',
+                      a.figure.length > 8 ? 'text-[0.95rem]' : 'text-xl',
                       a.tone === 'good' ? 'text-neon-blue' : 'text-destructive'
                     )}
                   >
@@ -163,103 +152,21 @@ export function SeasonRecap({
           </div>
         </Section>
       )}
-    </div>
-  )
-}
 
-/**
- * How the league's ticket did, said plainly. A season where the parlay
- * never once cashed is the funniest fact available and it gets said
- * first — dressing it up would be a mercy nobody asked for.
- */
-function ScoreLine({ data }: { data: SeasonRecapPayload }) {
-  const never = data.parlaysHit === 0
-  return (
-    <div className="mt-4 mb-8 grid grid-cols-2 gap-2 sm:grid-cols-4">
-      <Stat
-        figure={`${data.parlaysHit}/${data.weeksPlayed}`}
-        label="Parlays cashed"
-        tone={never ? 'bad' : 'good'}
-        note={never ? 'Not one. All season.' : undefined}
-      />
-      <Stat figure={String(data.totalLegs)} label="Legs entered" tone="plain" />
-      <Stat figure={String(data.legWins)} label="Legs hit" tone="good" />
-      <Stat figure={String(data.legLosses)} label="Legs missed" tone="bad" />
-    </div>
-  )
-}
-
-function Stat({
-  figure,
-  label,
-  tone,
-  note,
-}: {
-  figure: string
-  label: string
-  tone: 'good' | 'bad' | 'plain'
-  note?: string
-}) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-3">
-      <p
-        className={cn(
-          'font-display text-3xl leading-none tabular-nums',
-          tone === 'good'
-            ? 'text-neon-blue'
-            : tone === 'bad'
-              ? 'text-destructive'
-              : 'text-foreground/80'
-        )}
-      >
-        {figure}
-      </p>
-      <p className="text-muted-foreground mt-1.5 text-[10px] font-bold tracking-[0.2em] uppercase">
-        {label}
-      </p>
-      {note && <p className="text-muted-foreground/70 mt-1 text-[11px] italic">{note}</p>}
-    </div>
-  )
-}
-
-/** YOU, first — a recap you're not in is a spreadsheet. */
-function YourSeason({
-  me,
-  weeks,
-}: {
-  me: SeasonRecapPayload['people'][number]
-  weeks: SeasonRecapPayload['weeks']
-}) {
-  const killed = weeks.filter((w) => w.losses === 1 && w.killedBy[0] === me.name)
-  return (
-    <Section title="Your Season" accent="blue">
-      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
-        <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
-          <p className="font-display text-neon-blue text-4xl leading-none tabular-nums">
-            {me.wins}–{me.losses}
-            {me.pushes > 0 && (
-              <span className="text-muted-foreground text-2xl">–{me.pushes}</span>
-            )}
-          </p>
-          <p className="text-foreground/70 text-sm">
-            {me.winRate}% · in for {me.weeksIn} weeks
-            {me.streak >= 3 && ` · ${me.streak} straight at your best`}
-          </p>
+      <Section title="The Board" accent="blue">
+        <div className="space-y-1.5">
+          {data.people.map((p, i) => (
+            <PersonRow
+              key={p.userId}
+              rank={i + 1}
+              person={p}
+              isMe={p.userId === data.meId}
+            />
+          ))}
         </div>
+      </Section>
 
-        <div className="mt-4">
-          <Trace trace={me.trace} />
-        </div>
-
-        {killed.length > 0 && (
-          <p className="text-destructive/80 mt-3 text-xs">
-            You were the only one to miss in{' '}
-            {killed.map((w) => `week ${w.weekNumber}`).join(' and ')}. The league
-            remembers.
-          </p>
-        )}
-      </div>
-    </Section>
+    </div>
   )
 }
 
@@ -374,13 +281,13 @@ function RecapSkeleton() {
           <Skeleton className="h-8 w-44 sm:h-9" />
         </div>
       </header>
-      <div className="mt-4 mb-8 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      {/* Straight into the honours, which is what the real thing does. */}
+      <Skeleton className="mt-8 mb-3 h-6 w-40" />
+      <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
         {Array.from({ length: 4 }, (_, i) => (
-          <Skeleton key={i} className="h-[5.25rem] rounded-xl" />
+          <Skeleton key={i} className="h-[5.5rem] rounded-xl" />
         ))}
       </div>
-      <Skeleton className="mb-3 h-6 w-40" />
-      <Skeleton className="h-32 rounded-xl" />
     </div>
   )
 }

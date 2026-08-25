@@ -83,21 +83,28 @@ export function subscribeSwitchingSeason(
 /* A finished season is a different object from one in progress: nothing
  * can change, no deadline matters, and "week 14 of 18" has stopped being
  * the useful frame. So the stage has two modes — the week you picked, or
- * the season read back as a whole — and landing on a season that's over
- * opens on the recap rather than making you click through eighteen weeks
- * to find out how it went. Picking any week from the list switches back. */
+ * the season read back as a whole.
+ *
+ * NULL is the important value: it means "nobody has chosen", and the
+ * stage then decides from the season itself — a season that's over opens
+ * on the recap, one still being played opens on its week. Storing a
+ * default instead would mean reloading on a finished season dumped you
+ * back on week 18, which is exactly what "go to a past year and see the
+ * recap" is asking not to happen. Picking a week sets it explicitly. */
 export type StageView = 'week' | 'recap'
 
-let stageView: StageView = 'week'
-const stageViewListeners = new Set<(v: StageView) => void>()
+let stageView: StageView | null = null
+const stageViewListeners = new Set<(v: StageView | null) => void>()
 
-export function setStageView(v: StageView) {
+export function setStageView(v: StageView | null) {
   if (stageView === v) return
   stageView = v
   stageViewListeners.forEach((l) => l(stageView))
 }
 
-export function subscribeStageView(listener: (v: StageView) => void): () => void {
+export function subscribeStageView(
+  listener: (v: StageView | null) => void
+): () => void {
   stageViewListeners.add(listener)
   listener(stageView)
   return () => stageViewListeners.delete(listener)

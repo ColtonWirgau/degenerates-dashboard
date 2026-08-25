@@ -46,7 +46,7 @@ export function WeekStage({
 }) {
   const chrome = useLeagueChrome()
   const viewed = useViewedWeek()
-  const [view, setView] = useState<StageView>('week')
+  const [view, setView] = useState<StageView | null>(null)
   useEffect(() => subscribeStageView(setView), [])
 
   // Every week we've loaded, kept for the rest of the session — flipping
@@ -141,8 +141,11 @@ export function WeekStage({
   // its way out.
   if (chrome?.switching) return <StageSkeleton />
 
-  // A season that's over opens on how it went, not on a week.
-  if (view === 'recap' && chrome) {
+  // A season that's over opens on how it went, not on a week — unless
+  // you've since picked one, which is what a non-null view means.
+  const seasonOver =
+    (chrome?.weeks.length ?? 0) > 0 && (chrome?.weeks ?? []).every((w) => w.closed)
+  if (chrome && (view === 'recap' || (view === null && seasonOver))) {
     return <SeasonRecap leagueId={leagueId} season={chrome.season} />
   }
 

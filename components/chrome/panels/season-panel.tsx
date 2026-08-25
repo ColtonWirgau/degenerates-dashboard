@@ -93,10 +93,9 @@ export function SeasonPanel({
     // week that's about to stop existing.
     setViewedWeek(null)
     setOpenId(null)
-    // A season that isn't the one the calendar is on is a season that
-    // finished, and the first thing you want from a finished season is
-    // how it went — not week 1 of 18.
-    setStageView(season === availableSeasons[0] ? 'week' : 'recap')
+    // Hand the choice back to the season itself: unchosen means the
+    // stage decides, and a finished one decides on the recap.
+    setStageView(null)
     // Picking the calendar's own season clears the pin rather than
     // freezing you on it.
     writeViewSeason(season === availableSeasons[0] ? null : season)

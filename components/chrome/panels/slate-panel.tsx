@@ -46,7 +46,7 @@ export function SlatePanel({
 }) {
   const chrome = useLeagueChrome()
   const viewed = useViewedWeek()
-  const [view, setView] = useState<StageView>('week')
+  const [view, setView] = useState<StageView | null>(null)
   useEffect(() => subscribeStageView(setView), [])
   if (!chrome) return null
 
@@ -56,6 +56,8 @@ export function SlatePanel({
   // on a game still being played.
   const finished =
     chrome.weeks.length > 0 && chrome.weeks.every((w) => w.closed)
+  // Same rule the stage uses: unchosen on a finished season IS the recap.
+  const onRecap = view === 'recap' || (view === null && finished)
 
   // In season order, earliest first — week 0 at the top, because the
   // season is a story and you read it forwards.
@@ -77,11 +79,11 @@ export function SlatePanel({
               setStageView('recap')
               closePanel()
             }}
-            aria-current={view === 'recap' ? 'true' : undefined}
+            aria-current={onRecap ? 'true' : undefined}
             className={cn(
               'flex w-full items-stretch overflow-hidden rounded-xl border text-left transition-colors',
               CARD_H,
-              view === 'recap'
+              onRecap
                 ? 'border-neon-blue/45 bg-neon-blue/[0.09]'
                 : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.06]'
             )}
@@ -104,7 +106,7 @@ export function SlatePanel({
             <span
               className={cn(
                 'font-display flex min-w-0 flex-1 items-center px-3 text-[2.1rem] leading-none tracking-tight uppercase',
-                view === 'recap' ? 'text-neon-blue' : 'text-foreground/55'
+                onRecap ? 'text-neon-blue' : 'text-foreground/55'
               )}
             >
               The Recap
