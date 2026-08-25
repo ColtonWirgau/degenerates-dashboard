@@ -4,8 +4,10 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import {
   setSwitchingSeason,
   setViewedWeek,
+  subscribeStageView,
   subscribeSwitchingSeason,
   subscribeViewedWeek,
+  type StageView,
 } from '@/components/chrome/canvas-store'
 
 /**
@@ -121,6 +123,25 @@ export function LeagueChromeProvider({
 
 export function useLeagueChrome(): LeagueChrome | null {
   return useContext(LeagueChromeContext)
+}
+
+/**
+ * Is the stage showing the season rather than a week?
+ *
+ * The rule has two halves and both matter: an explicit pick wins, and
+ * with no pick the SEASON decides — one that's over opens on its recap.
+ * It lives here because four surfaces need the same answer (the stage,
+ * the week list, the rail, the dock) and four copies of a two-clause
+ * rule is three chances for them to disagree about what's on screen.
+ */
+export function useOnRecap(): boolean {
+  const chrome = useLeagueChrome()
+  const [view, setView] = useState<StageView | null>(null)
+  useEffect(() => subscribeStageView(setView), [])
+
+  if (view !== null) return view === 'recap'
+  const weeks = chrome?.weeks ?? []
+  return weeks.length > 0 && weeks.every((w) => w.closed)
 }
 
 /**

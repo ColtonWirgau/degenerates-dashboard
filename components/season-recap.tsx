@@ -138,14 +138,14 @@ export function SeasonRecap({
                   </span>
                 </div>
 
-                <div className="min-w-0 flex-1 py-2.5 pr-3 pl-3">
+                {/* A title and a name. The written punchline that used to
+                    sit here was the same sentence for every league, every
+                    season — the figure on the slab does the work. */}
+                <div className="flex min-w-0 flex-1 flex-col justify-center py-2.5 pr-3 pl-3">
                   <p className="text-muted-foreground/70 text-[10px] font-bold tracking-[0.2em] uppercase">
                     {a.title}
                   </p>
-                  <p className="text-foreground/90 mt-0.5 text-sm font-bold">{a.name}</p>
-                  <p className="text-muted-foreground mt-1 text-xs leading-snug">
-                    {a.line}
-                  </p>
+                  <p className="text-foreground/90 mt-1 text-sm font-bold">{a.name}</p>
                 </div>
               </div>
             ))}

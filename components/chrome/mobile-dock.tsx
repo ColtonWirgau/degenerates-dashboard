@@ -5,6 +5,7 @@ import { Check, Layers, ListTodo, Plus, Trophy } from 'lucide-react'
 import { openPanel, openSubmit } from '@/components/chrome/canvas-store'
 import {
   useLeagueChrome,
+  useOnRecap,
   useViewedWeek,
 } from '@/components/chrome/league-chrome-context'
 
@@ -41,6 +42,7 @@ type Face = {
 export function MobileDock() {
   const chrome = useLeagueChrome()
   const week = useViewedWeek()
+  const onRecap = useOnRecap()
   const nav = useRef<HTMLElement>(null)
   // Reserved for face-morph paging when the dock grows a second page.
   const [page] = useState<'root'>('root')
@@ -107,12 +109,15 @@ export function MobileDock() {
   // The disc is the week's verb. A week with a slate wants your leg; the
   // preseason week wants your vote. A missing cell collapses rather than
   // reshuffling its neighbours, so the bar never moves under your thumb.
-  const hasParlay = week?.parlayId != null
+  // Same reasoning as the rail: on the recap the lay is about a week
+  // that isn't on screen and the board already is. The week cell stays —
+  // it's the way back out.
+  const hasParlay = week?.parlayId != null && !onRecap
   const slots: (Face | 'park' | null)[] = [
     weekCell,
     hasParlay ? layCell : null,
     'park',
-    boardCell,
+    onRecap ? null : boardCell,
     null,
   ]
 

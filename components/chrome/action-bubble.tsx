@@ -11,7 +11,11 @@ import {
   type CanvasPanel,
   type WeekActions,
 } from '@/components/chrome/canvas-store'
-import { useLeagueChrome, useViewedWeek } from '@/components/chrome/league-chrome-context'
+import {
+  useLeagueChrome,
+  useOnRecap,
+  useViewedWeek,
+} from '@/components/chrome/league-chrome-context'
 import { setWeekLock } from '@/app/actions/week-lock'
 import { ArcLabel } from '@/components/chrome/arc-label'
 import { DISC_CENTER } from '@/components/chrome/bite-geometry'
@@ -59,6 +63,7 @@ const LOCKING_IS_COMMISH_ONLY = false
 export function ActionBubble() {
   const chrome = useLeagueChrome()
   const week = useViewedWeek()
+  const onRecap = useOnRecap()
   const router = useRouter()
   const [panel, setPanel] = useState<CanvasPanel>(null)
   const [split, setSplitOpen] = useState(false)
@@ -78,7 +83,10 @@ export function ActionBubble() {
   useEffect(() => subscribeSplitState(setSplitOpen), [])
   useEffect(() => subscribeWeekActions(setActions), [])
 
-  const hasSlate = actions?.hasSlate ?? week?.hasSlate ?? false
+  // Both verbs act on a WEEK. The recap is a season, so the pod has
+  // nothing to offer it — and offering to put a leg into a year that
+  // finished in February is worse than offering nothing.
+  const hasSlate = !onRecap && (actions?.hasSlate ?? week?.hasSlate ?? false)
   useEffect(() => {
     setActionBite(hasSlate)
   }, [hasSlate])

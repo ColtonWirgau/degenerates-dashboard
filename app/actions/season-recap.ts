@@ -11,6 +11,12 @@
  * Everything here comes off the legs the league actually entered. No
  * award is invented and none is graded on a curve: if nobody qualifies,
  * the award doesn't appear.
+ *
+ * Each one is a title, a name and a number, and nothing else. There were
+ * written punchlines under them for a while — "the group chat was right
+ * there" — but every league would have got the same ones every season,
+ * and a joke that repeats verbatim each year stops being a joke by its
+ * second telling. The numbers are funnier anyway: 0/16 needs no help.
  */
 
 import { db } from '@/db/client'
@@ -65,8 +71,6 @@ export interface RecapAward {
   userId: string | null
   /** The number that won it, set big. */
   figure: string
-  /** The knife. */
-  line: string
   tone: 'good' | 'bad'
 }
 
@@ -199,7 +203,6 @@ export async function getSeasonRecap(
       name: villain,
       userId: byName(villain),
       figure: `${closest.legs - 1}/${closest.legs}`,
-      line: `Week ${closest.weekNumber}. Everybody cashed but ${villain}. Everybody.`,
       tone: 'bad',
     })
   }
@@ -220,7 +223,6 @@ export async function getSeasonRecap(
       name: repeat[0],
       userId: byName(repeat[0]),
       figure: `×${repeat[1].length}`,
-      line: `Sole reason the ticket died in weeks ${repeat[1].join(', ')}. A pattern, not an accident.`,
       tone: 'bad',
     })
   }
@@ -236,7 +238,6 @@ export async function getSeasonRecap(
       name: longest.name,
       userId: longest.userId,
       figure: fmtOdds(longest.odds),
-      line: `“${longest.description}” — week ${longest.weekNumber}. Called it.`,
       tone: 'good',
     })
   }
@@ -252,7 +253,6 @@ export async function getSeasonRecap(
       name: chalk.name,
       userId: chalk.userId,
       figure: fmtOdds(chalk.odds),
-      line: `“${chalk.description}” — week ${chalk.weekNumber}. That was supposed to be free.`,
       tone: 'bad',
     })
   }
@@ -266,7 +266,6 @@ export async function getSeasonRecap(
       name: best.name,
       userId: best.userId,
       figure: `${best.wins}–${best.losses}`,
-      line: `${best.winRate}% on the season. Carried a ticket that never cashed.`,
       tone: 'good',
     })
   }
@@ -280,7 +279,6 @@ export async function getSeasonRecap(
       name: hottest.name,
       userId: hottest.userId,
       figure: `${hottest.streak} straight`,
-      line: `${hottest.streak} weeks without missing. Nobody else got close.`,
       tone: 'good',
     })
   }
@@ -295,7 +293,6 @@ export async function getSeasonRecap(
       name: ghost.name,
       userId: ghost.userId,
       figure: `${maxWeeks - ghost.weeksIn} no-shows`,
-      line: `In for ${ghost.weeksIn} of ${maxWeeks} weeks. The group chat was right there.`,
       tone: 'bad',
     })
   }
@@ -311,7 +308,6 @@ export async function getSeasonRecap(
       name: `Week ${wipeout.weekNumber}`,
       userId: null,
       figure: `0/${wipeout.legs}`,
-      line: `${wipeout.legs} legs in, ${wipeout.legs} legs down. Not one of you.`,
       tone: 'bad',
     })
   }

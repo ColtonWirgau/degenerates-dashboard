@@ -5,6 +5,7 @@ import { Clock, Skull, Trophy } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   useLeagueChrome,
+  useOnRecap,
   useViewedWeek,
   type ChromeWeek,
   type PodiumMember,
@@ -47,6 +48,7 @@ type Rung = 'parlay' | 'board'
 export function PanelBubbles() {
   const chrome = useLeagueChrome()
   const week = useViewedWeek()
+  const onRecap = useOnRecap()
   const [panel, setPanel] = useState<CanvasPanel>(null)
   useEffect(() => subscribePanel(setPanel), [])
 
@@ -54,9 +56,16 @@ export function PanelBubbles() {
 
   // Rail order is fixed; presence is not. The clip follows exactly —
   // resolveBites carves this many holes, top-down.
+  //
+  // The recap empties it. THE LAY answers for one week and the recap
+  // isn't one; the BOARD is already the middle of the page, and a rung
+  // that opens a panel over the thing it duplicates is a door to the
+  // room you're standing in.
   const rungs: Rung[] = []
-  if (hasParlay) rungs.push('parlay')
-  rungs.push('board')
+  if (!onRecap) {
+    if (hasParlay) rungs.push('parlay')
+    rungs.push('board')
+  }
 
   const count = rungs.length
   useEffect(() => {

@@ -2,13 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getWeekStage, type WeekStagePayload } from '@/app/actions/week-stage'
-import { useLeagueChrome, useViewedWeek } from '@/components/chrome/league-chrome-context'
 import {
-  setWeekActions,
-  subscribeWeekDirty,
-  subscribeStageView,
-  type StageView,
-} from '@/components/chrome/canvas-store'
+  useLeagueChrome,
+  useOnRecap,
+  useViewedWeek,
+} from '@/components/chrome/league-chrome-context'
+import { setWeekActions, subscribeWeekDirty } from '@/components/chrome/canvas-store'
 import { WeekHeader, WeekTiming } from '@/components/week-header'
 import { WeekSlate } from '@/components/week-slate'
 import { WeekPolls } from '@/components/week-polls'
@@ -46,8 +45,7 @@ export function WeekStage({
 }) {
   const chrome = useLeagueChrome()
   const viewed = useViewedWeek()
-  const [view, setView] = useState<StageView | null>(null)
-  useEffect(() => subscribeStageView(setView), [])
+  const onRecap = useOnRecap()
 
   // Every week we've loaded, kept for the rest of the session — flipping
   // back and forth between weeks should be instant after the first look.
@@ -141,11 +139,7 @@ export function WeekStage({
   // its way out.
   if (chrome?.switching) return <StageSkeleton />
 
-  // A season that's over opens on how it went, not on a week — unless
-  // you've since picked one, which is what a non-null view means.
-  const seasonOver =
-    (chrome?.weeks.length ?? 0) > 0 && (chrome?.weeks ?? []).every((w) => w.closed)
-  if (chrome && (view === 'recap' || (view === null && seasonOver))) {
+  if (chrome && onRecap) {
     return <SeasonRecap leagueId={leagueId} season={chrome.season} />
   }
 

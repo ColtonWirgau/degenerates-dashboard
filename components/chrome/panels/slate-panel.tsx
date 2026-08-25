@@ -1,17 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { Clock, Skull, Trophy } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import {
-  closePanel,
-  setStageView,
-  setViewedWeek,
-  subscribeStageView,
-  type StageView,
-} from '@/components/chrome/canvas-store'
+import { closePanel, setStageView, setViewedWeek } from '@/components/chrome/canvas-store'
 import {
   useLeagueChrome,
+  useOnRecap,
   useViewedWeek,
   type ChromeWeek,
 } from '@/components/chrome/league-chrome-context'
@@ -46,8 +40,7 @@ export function SlatePanel({
 }) {
   const chrome = useLeagueChrome()
   const viewed = useViewedWeek()
-  const [view, setView] = useState<StageView | null>(null)
-  useEffect(() => subscribeStageView(setView), [])
+  const onRecap = useOnRecap()
   if (!chrome) return null
 
   // A season is finished once every week in it has closed. That's the
@@ -56,8 +49,6 @@ export function SlatePanel({
   // on a game still being played.
   const finished =
     chrome.weeks.length > 0 && chrome.weeks.every((w) => w.closed)
-  // Same rule the stage uses: unchosen on a finished season IS the recap.
-  const onRecap = view === 'recap' || (view === null && finished)
 
   // In season order, earliest first — week 0 at the top, because the
   // season is a story and you read it forwards.
@@ -84,7 +75,7 @@ export function SlatePanel({
               'flex w-full items-stretch overflow-hidden rounded-xl border text-left transition-colors',
               CARD_H,
               onRecap
-                ? 'border-neon-blue/45 bg-neon-blue/[0.09]'
+                ? 'border-white/70 bg-white/[0.06]'
                 : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.06]'
             )}
           >
@@ -106,7 +97,7 @@ export function SlatePanel({
             <span
               className={cn(
                 'font-display flex min-w-0 flex-1 items-center px-3 text-[2.1rem] leading-none tracking-tight uppercase',
-                onRecap ? 'text-neon-blue' : 'text-foreground/55'
+                onRecap ? 'text-foreground' : 'text-foreground/55'
               )}
             >
               The Recap
@@ -159,11 +150,17 @@ function WeekCard({
     closePanel()
   }
 
+  // SELECTION IS NOT A COLOUR IN THIS APP'S PALETTE. Blue means the week
+  // was won and pink means it was lost, everywhere — so painting the
+  // selected card blue told you week 1 had cashed when it had in fact
+  // died on a single leg. The border carries selection, in plain white,
+  // and every coloured thing on the card goes on meaning what it means:
+  // the slab, the number, the counts all keep saying how the week ended.
   const shell = cn(
     'group relative block w-full overflow-hidden rounded-xl border text-left transition-colors',
     CARD_H,
     active
-      ? 'border-neon-blue/50 bg-neon-blue/[0.07]'
+      ? 'border-white/70 bg-white/[0.06]'
       : won
         ? 'border-neon-blue/25 bg-white/[0.02] hover:bg-white/[0.05]'
         : lost
@@ -187,7 +184,11 @@ function WeekCard({
         <span
           className={cn(
             'font-display block px-4 text-[2.1rem] leading-none tracking-tight uppercase',
-            active || isCurrent ? 'text-neon-blue' : 'text-foreground/55'
+            active
+              ? 'text-foreground'
+              : isCurrent
+                ? 'text-neon-blue'
+                : 'text-foreground/55'
           )}
         >
           Preseason
@@ -221,25 +222,21 @@ function WeekCard({
           className="absolute inset-0"
           style={{
             clipPath: 'polygon(0 0, 100% 0, calc(100% - 11px) 100%, 0 100%)',
-            background: active
-              ? 'linear-gradient(150deg, rgba(0,217,255,0.26), rgba(0,217,255,0.06))'
-              : won
-                ? 'linear-gradient(150deg, rgba(0,217,255,0.17), rgba(0,217,255,0.03))'
-                : lost
-                  ? 'linear-gradient(150deg, rgba(255,105,180,0.17), rgba(255,105,180,0.03))'
-                  : 'linear-gradient(150deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015))',
+            background: won
+              ? 'linear-gradient(150deg, rgba(0,217,255,0.17), rgba(0,217,255,0.03))'
+              : lost
+                ? 'linear-gradient(150deg, rgba(255,105,180,0.17), rgba(255,105,180,0.03))'
+                : 'linear-gradient(150deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015))',
           }}
         />
         <span
           className={cn(
             'font-display relative -mr-2 text-[2.4rem] leading-none tabular-nums',
-            active
-              ? 'text-neon-blue'
-              : won
-                ? 'text-neon-blue/85'
-                : lost
-                  ? 'text-destructive/85'
-                  : 'text-foreground/40'
+            won
+              ? 'text-neon-blue/85'
+              : lost
+                ? 'text-destructive/85'
+                : 'text-foreground/40'
           )}
         >
           {week.weekNumber}
