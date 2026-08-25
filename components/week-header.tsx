@@ -134,9 +134,17 @@ function SlateHeading({ counts }: { counts: Record<SlateScope, number> }) {
 export function WeekCornerDoor({
   weekNumber,
   tone = 'neutral',
+  label,
 }: {
   weekNumber: number
   tone?: 'neutral' | 'won' | 'lost'
+  /**
+   * A word instead of the number, for the week that hasn't got one.
+   * There is no week 0 in the NFL — the slab was asserting an ordinal
+   * that doesn't exist and then the word beside it had to say
+   * "Preseason" anyway. The dock had already settled this: PRE.
+   */
+  label?: string
 }) {
   const won = tone === 'won'
   const lost = tone === 'lost'
@@ -162,11 +170,14 @@ export function WeekCornerDoor({
       <span
         aria-hidden
         className={cn(
-          'font-display -mr-2 text-6xl leading-none tabular-nums',
+          'font-display -mr-2 leading-none',
+          // A word carries at less size than a lone digit does — Anton is
+          // condensed, so three letters at 6xl would run out of slab.
+          label ? 'text-5xl tracking-tight' : 'text-6xl tabular-nums',
           won ? 'text-neon-blue' : lost ? 'text-destructive' : 'text-foreground/75'
         )}
       >
-        {weekNumber}
+        {label ?? weekNumber}
       </span>
     </button>
   )

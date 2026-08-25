@@ -245,6 +245,12 @@ function SeasonSetup({
     return open
   }, [charter, pollsById])
 
+  // How many of them are still waiting on YOU — the heading's right-hand
+  // fact, and the only arithmetic on this page.
+  const needsMe = ballot.filter(
+    ({ poll }) => !hasAnyAnswer(viewerVoteFor(poll, sessionPollVotes, currentUserId))
+  ).length
+
   return (
     // No heading of its own: this IS the preseason week's content, and
     // the week page already says so overhead. A second "Season Setup"
@@ -265,6 +271,11 @@ function SeasonSetup({
           <SectionHeading
             name="Draft"
             settled={draftEntries.every((e) => e.status === 'locked')}
+            // No aside. The date is the card's whole left-hand side, six
+            // inches below — putting it up here too is the same fact
+            // twice on one screen. The rule alone gives the section its
+            // weight, and a heading isn't obliged to have a right-hand
+            // end just because the one under it does.
           />
           <div className="mb-8 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
             <DraftCard
@@ -293,17 +304,26 @@ function SeasonSetup({
               runs long, and "take me back to the votes" is the one verb
               the preseason week has. */}
           {/* Pink whatever its state — this is the one asking you for
-              something. The count is gone: every card underneath says
-              NEEDS YOU or VOTED on its own face. */}
+              something. */}
           <div id="preseason-ballot">
-            <SectionHeading name="Vote" tone="ask" />
+            <SectionHeading
+              name="Vote"
+              tone="ask"
+              aside={
+                needsMe > 0
+                  ? `${needsMe} need${needsMe === 1 ? 's' : ''} you`
+                  : 'All in'
+              }
+            />
           </div>
 
-          {/* A column, not a grid. It was two columns with a tight gap
-              back when a card was a row you pressed to open; now every
-              card carries a whole vote, so they stack — and two votes
-              4px apart read as one long form rather than two questions. */}
-          <div className="mb-8 space-y-4">
+          {/* TWO COLUMNS. They were full width because a vote is a
+              column of options with a bar each — true, but at 1770px
+              that made a bar the width of the card for the word "Yes".
+              Half the card is still far more room than a question needs
+              and the page stops reading as a stack of mostly-empty
+              rows. */}
+          <div className="mb-8 grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
             {ballot.map(({ entry, poll, group }) => (
               <BallotCard
                 key={entry.id}
@@ -384,40 +404,53 @@ function myPickSummary(poll: LeaguePoll, vote: SessionVote): string | null {
 }
 
 /**
- * A section's name, and nothing else.
+ * A section's name, and the one fact that belongs beside it.
  *
- * These were header BARS inside each card — a slab with "4/4", an icon, a
- * chevron. That was a group label inside a list of groups, and the list
- * is gone: the page is down to DRAFT and VOTE, and those get section
- * headings rather than furniture.
+ * Set exactly like the slate's heading on every other week: a hairline
+ * under the whole row, the title at one end, something true at the
+ * other, and the rule tying them together and holding the content off.
+ * These were bare <h2>s floating over their sections while BETTING SLATE
+ * got a ruled row with a count and a control cluster — the same page
+ * furniture at two different weights, so the preseason read as a rougher
+ * draft of the app.
  *
- * The tally went with the bar, but the one bit of it worth keeping
- * survives as tone: blue once everything in the section is settled,
- * quiet while anything still isn't. Same signal, no arithmetic.
+ * Tone survives from the version before: blue once everything in the
+ * section is settled, quiet while anything still isn't, pink for the one
+ * that's asking you for something.
  */
 function SectionHeading({
   name,
   settled,
   tone,
+  aside,
 }: {
   name: string
   settled?: boolean
   /** Overrides `settled` — VOTE is pink whatever state it's in. */
   tone?: 'ask'
+  /** The right-hand end of the rule. */
+  aside?: React.ReactNode
 }) {
   return (
-    <h2
-      className={cn(
-        'font-display mb-2.5 text-xl leading-none tracking-tight uppercase',
-        tone === 'ask'
-          ? 'text-neon-pink'
-          : settled
-            ? 'text-neon-blue'
-            : 'text-foreground/60'
+    <div className="mb-3 flex items-end justify-between gap-3 border-b border-white/[0.07] pb-2.5">
+      <h2
+        className={cn(
+          'font-display text-xl leading-none tracking-tight uppercase',
+          tone === 'ask'
+            ? 'text-neon-pink'
+            : settled
+              ? 'text-neon-blue'
+              : 'text-foreground/60'
+        )}
+      >
+        {name}
+      </h2>
+      {aside && (
+        <span className="text-muted-foreground/60 shrink-0 text-[10px] font-bold tracking-[0.2em] uppercase">
+          {aside}
+        </span>
       )}
-    >
-      {name}
-    </h2>
+    </div>
   )
 }
 /**

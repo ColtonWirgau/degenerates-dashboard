@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Lock } from 'lucide-react'
+import { Check, Lock } from 'lucide-react'
 import { getLeagueOverviewCached } from '@/lib/data/league-overview-cached'
 import { getLeagueWeeksCached } from '@/lib/data/league-weeks-cached'
 import { getWeekStage } from '@/app/actions/week-stage'
@@ -121,19 +121,26 @@ async function PreseasonStage({ payload: p }: { payload: Payload }) {
 
   return (
     <>
-      {/* The open-vote count is deliberately absent: the POLLS rung wears
-          it on the rail, and the dock's disc wears it on a phone. */}
-      {/* Week 0 gets the same corner door as every other week — it's
-          the only way into the week list now that the rail doesn't carry
-          one, and the preseason must not be a dead end. */}
-      <header className="mb-4 flex items-stretch gap-4">
-        <WeekCornerDoor weekNumber={0} />
-        {/* No blurb. The sections below say what this week is for by
-            being what this week is for — a sentence explaining that is a
-            sentence you read once and skip forever after. */}
-        <div className="min-w-0 flex-1 self-center pt-1">
-          <h1 className="text-3xl font-bold sm:text-4xl">Preseason</h1>
-        </div>
+      {/* THE WEEK, in the shape every other week uses: the door in the
+          left corner, what's true about it across the middle, and one
+          mark in the right corner. It used to be a door and a <h1> in
+          body copy, which put a TITLE where every other week puts a
+          STATE — same slot, different grammar — and left the right half
+          of the band empty, so the whole thing drifted left.
+
+          The slab says PRE rather than 0. There is no week 0 in the NFL:
+          it was asserting an ordinal that doesn't exist and then having
+          the word beside it say "Preseason" anyway. */}
+      <header className="mb-1 flex items-stretch justify-between gap-3">
+        <h1 className="sr-only">Preseason</h1>
+        <WeekCornerDoor weekNumber={0} label="PRE" />
+        <p className="font-display text-foreground/35 min-w-0 flex-1 self-center truncate pt-1 text-3xl leading-none tracking-tight uppercase sm:text-4xl">
+          Preseason
+        </p>
+        {/* The padlock's slot, and its parallel: a week either takes
+            entries or doesn't, and week 0 either wants something from you
+            or doesn't. */}
+        <OutstandingMark count={p.charter.filter((e) => e.status !== 'locked').length} />
       </header>
 
       <OffseasonPollsHub
@@ -152,5 +159,40 @@ async function PreseasonStage({ payload: p }: { payload: Payload }) {
         }))}
       />
     </>
+  )
+}
+
+/**
+ * WHAT WEEK 0 STILL WANTS — the padlock's opposite number, in the
+ * padlock's box.
+ *
+ * Every other week's right corner answers "is this still taking
+ * entries". The preseason's equivalent question is "is there anything
+ * left to settle", so it's answered in the same place at the same size:
+ * a count while the league owes answers, a tick once it doesn't.
+ */
+function OutstandingMark({ count }: { count: number }) {
+  const label =
+    count > 0
+      ? `${count} thing${count === 1 ? '' : 's'} left to settle`
+      : 'Everything is settled'
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      title={label}
+      className={
+        'flex size-14 shrink-0 items-center justify-center rounded-2xl border ' +
+        (count > 0
+          ? 'border-neon-pink/40 bg-neon-pink/10 text-neon-pink'
+          : 'border-neon-blue/40 bg-neon-blue/10 text-neon-blue')
+      }
+    >
+      {count > 0 ? (
+        <span className="font-display text-3xl leading-none tabular-nums">{count}</span>
+      ) : (
+        <Check className="h-7 w-7" strokeWidth={2.5} />
+      )}
+    </span>
   )
 }

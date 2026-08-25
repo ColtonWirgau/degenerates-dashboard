@@ -83,10 +83,15 @@ export function DraftCard({
   const settled = when.raw != null
 
   return (
-    <div>
+    // TWO COLUMNS from lg. The fixture was a band across the top with the
+    // keeper rules in a band underneath, which left the right half of the
+    // fixture empty at any real width — a date, a place and a format
+    // stretched across 1700px. Side by side, the card is full and the two
+    // halves are what they are: when and where, then the small print.
+    <div className="lg:flex lg:items-stretch">
       {/* THE FIXTURE. Date on its slab, the two facts you'd text someone
           beside it. */}
-      <div className="flex items-stretch border-b border-white/10">
+      <div className="flex items-stretch border-b border-white/10 lg:min-w-0 lg:flex-1 lg:border-b-0">
         <button
           type="button"
           onClick={() => onOpenEntry('draft-date')}
@@ -118,7 +123,7 @@ export function DraftCard({
           )}
         </button>
 
-        <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 py-3 pr-3 pl-3.5">
+        <div className="flex min-w-0 flex-1 flex-col justify-center gap-2 py-3 pr-3 pl-4">
           <Fact
             icon={CalendarDays}
             value={when.day ? when.time : when.raw}
@@ -141,14 +146,15 @@ export function DraftCard({
         </div>
       </div>
 
-      {/* THE RULES, in two columns — they're reference material, not
-          headlines, so they're set like reference material. */}
+      {/* THE RULES — reference material, so they're set like reference
+          material, and they take the card's right half rather than a
+          band under everything. */}
       {keepers.length > 0 && (
-        <div className="px-3 py-2.5">
+        <div className="px-3 py-2.5 lg:w-[46%] lg:shrink-0 lg:border-l lg:border-white/10 lg:py-3">
           <p className="text-muted-foreground/60 mb-2 text-[9px] font-bold tracking-[0.3em] uppercase">
             Keepers
           </p>
-          <div className="grid grid-cols-1 gap-x-5 gap-y-1.5 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-x-5 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-1">
             {keepers.map((e) => (
               <button
                 key={e.key}
@@ -203,15 +209,15 @@ function Fact({
       onClick={onClick}
       className="group flex min-w-0 items-center gap-2 text-left"
     >
-      <Icon className="text-muted-foreground/50 h-3.5 w-3.5 shrink-0" />
+      <Icon className="text-muted-foreground/50 h-4 w-4 shrink-0" />
       <span
         className={cn(
           'min-w-0 truncate transition-colors',
           value
             ? strong
-              ? 'text-foreground/90 text-sm font-semibold'
+              ? 'text-foreground/90 text-base font-semibold'
               : 'text-foreground/80 text-xs'
-            : 'text-muted-foreground/50 text-xs italic'
+            : 'text-muted-foreground/50 text-sm italic'
         )}
       >
         {value ?? fallback}
