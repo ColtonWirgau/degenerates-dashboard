@@ -459,8 +459,12 @@ function GameCard({
 
       <div className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-3 pl-2.5">
         <div className="min-w-0 flex-1">
-          {/* Who's playing, said once. */}
-          <p className="text-muted-foreground/80 truncate text-[10px] font-bold tracking-[0.18em] uppercase">
+          {/* Who's playing, said once. The tracking relaxes on a phone:
+              at 0.18em a twenty-character matchup needs 36px of pure
+              letter-spacing, which truncated five of the fourteen rows
+              mid-word — BUCCANEERS @ BENG…, COWBOYS @ GIAN…. Every one
+              of them was over by less than the tracking itself. */}
+          <p className="text-muted-foreground/80 truncate text-[10px] font-bold tracking-[0.07em] uppercase sm:tracking-[0.18em]">
             {game.away.name}
             <span className="text-muted-foreground/40"> @ </span>
             {game.home.name}

@@ -332,8 +332,9 @@ test.describe('mobile', () => {
     const dock = page.getByRole('navigation', { name: 'Main' })
 
     // ROOT is the desktop's PANELS. The card-edge rail can't exist on a
-    // phone, so its rungs are cells — and SEASON is one of them.
-    await expect(dock.getByRole('button', { name: 'Weeks' })).toBeVisible()
+    // phone, so its rungs are cells — and SEASON is one of them. WEEKS
+    // is NOT: the hero opens with its own "All weeks" on every stage.
+    await expect(dock.getByRole('button', { name: 'Weeks' })).toHaveCount(0)
     await expect(dock.getByRole('button', { name: 'Leaderboard' })).toBeVisible()
     await expect(dock.getByRole('button', { name: 'Season and league' })).toBeVisible()
 
@@ -346,14 +347,15 @@ test.describe('mobile', () => {
     await expect(dock.getByRole('button', { name: 'Ask the league' })).toBeVisible()
     // The panels are gone while the verbs are out — the bar holds still,
     // the faces change.
-    await expect(dock.getByRole('button', { name: 'Weeks' })).toHaveCount(0)
+    await expect(dock.getByRole('button', { name: 'Leaderboard' })).toHaveCount(0)
 
     // Pressing off the bar folds it home, same gesture as the pod's.
     await page.mouse.click(195, 300)
-    await expect(dock.getByRole('button', { name: 'Weeks' })).toBeVisible()
+    await expect(dock.getByRole('button', { name: 'Leaderboard' })).toBeVisible()
 
-    // A week with games holds the week's verbs instead.
-    await dock.getByRole('button', { name: 'Weeks' }).click()
+    // A week with games holds the week's verbs instead. The weeks list
+    // is the hero's door now, not the dock's.
+    await page.getByRole('button', { name: /open the week list/i }).first().click()
     await page.getByRole('button', { name: /Week 2\b/ }).first().click()
     await expect(page.getByRole('heading', { name: 'Week 2', level: 1 })).toBeVisible({
       timeout: 15_000,

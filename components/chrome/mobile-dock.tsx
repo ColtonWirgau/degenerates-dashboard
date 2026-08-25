@@ -35,8 +35,17 @@ import { setWeekLock } from '@/app/actions/week-lock'
  * five fixed SLOTS that never move — the center slot is THE button, an
  * electric-blue disc, the one distinguished thing on the bar.
  *
- *   root:     WEEK · LAY · (+) · BOARD · SEASON
+ *   root:     LAY · BOARD · (+) · SEASON
  *   verbs:      (✕) · the week's verbs, blooming to its right
+ *
+ * NO WEEK CELL. RoarTracker's dock carries the games because nothing
+ * else does; DD's hero opens with "‹ ALL WEEKS" above the week's name
+ * set in 60px type, on every stage — the week hero, the draft hero and
+ * the recap. A WK 1 cell was a second door to the same room, one screen
+ * inch away, whispering what the page was already shouting. Dropping it
+ * also squares the bar: on week 0 and the recap the lay collapses too,
+ * leaving BOARD · (+) · SEASON with the disc on dead centre instead of
+ * parked a third of the way in with a hole beside it.
  *
  * It is the phone's whole navigation, so it has to carry what the
  * desktop carries — and the desktop carries TWO things a phone can't
@@ -109,23 +118,6 @@ export function MobileDock() {
   // must not reshuffle under a thumb — and go quiet until the real ones
   // land. Same treatment as the desktop rail's faces.
   const waiting = chrome.switching
-  const weekFace = week
-    ? week.kind === 'preseason'
-      ? 'PRE'
-      : `WK ${week.weekNumber}`
-    : 'WK –'
-
-  const weekCell: Face = {
-    key: `week-${waiting ? 'switching' : (week?.id ?? '')}`,
-    label: 'Weeks',
-    onClick: () => openPanel('slate'),
-    content: waiting ? (
-      <Waiting />
-    ) : (
-      <span className="font-display text-[0.82rem]">{weekFace}</span>
-    ),
-    below: 'Week',
-  }
   const layCell: Face = {
     key: `lay-${waiting ? 'switching' : (week?.submissionCount ?? 0)}`,
     label: 'The lay',
@@ -265,11 +257,11 @@ export function MobileDock() {
           ...Array<null>(Math.max(0, 4 - verbs.length)).fill(null),
         ].slice(0, 5) as (Face | 'park' | null)[])
       : [
-          weekCell,
           week?.parlayId != null && !onRecap ? layCell : null,
+          boardCell,
           'park',
-          onRecap ? null : boardCell,
           seasonCell,
+          null,
         ]
 
   // WHERE THE DISC SITS: over its park, wherever that lands.
