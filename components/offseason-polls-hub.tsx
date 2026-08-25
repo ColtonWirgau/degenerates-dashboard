@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { approveCharter } from '@/app/actions/charter'
 import { getAblyClient } from '@/lib/ably/client'
 import { channelName } from '@/lib/ably/channels'
-import { Check, ChevronRight, Hourglass } from 'lucide-react'
+import { Check, Hourglass } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   getInitials,
@@ -215,45 +215,6 @@ function SeasonSetup({
   // renaming, removing and settling all happen on the RULES panel's item
   // page. What's left here reads.
 
-  /**
-   * WHICH BALLOT CARDS ARE OPEN — and by default, the ones that want
-   * something from you.
-   *
-   * They all started closed, which meant the page's whole job ("two
-   * questions need answering") was two rows you had to press before it
-   * would tell you what they were. Nothing is saved by that: the section
-   * is short, and a question you have to open to read is a question you
-   * put off. So an unanswered one is open with its options showing, and
-   * one you've already answered is folded down to its row — where it
-   * still says what you picked.
-   *
-   * The set is snapshotted ONCE, from what was answered when the page
-   * loaded, so casting a vote doesn't slam the card shut under your hand
-   * and reflow the grid mid-click. It folds on the next load, by which
-   * time it's a record rather than a question.
-   */
-  const [foldedAtLoad] = useState<Set<string>>(() => {
-    const done = new Set<string>()
-    for (const e of charter) {
-      if (!e.pollId) continue
-      const poll = polls.find((p) => p.id === e.pollId) ?? null
-      if (hasAnyAnswer(viewerVoteFor(poll, sessionPollVotes, currentUserId))) {
-        done.add(e.id)
-      }
-    }
-    return done
-  })
-  const [ballotToggles, setBallotToggles] = useState<Map<string, boolean>>(
-    () => new Map()
-  )
-  const ballotOpen = (id: string) => ballotToggles.get(id) ?? !foldedAtLoad.has(id)
-  const toggleBallot = (id: string) =>
-    setBallotToggles((prev) => {
-      const next = new Map(prev)
-      next.set(id, !ballotOpen(id))
-      return next
-    })
-
   // WHAT'S ACTUALLY ON THE BALLOT. Week 0's job is settling the things
   // the league hasn't settled — everything else on this page is a record
   // of decisions already made, which is reference, not work. So the open
@@ -342,8 +303,6 @@ function SeasonSetup({
                 membersById={membersById}
                 membersCount={membersCount}
                 myVote={viewerVoteFor(poll, sessionPollVotes, currentUserId)}
-                expanded={ballotOpen(entry.id)}
-                onToggle={() => toggleBallot(entry.id)}
               >
                 {/* The same state-aware panel the charter's sheet uses —
                     it already knows the difference between a live poll, a
@@ -467,8 +426,6 @@ function BallotCard({
   membersById,
   membersCount,
   myVote,
-  expanded,
-  onToggle,
   children,
 }: {
   entry: CharterEntry
@@ -477,9 +434,7 @@ function BallotCard({
   membersById: Map<string, PollMember>
   membersCount: number
   myVote: SessionVote | null
-  expanded: boolean
-  onToggle: () => void
-  /** The vote itself — dropped in underneath once opened. */
+  /** The vote itself, always under the question. */
   children: React.ReactNode
 }) {
   const voted = hasAnyAnswer(myVote)
@@ -493,24 +448,16 @@ function BallotCard({
   return (
     <div
       className={cn(
-        'overflow-hidden rounded-xl border transition-colors',
-        // A vote is a column of options with a bar each — two of those
-        // side by side at half width is a shape nothing votes well in.
-        expanded && 'xl:col-span-2',
+        // Full width, always. A vote is a column of options with a bar
+        // each, and two of those side by side at half width is a shape
+        // nothing votes well in.
+        'overflow-hidden rounded-xl border transition-colors xl:col-span-2',
         voted
           ? 'border-white/10 bg-white/[0.02]'
           : 'border-neon-pink/35 bg-neon-pink/[0.06]'
       )}
     >
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-expanded={expanded}
-      className={cn(
-        'group flex w-full items-stretch text-left transition-colors',
-        voted ? 'hover:bg-white/[0.03]' : 'hover:bg-neon-pink/[0.06]'
-      )}
-    >
+    <div className="flex w-full items-stretch text-left">
       {/* The same slab the rest of the app puts an identity on — here it
           carries whether this one is waiting on YOU. */}
       <div
@@ -543,16 +490,6 @@ function BallotCard({
           >
             {voted ? 'Voted' : poll ? 'Needs you' : 'Proposed'}
           </span>
-          {/* The header is a FOLD now, not a door — most cards arrive
-              open, so the affordance has to say "you can put this away"
-              rather than "there's more in here". */}
-          <ChevronRight
-            aria-hidden
-            className={cn(
-              'text-muted-foreground/50 h-3.5 w-3.5 shrink-0 transition-transform',
-              expanded && 'rotate-90'
-            )}
-          />
         </div>
 
         <p className="text-foreground/90 text-sm leading-snug font-semibold">
@@ -589,17 +526,14 @@ function BallotCard({
           )}
         </div>
       </div>
-    </button>
+    </div>
 
-      {/* THE VOTE ITSELF. It used to be behind the charter's sheet — you
-          pressed a card on the ballot and a sheet came up over the page
-          you were already reading, showing the same question again.
-          There's room now, so the answer happens where the question is. */}
-      {expanded && (
-        <div className="space-y-3 border-t border-white/[0.07] px-3.5 py-3">
-          {children}
-        </div>
-      )}
+      {/* THE VOTE ITSELF — not behind anything. It was in the charter's
+          sheet, then behind a fold on the card. Both were a press
+          standing between the page's one job and doing it. */}
+      <div className="space-y-3 border-t border-white/[0.07] px-3.5 py-3">
+        {children}
+      </div>
     </div>
   )
 }

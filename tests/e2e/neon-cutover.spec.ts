@@ -106,16 +106,16 @@ test('the ballot is voted on in place, not behind a sheet', async ({ page }) => 
     timeout: 10_000,
   })
 
-  // The options are THERE — no press to reveal them, no dialog. Pressing
-  // a question used to raise a sheet over the page you were already
-  // reading, showing you the same question again.
+  // The options are THERE — no press to reveal them, no dialog, and no
+  // way to put them away. A press used to raise a sheet over the page you
+  // were already reading, showing you the same question again; then it
+  // was a fold. Both stood between the page's one job and doing it.
   await expect(page.getByText('Cast your vote', { exact: false })).toBeVisible()
-  await expect(page.getByText('Yes — all season')).toBeVisible()
+  await expect(page.getByText('Yes', { exact: true })).toBeVisible()
   await expect(page.getByRole('dialog')).toHaveCount(0)
 
-  // …and the header folds it away again, for anyone who wants it gone.
   await page.getByText('League Median Game').click()
-  await expect(page.getByText('Yes — all season')).toHaveCount(0)
+  await expect(page.getByText('Yes', { exact: true })).toBeVisible()
 
   // An open poll is votable whatever the row's provenance. This entry is
   // source='manual' with a live poll attached, and requiring
