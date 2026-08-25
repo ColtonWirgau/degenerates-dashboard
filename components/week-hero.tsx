@@ -36,15 +36,6 @@ import { cn } from '@/lib/utils'
 const SEAM_WIDTH = 'sm:w-[42%] lg:w-[38%]'
 const SEAM_CLIP = 'sm:[clip-path:polygon(0_0,100%_0,calc(100%-46px)_100%,0_100%)]'
 
-/** The week's verdict, in one word. */
-const STATE_WORD: Record<ParlayState, string> = {
-  open: 'Open',
-  locked: 'Locked',
-  graded: 'In progress',
-  won: 'Won',
-  lost: 'Lost',
-}
-
 export interface WeekHeroLeg {
   userId: string
   fullName: string | null
@@ -139,17 +130,14 @@ export function WeekHero({
           onClick={() => openPanel('parlay')}
           aria-label={`Week ${weekNumber} — open the lay`}
           className="group relative z-10 flex min-w-0 flex-1 flex-col justify-center px-4 py-6 text-left transition-[filter] hover:brightness-125 sm:py-0 sm:pl-14 lg:pr-20">
-          <span
-            className={cn(
-              'mb-3 text-[10px] font-bold tracking-[0.28em] uppercase',
-              won
-                ? 'text-neon-blue/85'
-                : lost
-                  ? 'text-destructive/85'
-                  : 'text-muted-foreground/60'
-            )}
-          >
-            {STATE_WORD[state]}
+          {/* The name of the door, at the far edge — the mirror of ALL
+              WEEKS on the other half, pointing the other way because
+              that's the direction it takes you. It used to be the week's
+              state word, which named the thing you were looking at
+              instead of the thing pressing it would open. */}
+          <span className="text-muted-foreground/60 group-hover:text-neon-blue mb-3 ml-auto inline-flex items-center gap-1 text-[10px] font-bold tracking-[0.28em] uppercase transition-colors">
+            The lay
+            <ChevronRightMark />
           </span>
           {dots.length > 0 ? (
             // 24px of avatar, not 12px of numeral — the band under the
@@ -181,6 +169,24 @@ function ChevronLeftMark() {
       strokeLinejoin="round"
     >
       <path d="M15 18 9 12l6-6" />
+    </svg>
+  )
+}
+
+/** Its mirror. */
+function ChevronRightMark() {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 24 24"
+      className="h-3 w-3"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={3}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m9 18 6-6-6-6" />
     </svg>
   )
 }
