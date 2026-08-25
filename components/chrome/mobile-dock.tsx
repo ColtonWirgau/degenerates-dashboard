@@ -61,47 +61,60 @@ export function MobileDock() {
       : `WK ${week.weekNumber}`
     : 'WK –'
 
+  // Every number on this bar belongs to a season, and mid-switch they all
+  // belong to the one you just left. The cells keep their places — the bar
+  // must not reshuffle under a thumb — and go quiet until the real ones
+  // land. Same treatment as the desktop rail's faces.
+  const waiting = chrome.switching
+
   const weekCell: Face = {
-    key: `week-${week?.id ?? ''}`,
+    key: `week-${waiting ? 'switching' : (week?.id ?? '')}`,
     label: 'Weeks',
     onClick: () => openPanel('slate'),
-    content: <span className="font-display text-[0.82rem]">{weekFace}</span>,
+    content: waiting ? (
+      <Waiting />
+    ) : (
+      <span className="font-display text-[0.82rem]">{weekFace}</span>
+    ),
     below: 'Week',
   }
   const boardCell: Face = {
-    key: `board-${chrome.myRank ?? ''}`,
+    key: `board-${waiting ? 'switching' : (chrome.myRank ?? '')}`,
     label: 'Leaderboard',
     onClick: () => openPanel('board'),
-    content:
-      chrome.myRank != null ? (
-        <span className="font-display text-[0.82rem]">#{chrome.myRank}</span>
-      ) : (
-        <Trophy size={16} strokeWidth={2.25} />
-      ),
+    content: waiting ? (
+      <Waiting />
+    ) : chrome.myRank != null ? (
+      <span className="font-display text-[0.82rem]">#{chrome.myRank}</span>
+    ) : (
+      <Trophy size={16} strokeWidth={2.25} />
+    ),
     below: 'Board',
   }
   const pollsCell: Face = {
-    key: `polls-${openPolls}`,
+    key: `polls-${waiting ? 'switching' : openPolls}`,
     label: 'Polls',
     onClick: () => openPanel('polls'),
-    content:
-      openPolls > 0 ? (
-        <span className="font-display text-neon-blue text-[0.82rem]">{openPolls}</span>
-      ) : (
-        <ListTodo size={16} strokeWidth={2.25} />
-      ),
+    content: waiting ? (
+      <Waiting />
+    ) : openPolls > 0 ? (
+      <span className="font-display text-neon-blue text-[0.82rem]">{openPolls}</span>
+    ) : (
+      <ListTodo size={16} strokeWidth={2.25} />
+    ),
     below: 'Polls',
   }
   const layCell: Face = {
-    key: `lay-${week?.submissionCount ?? 0}`,
+    key: `lay-${waiting ? 'switching' : (week?.submissionCount ?? 0)}`,
     label: 'The lay',
     onClick: () => openPanel('parlay'),
-    content:
-      (week?.submissionCount ?? 0) > 0 ? (
-        <span className="font-display text-[0.82rem]">{week!.submissionCount}</span>
-      ) : (
-        <Layers size={16} strokeWidth={2.25} />
-      ),
+    content: waiting ? (
+      <Waiting />
+    ) : (week?.submissionCount ?? 0) > 0 ? (
+      <span className="font-display text-[0.82rem]">{week!.submissionCount}</span>
+    ) : (
+      <Layers size={16} strokeWidth={2.25} />
+    ),
     below: 'Lay',
   }
 
@@ -237,5 +250,15 @@ function HeroDisc({
         </span>
       </span>
     </button>
+  )
+}
+
+/** A cell with nothing true to say yet. */
+function Waiting() {
+  return (
+    <span
+      aria-hidden
+      className="h-1.5 w-1.5 animate-pulse rounded-full bg-current opacity-40"
+    />
   )
 }

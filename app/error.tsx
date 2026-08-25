@@ -11,15 +11,28 @@
  * unhandled crash for whoever happened to have the app open.
  *
  * It's recoverable by definition: the page just needs the current build.
- * So we fetch it, once. The `once` matters — if the reload lands on a
- * server that still can't serve the action, looping would take a bad
- * minute and make it an infinite one. Second time through, we say what
- * happened instead.
+ * So we fetch it. What we must not do is fetch it in a loop — if the
+ * reload lands on a server that still can't serve the action, looping
+ * turns a bad minute into an infinite one.
+ *
+ * So the guard is a COOLDOWN, not a one-shot. A one-shot flag was the
+ * obvious version and it was wrong twice over: it could only ever be
+ * cleared by this boundary rendering successfully, which is a thing a
+ * boundary never does, so the flag was set for the life of the tab. The
+ * first stale action got its reload and every one after it — a different
+ * deploy, an hour later, a wholly unrelated action — went straight to
+ * "reloading didn't settle it" without trying. A timestamp distinguishes
+ * the two cases the flag conflated: failing AGAIN right now (don't loop)
+ * versus failing again LATER (that's a new problem, reload for it).
  */
 
 import { useEffect, useState } from 'react'
 
-const RELOADED = 'degens:stale-action-reload'
+const RELOADED_AT = 'degens:stale-action-reload-at'
+
+/** Long enough that a reload-and-fail cycle can't hide inside it; short
+ *  enough that the next genuine staleness gets its own free recovery. */
+const COOLDOWN_MS = 30_000
 
 /** Next words this differently in dev and prod; both name the action. */
 function isStaleAction(error: Error): boolean {
@@ -41,30 +54,20 @@ export default function ErrorBoundary({
 
   useEffect(() => {
     if (!stale) return
-    let already = false
+    const now = Date.now()
+    let looping = false
     try {
-      already = sessionStorage.getItem(RELOADED) === '1'
-      sessionStorage.setItem(RELOADED, '1')
+      looping = now - Number(sessionStorage.getItem(RELOADED_AT) ?? 0) < COOLDOWN_MS
+      sessionStorage.setItem(RELOADED_AT, String(now))
     } catch {
       // Private mode, blocked storage — treat it as "first time" and
       // accept that a truly broken server could reload twice.
     }
-    if (already) {
+    if (looping) {
       setRecovering(false)
       return
     }
     window.location.reload()
-  }, [stale])
-
-  // Clear the guard once a render actually succeeds, so the NEXT deploy
-  // gets its own free reload rather than inheriting this one's.
-  useEffect(() => {
-    if (stale) return
-    try {
-      sessionStorage.removeItem(RELOADED)
-    } catch {
-      /* not important enough to care */
-    }
   }, [stale])
 
   if (recovering) {

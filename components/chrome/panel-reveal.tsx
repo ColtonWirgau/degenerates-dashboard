@@ -8,6 +8,15 @@ import {
 } from '@/components/chrome/canvas-store'
 import { ResponsiveSheet, SheetPage } from '@/components/ui/responsive-sheet'
 import { ScrollHint } from '@/components/ui/scroll-hint'
+import { useLeagueChrome } from '@/components/chrome/league-chrome-context'
+import { Skeleton } from '@/components/ui/skeleton'
+
+/* Which panels are ABOUT the season, and so are lying while one is being
+ * switched. SEASON is the panel you're pressing — skeletoning the list
+ * you're using would be absurd — and PROFILE is you, which doesn't change
+ * with the year. Everything else is that season's weeks, legs, standings
+ * and votes, and holds last year's numbers until the refresh lands. */
+const SEASON_BOUND = new Set<CanvasPanel>(['slate', 'parlay', 'board', 'polls', 'submit'])
 
 /**
  * Dual-posture wrapper for a canvas panel (the RoarTracker pattern, on
@@ -26,6 +35,7 @@ export function PanelReveal({
   const scrollRef = useRef<HTMLDivElement>(null)
   const [current, setCurrent] = useState<CanvasPanel>(null)
   const [wide, setWide] = useState<boolean | null>(null)
+  const chrome = useLeagueChrome()
   useEffect(() => subscribePanel(setCurrent), [])
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 1024px)')
@@ -35,13 +45,16 @@ export function PanelReveal({
     return () => mq.removeEventListener('change', update)
   }, [])
 
+  const body =
+    chrome?.switching && SEASON_BOUND.has(panel) ? <PanelSkeleton /> : children
+
   // Before hydration settles, render the wide posture (harmless: the slot
   // is hidden below lg and no sheet can be open yet).
   if (wide !== false) {
     return (
       <div className="relative flex min-h-0 flex-1 flex-col">
         <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col">
-          {children}
+          {body}
         </div>
         {/* Fog only — the panels are narrow and a chip would crowd them. */}
         <ScrollHint containerRef={scrollRef} showChip={false} />
@@ -54,7 +67,22 @@ export function PanelReveal({
       {/* No title here: every panel already opens with its own heading,
           and SheetPage only paints one on a drilled-in page anyway. One
           heading, one place, at every width. */}
-      <SheetPage name="main">{children}</SheetPage>
+      <SheetPage name="main">{body}</SheetPage>
     </ResponsiveSheet>
+  )
+}
+
+/** Every season-bound panel is the same object: a heading, then a column
+ *  of rows. One skeleton serves all of them. */
+function PanelSkeleton() {
+  return (
+    <div aria-busy="true" className="flex min-h-0 flex-1 flex-col">
+      <Skeleton className="mb-3 h-6 w-32 shrink-0" />
+      <div className="space-y-1.5">
+        {Array.from({ length: 7 }, (_, i) => (
+          <Skeleton key={i} className="h-11 rounded-lg" />
+        ))}
+      </div>
+    </div>
   )
 }

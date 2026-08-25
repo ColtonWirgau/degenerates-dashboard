@@ -41,6 +41,36 @@ export function subscribePanel(listener: PanelListener): () => void {
   return () => panelListeners.delete(listener)
 }
 
+/* ---------- Switching seasons ---------- */
+
+/* The season the app is MOVING TO, while it's moving.
+ *
+ * Picking a year writes the cookie and refreshes the tree, and a refresh
+ * is a server round trip — so without this the whole shell sits on last
+ * season's numbers, unchanged, until it lands. Announcing the switch here
+ * the moment it's asked for splits the app in two for that second:
+ * everything that only needs the YEAR (the masthead lockup, the season
+ * list's tick) takes it immediately, and everything that needs the
+ * season's DATA (the stage, the panels, the rail's faces) knows to show a
+ * skeleton rather than keep insisting on facts that are about to be
+ * wrong. Null when nothing is in flight. */
+let switchingSeason: string | null = null
+const switchingListeners = new Set<(season: string | null) => void>()
+
+export function setSwitchingSeason(season: string | null) {
+  if (switchingSeason === season) return
+  switchingSeason = season
+  switchingListeners.forEach((l) => l(switchingSeason))
+}
+
+export function subscribeSwitchingSeason(
+  listener: (season: string | null) => void
+): () => void {
+  switchingListeners.add(listener)
+  listener(switchingSeason)
+  return () => switchingListeners.delete(listener)
+}
+
 /* ---------- The viewed week ---------- */
 
 /* WHICH WEEK THE CARD IS SHOWING. The app is one page: picking a week

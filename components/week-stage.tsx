@@ -1,12 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Loader2 } from 'lucide-react'
 import { getWeekStage, type WeekStagePayload } from '@/app/actions/week-stage'
 import { useLeagueChrome, useViewedWeek } from '@/components/chrome/league-chrome-context'
 import { setWeekActions, subscribeWeekDirty } from '@/components/chrome/canvas-store'
 import { WeekHeader, WeekTiming } from '@/components/week-header'
 import { WeekSlate } from '@/components/week-slate'
+import { Skeleton } from '@/components/ui/skeleton'
 
 /**
  * THE STAGE — the one thing on the page, showing the one week you're on.
@@ -43,6 +43,20 @@ export function WeekStage({
   )
   const [, force] = useState(0)
   const [loading, setLoading] = useState(false)
+
+  // A refresh — switching seasons, mostly — server-renders a NEW current
+  // week and hands it down here. Take it: without this the effect below
+  // sees a cache miss and goes back to the server for the payload we were
+  // just given, which is a whole round trip of skeleton for nothing.
+  //
+  // Keyed on identity, not on the id, so it only ever fires for a payload
+  // the server has actually re-rendered. Re-seeding on every render would
+  // let a stale `initial` clobber whatever reload() just refreshed.
+  const seeded = useRef(initial)
+  if (initial && initial !== seeded.current) {
+    seeded.current = initial
+    cache.current.set(initial.nflWeekId, initial)
+  }
 
   const targetId = viewed?.id ?? chrome?.currentWeekId ?? initial?.nflWeekId ?? null
   const stage = targetId ? (cache.current.get(targetId) ?? null) : null
@@ -108,15 +122,15 @@ export function WeekStage({
     })
   }, [isPreseason, stage, chrome?.me.id])
 
+  // Checked BEFORE the preseason branch on purpose: mid-switch the viewed
+  // week still resolves against the season we're leaving, so a season
+  // whose current week is week 0 would flash the old league's charter on
+  // its way out.
+  if (chrome?.switching) return <StageSkeleton />
+
   if (isPreseason) return <>{preseason}</>
 
-  if (!stage) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="text-neon-blue h-6 w-6 animate-spin" />
-      </div>
-    )
-  }
+  if (!stage) return <StageSkeleton />
 
   return (
     <div className={loading ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
@@ -146,6 +160,61 @@ export function WeekStage({
         lockAt={stage.lockAt}
         firstKickoff={stage.firstKickoff ?? stage.kickoff}
       />
+    </div>
+  )
+}
+
+/**
+ * THE STAGE, before it knows anything.
+ *
+ * Built out of the real thing's own geometry rather than a stack of grey
+ * bars: the corner slab at its actual size and clip, the state word's
+ * line, the lock's square, the slate's rule, then rows on the same grid
+ * the games use. The point is that nothing MOVES when the content lands —
+ * the layout is already correct and only the facts are missing, which is
+ * the honest description of what's happening.
+ */
+function StageSkeleton() {
+  return (
+    <div aria-busy="true" aria-label="Loading the week">
+      <header className="flex items-stretch justify-between gap-3">
+        {/* Same negative margins and slant as WeekCornerDoor, so the
+            corner is occupied from the first frame. */}
+        <div
+          aria-hidden
+          className="relative -mt-8 -ml-4 flex w-[7.5rem] shrink-0 items-center justify-center overflow-hidden rounded-tl-[20px] pt-8 pb-5 lg:-ml-14 lg:w-[8.75rem] lg:pl-6"
+          style={{
+            clipPath: 'polygon(0 0, 100% 0, calc(100% - 13px) 100%, 0 100%)',
+            background:
+              'linear-gradient(150deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))',
+          }}
+        >
+          <Skeleton className="-mr-2 h-11 w-12 rounded-lg" />
+        </div>
+
+        {/* The state word is flex-1 with its text left-aligned, so the
+            bar standing in for it has to be too — a centred bar drifts
+            into the middle of the card and then jumps left on arrival. */}
+        <div className="min-w-0 flex-1 self-center pt-1">
+          <Skeleton className="h-8 w-40 sm:h-9" />
+        </div>
+
+        <Skeleton className="size-14 shrink-0 rounded-2xl" />
+      </header>
+
+      <div className="mt-4 mb-3 flex items-end justify-between gap-3 border-b border-white/[0.07] pb-2.5">
+        <Skeleton className="h-5 w-32" />
+        <Skeleton className="h-6 w-44 rounded-full" />
+      </div>
+
+      {/* 3.7rem is the measured height of a real game row, and eight of
+          them is a normal Sunday — so the card fills to roughly the
+          height it's about to be. */}
+      <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
+        {Array.from({ length: 8 }, (_, i) => (
+          <Skeleton key={i} className="h-[3.7rem] rounded-xl" />
+        ))}
+      </div>
     </div>
   )
 }

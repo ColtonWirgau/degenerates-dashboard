@@ -1,13 +1,18 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, Crown, Loader2, Shield, UserMinus } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { closePanel, openLeagueSheet } from '@/components/chrome/canvas-store'
+import {
+  closePanel,
+  openLeagueSheet,
+  setSwitchingSeason,
+  setViewedWeek,
+} from '@/components/chrome/canvas-store'
 import { useLeagueChrome } from '@/components/chrome/league-chrome-context'
 import { LeagueAvatar } from '@/components/league-avatar'
-import { setViewSeason } from '@/app/actions/view-season'
+import { writeViewSeason } from '@/lib/view-season-cookie'
 import { removeMember, updateMemberRole } from '@/app/actions/leagues'
 import { SlateSettings } from '@/components/league-pages'
 import { DevPhaseSwitcher } from '@/components/user-menu'
@@ -64,6 +69,14 @@ export function SeasonPanel({
   const [pending, start] = useTransition()
   const [openId, setOpenId] = useState<string | null>(null)
 
+  // Belt and braces. The provider clears the switch when the new season's
+  // data actually arrives; this catches the case where the refresh comes
+  // back and it never does, so a failure leaves you on a real screen
+  // instead of skeletons forever.
+  useEffect(() => {
+    if (!pending) setSwitchingSeason(null)
+  }, [pending])
+
   if (!chrome) return null
   const canManage = currentUserRole === 'owner' || currentUserRole === 'admin'
 
@@ -72,12 +85,23 @@ export function SeasonPanel({
       closePanel()
       return
     }
-    start(async () => {
-      // Picking the calendar's own season clears the pin rather than
-      // freezing you on it.
-      await setViewSeason(season === availableSeasons[0] ? null : season)
+
+    // Everything the browser can do, before anything the server has to.
+    // The week you were on belongs to the season you're leaving, so it
+    // goes first — otherwise the stage spends the switch pointing at a
+    // week that's about to stop existing.
+    setViewedWeek(null)
+    setOpenId(null)
+    // Picking the calendar's own season clears the pin rather than
+    // freezing you on it.
+    writeViewSeason(season === availableSeasons[0] ? null : season)
+    // Announce it: the masthead and the tick below move on this, not on
+    // the refresh. Then get out of the way so you can watch it happen.
+    setSwitchingSeason(season)
+    closePanel()
+
+    start(() => {
       router.refresh()
-      setOpenId(null)
     })
   }
 
@@ -99,12 +123,16 @@ export function SeasonPanel({
               onClick={() => pick(s)}
               disabled={pending}
               aria-current={active ? 'true' : undefined}
+              // No pending dimming any more: `active` already reads the
+              // season you just pressed, so the tick lands on this row on
+              // the same frame as the click. Greying the list out on the
+              // way would be the app admitting to a wait it isn't making
+              // you do.
               className={cn(
                 'flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors',
                 active
                   ? 'border-neon-blue/40 bg-neon-blue/10'
-                  : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.06]',
-                pending && 'opacity-60'
+                  : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.06]'
               )}
             >
               <span
@@ -119,9 +147,6 @@ export function SeasonPanel({
                 {s}
               </span>
               {active && <Check className="text-neon-blue h-4 w-4 shrink-0" />}
-              {pending && !active && (
-                <Loader2 className="text-muted-foreground h-4 w-4 shrink-0 animate-spin" />
-              )}
             </button>
           )
         })}

@@ -108,7 +108,9 @@ export default async function LeagueShellLayout({
     }
   })
 
-  const chrome: LeagueChrome = {
+  // `switching` is the provider's to add — it's a fact about the client's
+  // in-flight season change, which the server can't know.
+  const chrome: Omit<LeagueChrome, 'switching'> = {
     leagueId: p.league.id,
     leagueName: p.league.name,
     season: p.season,

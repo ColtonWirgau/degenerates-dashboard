@@ -1,7 +1,12 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
-import { setViewedWeek, subscribeViewedWeek } from '@/components/chrome/canvas-store'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import {
+  setSwitchingSeason,
+  setViewedWeek,
+  subscribeSwitchingSeason,
+  subscribeViewedWeek,
+} from '@/components/chrome/canvas-store'
 
 /**
  * Fuel for the card-edge chrome and the dock.
@@ -68,18 +73,49 @@ export type LeagueChrome = {
     email: string
     avatarUrl: string | null
   }
+  /** A season change is in flight: `season` is already the new year, but
+   *  every other field on here still describes the old one. Anything
+   *  showing a NUMBER should show a skeleton instead until this clears. */
+  switching: boolean
 }
 
 const LeagueChromeContext = createContext<LeagueChrome | null>(null)
 
+/**
+ * Holds the chrome, and holds the seam between the year and the data
+ * behind it.
+ *
+ * `value` comes from the server, so it only changes when a refresh lands.
+ * The store changes the instant you press a year. Between the two, this
+ * hands down the new year with the old numbers and a `switching` flag
+ * saying so — which is exactly the split the shell needs to repaint its
+ * labels immediately and skeleton the rest.
+ */
 export function LeagueChromeProvider({
   value,
   children,
 }: {
-  value: LeagueChrome
+  value: Omit<LeagueChrome, 'switching'>
   children: React.ReactNode
 }) {
-  return <LeagueChromeContext.Provider value={value}>{children}</LeagueChromeContext.Provider>
+  const [target, setTarget] = useState<string | null>(null)
+  useEffect(() => subscribeSwitchingSeason(setTarget), [])
+
+  // The refresh landed. Clearing on the DATA arriving rather than on the
+  // transition ending means the skeletons lift exactly when there's
+  // something real to put in their place, not a frame early.
+  const arrived = target !== null && value.season === target
+  useEffect(() => {
+    if (arrived) setSwitchingSeason(null)
+  }, [arrived])
+
+  const switching = target !== null && !arrived
+  const chrome = useMemo<LeagueChrome>(
+    () => ({ ...value, season: switching ? target! : value.season, switching }),
+    [value, switching, target]
+  )
+
+  return <LeagueChromeContext.Provider value={chrome}>{children}</LeagueChromeContext.Provider>
 }
 
 export function useLeagueChrome(): LeagueChrome | null {

@@ -120,6 +120,14 @@ export function PanelBubbles() {
                   <span aria-hidden className="text-[1.15rem] leading-none">
                     ✕
                   </span>
+                ) : chrome.switching ? (
+                  // Mid season-switch every one of these faces — the
+                  // count, the verdict, the podium — is last year's. A
+                  // bubble with nothing to say says nothing.
+                  <span
+                    aria-hidden
+                    className="h-2 w-2 animate-pulse rounded-full bg-current opacity-40"
+                  />
                 ) : (
                   <Face panel={p} week={week} podium={chrome.podium} />
                 )}

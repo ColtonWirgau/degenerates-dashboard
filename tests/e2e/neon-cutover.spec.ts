@@ -177,3 +177,48 @@ test('the season and your profile are separate doors', async ({ page }) => {
   await expect(page.getByText(VIEWER_EMAIL)).toBeVisible({ timeout: 10_000 })
   await expect(page.getByRole('button', { name: /Sign Out/i })).toBeVisible()
 })
+
+test('switching seasons repaints immediately and needs no server action', async ({
+  page,
+}) => {
+  await openLeague(page)
+
+  // Nothing about picking a year may go through a server action. Action
+  // ids are minted per build, so a tab that outlives one is holding ids
+  // the server has never heard of — which is exactly how this used to
+  // fail, with an UnrecognizedActionError instead of a season change.
+  // The cookie is the browser's to write, so no POST should leave here.
+  // A server action is precisely a POST carrying Next-Action; Ably's
+  // token calls are POSTs too and have nothing to do with us.
+  const actions: string[] = []
+  page.on('request', (r) => {
+    if (r.method() === 'POST' && r.headers()['next-action']) {
+      actions.push(`${r.headers()['next-action']} ${String(r.postData()).slice(0, 120)}`)
+    }
+  })
+
+  await page.getByRole('button', { name: 'Season and league' }).first().click()
+  const other = page.getByRole('button', { name: /2025-2026/ })
+  await expect(other).toBeVisible({ timeout: 10_000 })
+  // Opening the panel hydrates the slate settings, which is its own
+  // action and not what this test is about. The clock starts at the
+  // click on a year.
+  actions.length = 0
+  await other.click()
+
+  // The YEAR changes on the click, before any data for it exists — the
+  // masthead is reading the switch, not the server.
+  await expect(page.getByRole('button', { name: 'Season and league' }).first()).toContainText(
+    '2025',
+    { timeout: 1_000 }
+  )
+
+  // And what can't be known yet says so rather than showing last
+  // season's numbers, until the real week lands.
+  await expect(page.getByRole('heading', { name: 'Week 18', level: 1 })).toBeVisible({
+    timeout: 20_000,
+  })
+  await expect(page.locator('[aria-busy="true"]')).toHaveCount(0)
+
+  expect(actions, `season switch fired a server action: ${actions.join(', ')}`).toEqual([])
+})
