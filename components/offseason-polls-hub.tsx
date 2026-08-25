@@ -43,6 +43,7 @@ import {
 } from '@/components/polls/types'
 import { usePollVoting } from '@/components/polls/use-poll-voting'
 import { InlinePollVote, VoterStack } from '@/components/polls/poll-vote'
+import { DraftCard } from '@/components/charter/draft-card'
 import {
   ResponsiveSheet,
   SheetPage,
@@ -654,28 +655,53 @@ function SeasonSetup({
               total={entries.length}
               onOpen={() => setOpenGroup({ kind: 'builtin', group })}
             />
-            <ul className="divide-y divide-white/5">
-              {entries.map((entry) => {
-                const poll = entry.pollId
-                  ? pollsById.get(entry.pollId) ?? null
-                  : null
-                return (
-                  <CharterRow
-                    key={entry.id}
-                    entry={entry}
-                    poll={poll}
-                    myVote={viewerVoteFor(poll, sessionPollVotes, currentUserId)}
-                    onOpen={() =>
-                      setOpenGroup({
-                        kind: 'builtin',
-                        group,
-                        entryId: entry.id,
-                      })
-                    }
-                  />
-                )
-              })}
-            </ul>
+            {/* DRAFT gets a purpose-built face. Its shape is known in
+                advance — a date, a place, a format and the same five
+                keeper rules every year — so it's a fixture rather than a
+                bag of label/value pairs, and it's set like one. Every
+                other group genuinely is a bag, and a list is the honest
+                way to show a bag. */}
+            {group === 'Draft' ? (
+              <DraftCard
+                entries={entries.map((e) => ({
+                  key: e.key,
+                  label: e.label,
+                  value: e.value,
+                  status: e.status,
+                }))}
+                onOpenEntry={(key) => {
+                  const entry = entries.find((e) => e.key === key)
+                  setOpenGroup({
+                    kind: 'builtin',
+                    group,
+                    entryId: entry?.id,
+                  })
+                }}
+              />
+            ) : (
+              <ul className="divide-y divide-white/5">
+                {entries.map((entry) => {
+                  const poll = entry.pollId
+                    ? pollsById.get(entry.pollId) ?? null
+                    : null
+                  return (
+                    <CharterRow
+                      key={entry.id}
+                      entry={entry}
+                      poll={poll}
+                      myVote={viewerVoteFor(poll, sessionPollVotes, currentUserId)}
+                      onOpen={() =>
+                        setOpenGroup({
+                          kind: 'builtin',
+                          group,
+                          entryId: entry.id,
+                        })
+                      }
+                    />
+                  )
+                })}
+              </ul>
+            )}
           </div>
         )
       })}
