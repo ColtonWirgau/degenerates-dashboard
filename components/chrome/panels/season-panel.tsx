@@ -20,8 +20,6 @@ import { writeViewSeason } from '@/lib/view-season-cookie'
 import { removeMember, updateMemberRole } from '@/app/actions/leagues'
 import { SlateSettings } from '@/components/league-pages'
 import { Skeleton } from '@/components/ui/skeleton'
-import { DevPhaseSwitcher } from '@/components/user-menu'
-import type { DevPhaseData } from '@/lib/data/dev-toolbar-data'
 import {
   CharterItemPage,
   RulesBook,
@@ -69,7 +67,6 @@ export function SeasonPanel({
   members,
   currentUserId,
   currentUserRole,
-  devPhase,
   charter,
   charterPolls,
   pollMembers,
@@ -78,8 +75,6 @@ export function SeasonPanel({
   members: SeasonPanelMember[]
   currentUserId: string
   currentUserRole: 'owner' | 'admin' | 'member'
-  /** Neon-mode dev control — season-phase time travel. Null outside dev. */
-  devPhase?: DevPhaseData | null
   /** THE SELECTED SEASON'S BOOK. It had its own rung for a while, which
    *  was one too many: a buy-in and a punishment belong to a YEAR, and
    *  this is the panel that answers which year. Flipping the season
@@ -374,11 +369,6 @@ export function SeasonPanel({
         <SlateSettings canManage={canManage} leagueId={chrome.leagueId} />
       </div>
 
-      {devPhase && (
-        <div className="mt-2 shrink-0">
-          <DevPhaseSwitcher data={devPhase} />
-        </div>
-      )}
     </div>
   )
 }

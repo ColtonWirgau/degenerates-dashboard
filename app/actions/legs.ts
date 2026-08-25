@@ -329,3 +329,35 @@ export async function getUserStats(leagueId: string) {
   const { getCurrentSeasonUserStats } = await import('./legs-current-season')
   return getCurrentSeasonUserStats(leagueId)
 }
+
+/**
+ * Get (or open) the parlay a week's legs hang off, so ANY week that
+ * isn't locked can take one.
+ *
+ * A parlay row is created lazily — by the stage, when you look at a
+ * week — which meant a week you'd never opened had no row, and the
+ * submit reveal, which needs one to hand the form, said "nothing to
+ * submit for this week". You could see ADD LEG on week 12 and get an
+ * empty panel for pressing it. Entering a week early is a legitimate
+ * thing to want: the slate is published, the lock is weeks away, and
+ * there's no reason to make you wait for the week to come round.
+ *
+ * The gate is the LOCK, not the calendar, and it lives where it always
+ * did — submitLeg still refuses anything past its deadline.
+ */
+export async function openWeekForSubmission(
+  leagueId: string,
+  nflWeekId: string
+): Promise<{ parlayId: string | null; error: string | null }> {
+  const me = await getCurrentUser()
+  if (!me) return { parlayId: null, error: 'Unauthorized' }
+
+  const adapter = await getDataAdapter()
+  // Members only — this writes a row, so it can't be open to anyone who
+  // knows a league id.
+  const role = await adapter.getUserRole(leagueId, me.id)
+  if (!role) return { parlayId: null, error: 'Not a member of this league' }
+
+  const parlay = await adapter.ensureWeekParlay(leagueId, nflWeekId)
+  return { parlayId: parlay?.id ?? null, error: null }
+}

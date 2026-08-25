@@ -294,3 +294,45 @@ test('switching seasons repaints immediately and needs no server action', async 
     `the season was set through a server action: ${seasonSetOnServer.join(', ')}`
   ).toEqual([])
 })
+
+test('the wordmark goes home — the current week, without navigating', async ({ page }) => {
+  await openLeague(page)
+  const url = page.url()
+
+  // Wander off, then press the app's own name.
+  await page.getByRole('button', { name: /open the week list/i }).click()
+  await page.getByRole('button', { name: /Week 9\b/ }).first().click()
+  await expect(page.getByRole('heading', { name: 'Week 9', level: 1 })).toBeVisible({
+    timeout: 15_000,
+  })
+
+  // It keeps its href — middle click and open-in-new-tab still work —
+  // but a plain click must not go to the server. The shell is one page,
+  // so home is state, not a fetch.
+  let navigated = false
+  page.on('framenavigated', (f) => {
+    if (f === page.mainFrame()) navigated = true
+  })
+
+  await page.getByRole('heading', { level: 1, name: /DEGENERATES/ }).click()
+  await expect(page.getByRole('heading', { name: 'Preseason', level: 1 })).toBeVisible({
+    timeout: 15_000,
+  })
+  expect(page.url()).toBe(url)
+  expect(navigated, 'home is state, not a fetch').toBe(false)
+  await page.waitForTimeout(800) // let the smooth scroll settle
+
+  // And it clears whatever is open on the way, so home is home.
+  await page.getByRole('button', { name: /open the week list/i }).click()
+  await page.getByRole('button', { name: /Week 9\b/ }).first().click()
+  await expect(page.getByRole('heading', { name: 'Week 9', level: 1 })).toBeVisible({
+    timeout: 15_000,
+  })
+  await page.getByRole('button', { name: 'Season and league' }).first().click()
+  await expect(page.locator('.sheet-track.is-slid-left')).toBeVisible()
+  await page.getByRole('heading', { level: 1, name: /DEGENERATES/ }).click()
+  await expect(page.locator('.sheet-track.is-slid-left')).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Preseason', level: 1 })).toBeVisible({
+    timeout: 15_000,
+  })
+})

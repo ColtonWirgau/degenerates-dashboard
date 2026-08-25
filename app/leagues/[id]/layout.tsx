@@ -3,7 +3,7 @@ import { getLeagueOverviewCached } from '@/lib/data/league-overview-cached'
 import { getLeagueWeeksCached } from '@/lib/data/league-weeks-cached'
 import { getCurrentUser } from '@/lib/data/auth-bridge'
 import { getDevNow } from '@/lib/data/dev-now'
-import { getDevToolbarData, getDevPhaseData } from '@/lib/data/dev-toolbar-data'
+import { getDevToolbarData } from '@/lib/data/dev-toolbar-data'
 import {
   LeagueChromeProvider,
   type ChromeWeek,
@@ -66,10 +66,9 @@ export default async function LeagueShellLayout({
 
   const p = result.payload
   const me = await getCurrentUser()
-  const [{ weeks, currentWeek }, mock, devPhase] = await Promise.all([
+  const [{ weeks, currentWeek }, mock] = await Promise.all([
     getLeagueWeeksCached(id, p.season),
     getDevToolbarData(),
-    getDevPhaseData(),
   ])
 
   // Week rows carry their parlay's state, which the overview already
@@ -220,7 +219,6 @@ export default async function LeagueShellLayout({
                 members={seasonMembers}
                 currentUserId={p.me.id}
                 currentUserRole={p.currentUserRole ?? 'member'}
-                devPhase={devPhase}
                 charter={p.charter}
                 charterPolls={charterPolls}
                 pollMembers={pollMembers}

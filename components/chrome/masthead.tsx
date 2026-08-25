@@ -4,7 +4,13 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ChevronDown } from 'lucide-react'
-import { openPanel, subscribePanel } from '@/components/chrome/canvas-store'
+import {
+  closePanel,
+  openPanel,
+  setStageView,
+  setViewedWeek,
+  subscribePanel,
+} from '@/components/chrome/canvas-store'
 import { cn } from '@/lib/utils'
 import { useLeagueChrome } from '@/components/chrome/league-chrome-context'
 
@@ -45,13 +51,36 @@ export function Masthead() {
           sits at the top of. px-11 is not arbitrary — it puts both
           lockups exactly on the card's edges below. */}
       <div className="flex items-center justify-between gap-3 px-4 py-3 lg:h-24 lg:px-11">
-        <Link href="/" className="group shrink-0">
+        {/* HOME, and home is the week the season is actually on.
+            It keeps its href so it still behaves like a link — middle
+            click, open in a new tab, the status bar — but a plain click
+            is handled here instead: the shell is one page, so going home
+            is putting its state back, not fetching anything. */}
+        <Link
+          href="/"
+          onClick={(e) => {
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+            e.preventDefault()
+            closePanel()
+            // Unpinned, both of these fall back to what the season says:
+            // its current week, on the week stage — or the recap, if the
+            // season is over and there's no current week to be on.
+            setViewedWeek(null)
+            setStageView(null)
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }}
+          className="group shrink-0"
+        >
+          {/* The two halves TRADE colours on hover rather than one of
+              them changing — they're one lockup, and half of it moving
+              read as a glitch. Slow, because at this size an instant
+              swap is a flash. */}
           <h1 className="flex items-center leading-none font-bold whitespace-nowrap sm:gap-2">
-            <span className="text-neon-blue group-hover:text-primary relative z-10 text-3xl tracking-[-0.18em] transition-colors sm:text-3xl sm:tracking-tight lg:text-[2.6rem]">
+            <span className="text-neon-blue group-hover:text-neon-pink relative z-10 text-3xl tracking-[-0.18em] transition-colors duration-500 ease-out sm:text-3xl sm:tracking-tight lg:text-[2.6rem]">
               <span className="sm:hidden">D</span>
               <span className="hidden sm:inline">DEGENERATES</span>
             </span>
-            <span className="text-neon-pink group-hover:text-neon-blue relative z-0 text-3xl tracking-tight transition-colors sm:text-3xl lg:text-[2.6rem]">
+            <span className="text-neon-pink group-hover:text-neon-blue relative z-0 text-3xl tracking-tight transition-colors duration-500 ease-out sm:text-3xl lg:text-[2.6rem]">
               <span className="sm:hidden">D</span>
               <span className="hidden sm:inline">DASHBOARD</span>
             </span>

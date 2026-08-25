@@ -70,13 +70,28 @@ function TeamLogo({
   // canvas the mark fills is the artwork's business, not ours — which is
   // why a leaping Lion reads bigger than a Commanders W at identical
   // dimensions.
+  // A HALO, because every logo sits on its own team's colour by
+  // construction — the slab's two halves ARE the two teams' primaries.
+  // Most marks carry enough white to survive that; the ones drawn in
+  // nothing but the team colour don't, and the Giants' NY and the Jets'
+  // wordmark disappeared into their own bands completely. A thin white
+  // drop-shadow traces whatever silhouette the artwork has, so a mark
+  // separates from the colour behind it without a plate under it.
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={team.logoUrl}
       alt={team.name}
       title={team.name}
-      className={cn(dim, 'shrink-0 object-contain')}
+      className={cn(
+        dim,
+        'shrink-0 object-contain',
+        // Two white passes, not one: a single 1px rim is too thin to
+        // read around a wordmark's strokes. The black pass sits just
+        // outside the white one so the mark holds up over a pale band
+        // too — Steelers yellow, Saints gold.
+        '[filter:drop-shadow(0_0_1px_rgba(255,255,255,0.95))_drop-shadow(0_0_1px_rgba(255,255,255,0.85))_drop-shadow(0_0_4px_rgba(0,0,0,0.6))]'
+      )}
     />
   )
 }

@@ -36,6 +36,12 @@ import { cn } from '@/lib/utils'
 const SEAM_WIDTH = 'sm:w-[42%] lg:w-[38%]'
 const SEAM_CLIP = 'sm:[clip-path:polygon(0_0,100%_0,calc(100%-46px)_100%,0_100%)]'
 
+/** The one line both eyebrows sit on. `sm:top-*` matches the band's two
+ *  heights (10.5rem / 12.5rem) so the label keeps the same air above it
+ *  at either size; the horizontal side is each caller's to say. */
+const EYEBROW =
+  'text-muted-foreground/60 group-hover:text-neon-blue inline-flex items-center gap-1 text-[10px] font-bold tracking-[0.28em] uppercase transition-colors sm:absolute sm:top-9 lg:top-11'
+
 export interface WeekHeroLeg {
   userId: string
   fullName: string | null
@@ -106,7 +112,13 @@ export function WeekHero({
                 : 'linear-gradient(115deg, rgba(0,217,255,0.22), rgba(0,217,255,0.06) 62%, rgba(0,217,255,0.02))',
           }}
         >
-          <span className="text-muted-foreground/60 group-hover:text-neon-blue mb-1.5 inline-flex items-center gap-1 text-[10px] font-bold tracking-[0.28em] uppercase transition-colors">
+          {/* Both eyebrows are pinned to ONE line rather than each being
+              centred with the block under it — the two halves hold
+              different things (a title, a chart), so "centre each side"
+              put them at different heights and the band read as two
+              pieces instead of one. Below sm the halves stack and each
+              flows normally. */}
+          <span className={cn(EYEBROW, 'mb-1.5 sm:left-4 lg:left-20')}>
             <ChevronLeftMark />
             All weeks
           </span>
@@ -135,7 +147,7 @@ export function WeekHero({
               that's the direction it takes you. It used to be the week's
               state word, which named the thing you were looking at
               instead of the thing pressing it would open. */}
-          <span className="text-muted-foreground/60 group-hover:text-neon-blue mb-3 ml-auto inline-flex items-center gap-1 text-[10px] font-bold tracking-[0.28em] uppercase transition-colors">
+          <span className={cn(EYEBROW, 'mb-3 ml-auto sm:right-4 lg:right-20')}>
             The lay
             <ChevronRightMark />
           </span>

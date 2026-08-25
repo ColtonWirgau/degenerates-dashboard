@@ -62,6 +62,12 @@ import { cn } from '@/lib/utils'
  *   the slant:   46px
  *   the seam:    52% at sm, 64% at lg
  */
+/** The one line both eyebrows sit on. Centring each half separately put
+ *  them a few pixels apart, because the two halves hold different-sized
+ *  words underneath — close enough to look like a mistake rather than a
+ *  choice. Below sm the halves stack and each flows normally. */
+const EYEBROW_LINE = 'sm:absolute sm:top-9 lg:top-11'
+
 const SEAM_WIDTH = 'sm:w-[52%] lg:w-[64%]'
 const SEAM_CLIP =
   'sm:[clip-path:polygon(0_0,100%_0,calc(100%-46px)_100%,0_100%)]'
@@ -160,7 +166,13 @@ export function DraftHero({ entries, leagueName, memberCount }: DraftHeroProps) 
               Not "back": the list isn't somewhere you came from, it's
               the other weeks, and the chevron points the way the panel
               actually arrives from. */}
-          <span className="text-muted-foreground/60 group-hover:text-neon-blue mb-1.5 inline-flex items-center gap-1 text-[10px] font-bold tracking-[0.28em] uppercase transition-colors">
+          <span
+            className={cn(
+              'text-muted-foreground/60 group-hover:text-neon-blue mb-1.5 inline-flex items-center gap-1 text-[10px] font-bold tracking-[0.28em] uppercase transition-colors',
+              EYEBROW_LINE,
+              'sm:left-4 lg:left-20'
+            )}
+          >
             <ChevronLeft className="h-3 w-3" />
             All weeks
           </span>
@@ -181,6 +193,8 @@ export function DraftHero({ entries, leagueName, memberCount }: DraftHeroProps) 
             aria-label={`Draft date — ${w.raw ?? 'not set'}`}
             className={cn(
               'relative z-10 mb-1.5 max-w-full truncate text-[11px] font-bold tracking-[0.28em] uppercase transition-colors',
+              EYEBROW_LINE,
+              'sm:right-4 lg:right-20',
               w.day
                 ? 'text-neon-blue/85 hover:text-neon-blue'
                 : 'text-muted-foreground/60 hover:text-muted-foreground'

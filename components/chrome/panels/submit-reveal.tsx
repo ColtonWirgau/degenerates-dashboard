@@ -1,8 +1,10 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { Lock } from 'lucide-react'
 import { SubmitLegForm } from '@/components/submit-leg-form'
 import { useViewedWeek } from '@/components/chrome/league-chrome-context'
+import { openWeekForSubmission } from '@/app/actions/legs'
 
 export interface SubmitRevealLeg {
   description: string
@@ -27,7 +29,33 @@ export function SubmitReveal({
 }) {
   const week = useViewedWeek()
 
-  if (!week || !week.hasSlate || !week.parlayId) {
+  // A week nobody has opened yet has no parlay row, because they're made
+  // lazily by the stage. That used to be the end of it: ADD LEG showed
+  // on week 12, you pressed it, and the panel said there was nothing to
+  // submit. Any week that isn't locked should take a leg — the slate is
+  // published and the deadline is weeks off — so open one on demand.
+  const needsParlay = week != null && week.hasSlate && !week.closed && !week.parlayId
+  const [opened, setOpened] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
+  const weekId = week?.id
+  useEffect(() => {
+    if (!needsParlay || !weekId) return
+    let alive = true
+    setOpened(null)
+    setFailed(false)
+    void openWeekForSubmission(leagueId, weekId).then((r) => {
+      if (!alive) return
+      if (r.parlayId) setOpened(r.parlayId)
+      else setFailed(true)
+    })
+    return () => {
+      alive = false
+    }
+  }, [needsParlay, weekId, leagueId])
+
+  const parlayId = week?.parlayId ?? opened
+
+  if (!week || !week.hasSlate || (!parlayId && (failed || week.closed))) {
     return (
       <p className="text-muted-foreground px-1 py-4 text-xs italic">
         Nothing to submit for this week.
@@ -64,8 +92,12 @@ export function SubmitReveal({
             then resubmit.
           </p>
         </div>
+      ) : parlayId ? (
+        <SubmitLegForm weekId={parlayId} leagueId={leagueId} />
       ) : (
-        <SubmitLegForm weekId={week.parlayId} leagueId={leagueId} />
+        <p className="text-muted-foreground px-1 py-4 text-xs italic">
+          Opening the week…
+        </p>
       )}
     </div>
   )
