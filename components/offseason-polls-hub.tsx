@@ -373,6 +373,14 @@ function SeasonSetup({
     return m
   }, [charter])
 
+  // The draft is its own section now, so the rules below must not count
+  // it twice — once in its own heading and again in HOUSE RULES' total.
+  const draftEntries = byGroup.get('Draft') ?? []
+  const houseEntries = useMemo(
+    () => charter.filter((e) => e.category === 'custom' || groupFor(e) !== 'Draft'),
+    [charter]
+  )
+
   // User-added groups + entries. The server truth is charter entries with
   // category 'custom' carrying their group name in metadata.group; local
   // state holds just-created empty groups and optimistic entries until the
@@ -615,6 +623,44 @@ function SeasonSetup({
         </>
       )}
 
+      {/* THE DRAFT — out of HOUSE RULES entirely.
+          It was a group among groups, which put the one dated event in
+          the league's year on the same footing as the trade-veto policy.
+          It's the thing everyone actually needs to know, so it gets a
+          heading of its own and sits above the rules. Its old header row
+          ("9/9 · DRAFT ·>") is gone: that bar existed to name a group
+          inside a list of groups, and a section that isn't in a list
+          doesn't need one — the heading names it and the count moves to
+          the far end like every other section's does. */}
+      {draftEntries.length > 0 && (
+        <>
+          <div className="mb-3 flex items-end justify-between gap-3 border-b border-white/[0.07] pb-2.5">
+            <h2 className="font-display text-xl leading-none tracking-tight uppercase">
+              <span className="text-neon-blue">The</span>{' '}
+              <span className="text-foreground/80">Draft</span>
+            </h2>
+            <p className="text-muted-foreground text-[10px] font-bold tracking-[0.2em] uppercase tabular-nums">
+              {draftEntries.filter((e) => e.status === 'locked').length}/
+              {draftEntries.length} settled
+            </p>
+          </div>
+          <div className="mb-8 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
+            <DraftCard
+              entries={draftEntries.map((e) => ({
+                key: e.key,
+                label: e.label,
+                value: e.value,
+                status: e.status,
+              }))}
+              onOpenEntry={(key) => {
+                const entry = draftEntries.find((e) => e.key === key)
+                setOpenGroup({ kind: 'builtin', group: 'Draft', entryId: entry?.id })
+              }}
+            />
+          </div>
+        </>
+      )}
+
       {/* EVERYTHING ALREADY SETTLED — the league's own record. Worth
           having, not worth leading with.
 
@@ -629,7 +675,8 @@ function SeasonSetup({
           <span className="text-foreground/80">Rules</span>
         </h2>
         <p className="text-muted-foreground text-[10px] font-bold tracking-[0.2em] uppercase tabular-nums">
-          {charter.filter((e) => e.status === 'locked').length}/{charter.length} settled
+          {houseEntries.filter((e) => e.status === 'locked').length}/
+          {houseEntries.length} settled
         </p>
       </div>
 
@@ -638,6 +685,8 @@ function SeasonSetup({
           rows. Rows with a live poll carry a small pink voting accent;
           the header aggregates what still needs the viewer. */}
       {ENTRY_GROUP_ORDER.map((group) => {
+        // Draft has its own section overhead.
+        if (group === 'Draft') return null
         const entries = byGroup.get(group) ?? []
         if (entries.length === 0) return null
         const lockedInGroup = entries.filter(
@@ -655,53 +704,28 @@ function SeasonSetup({
               total={entries.length}
               onOpen={() => setOpenGroup({ kind: 'builtin', group })}
             />
-            {/* DRAFT gets a purpose-built face. Its shape is known in
-                advance — a date, a place, a format and the same five
-                keeper rules every year — so it's a fixture rather than a
-                bag of label/value pairs, and it's set like one. Every
-                other group genuinely is a bag, and a list is the honest
-                way to show a bag. */}
-            {group === 'Draft' ? (
-              <DraftCard
-                entries={entries.map((e) => ({
-                  key: e.key,
-                  label: e.label,
-                  value: e.value,
-                  status: e.status,
-                }))}
-                onOpenEntry={(key) => {
-                  const entry = entries.find((e) => e.key === key)
-                  setOpenGroup({
-                    kind: 'builtin',
-                    group,
-                    entryId: entry?.id,
-                  })
-                }}
-              />
-            ) : (
-              <ul className="divide-y divide-white/5">
-                {entries.map((entry) => {
-                  const poll = entry.pollId
-                    ? pollsById.get(entry.pollId) ?? null
-                    : null
-                  return (
-                    <CharterRow
-                      key={entry.id}
-                      entry={entry}
-                      poll={poll}
-                      myVote={viewerVoteFor(poll, sessionPollVotes, currentUserId)}
-                      onOpen={() =>
-                        setOpenGroup({
-                          kind: 'builtin',
-                          group,
-                          entryId: entry.id,
-                        })
-                      }
-                    />
-                  )
-                })}
-              </ul>
-            )}
+            <ul className="divide-y divide-white/5">
+              {entries.map((entry) => {
+                const poll = entry.pollId
+                  ? pollsById.get(entry.pollId) ?? null
+                  : null
+                return (
+                  <CharterRow
+                    key={entry.id}
+                    entry={entry}
+                    poll={poll}
+                    myVote={viewerVoteFor(poll, sessionPollVotes, currentUserId)}
+                    onOpen={() =>
+                      setOpenGroup({
+                        kind: 'builtin',
+                        group,
+                        entryId: entry.id,
+                      })
+                    }
+                  />
+                )
+              })}
+            </ul>
           </div>
         )
       })}
