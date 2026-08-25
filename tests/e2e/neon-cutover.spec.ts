@@ -94,10 +94,11 @@ test('the league opens on the current week — week 0, the rules', async ({ page
   await expect(page.getByText('Don Christos')).toBeVisible()
   await expect(page.getByText('Snake + 3rd Rd Reversal')).toBeVisible()
 
-  // …and the record is one rung away, wearing what's still unanswered.
+  // …and the record is one rung away, open at every page.
   await page.getByRole('button', { name: 'rules panel' }).click()
-  await page.getByRole('button', { name: /^Stakes —/ }).click()
-  await expect(page.getByText('$50 · 12 teams · $600 pot')).toBeVisible()
+  await expect(
+    page.getByTestId('rules-panel').getByText('$50 · 12 teams · $600 pot')
+  ).toBeVisible()
 })
 
 test('the ballot is voted on in place, not behind a sheet', async ({ page }) => {
@@ -110,12 +111,14 @@ test('the ballot is voted on in place, not behind a sheet', async ({ page }) => 
   // way to put them away. A press used to raise a sheet over the page you
   // were already reading, showing you the same question again; then it
   // was a fold. Both stood between the page's one job and doing it.
-  await expect(page.getByText('Cast your vote', { exact: false })).toBeVisible()
-  await expect(page.getByText('Yes', { exact: true })).toBeVisible()
+  const stage = page.locator('.sheet-track')
+  await expect(stage.getByText('Cast your vote', { exact: false })).toBeVisible()
+  await expect(stage.getByText('Yes', { exact: true })).toBeVisible()
   await expect(page.getByRole('dialog')).toHaveCount(0)
 
-  await page.getByText('League Median Game').click()
-  await expect(page.getByText('Yes', { exact: true })).toBeVisible()
+  // Pressing the question doesn't put it away — there's nothing to press.
+  await stage.getByText('League Median Game').click()
+  await expect(stage.getByText('Yes', { exact: true })).toBeVisible()
 
   // An open poll is votable whatever the row's provenance. This entry is
   // source='manual' with a live poll attached, and requiring

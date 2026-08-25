@@ -9,26 +9,28 @@
  * (the draft, and the votes). Reference material is exactly what a panel
  * is for, so it moved here and the page kept the work.
  *
- * THREE PAGES, and it never leaves the column: the topics, one topic's
- * items, then one item and whatever it wants from you. It used to hand
- * the third one off — close the panel, raise the charter's sheet over
- * the page — which meant pressing something in a column made a modal
- * appear somewhere else showing the same thing. Paging in place is what
- * every other panel in this shell does (the board pages into a person's
- * season) and it's what this should always have done.
+ * TWO PAGES, and it never leaves the column. The book is open on the
+ * first one — every topic, every line, and what each was settled at.
+ * Topics were their own page for a while, which made five rows you had
+ * to press to find out what was in them: a table of contents for a
+ * document short enough to just print.
  *
- * The item page renders EntryAction, the same component the ballot puts
- * under an open question — so a locked rule reads back its value, a live
- * poll can be voted right here, a proposal can be approved, and an
- * unsettled line can be pitched at. Renaming and removing sit at the
- * foot of the page, away from the thing you came to do.
+ * The second page is one item and whatever it wants from you. That used
+ * to be handed off entirely — close the panel, raise the charter's sheet
+ * over the page — so pressing something in a column made a modal appear
+ * somewhere else showing the same thing. It renders EntryAction, the
+ * same component the ballot puts under an open question: a locked rule
+ * reads its value back, a live poll is votable right here, a proposal
+ * can be approved, an unsettled line can be pitched at. Renaming and
+ * removing sit at the foot, away from the thing you came to do.
+ *
+ * DRAFT isn't in here at all — see the filter below.
  */
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ChevronLeft,
-  ChevronRight,
   Circle,
   Hourglass,
   Lock,
@@ -44,7 +46,11 @@ import {
 } from '@/components/chrome/canvas-store'
 import { EntryAction } from '@/components/charter/entry-action'
 import { usePollVoting } from '@/components/polls/use-poll-voting'
-import { viewerVoteFor, type PollMember } from '@/components/polls/types'
+import {
+  hasAnyAnswer,
+  viewerVoteFor,
+  type PollMember,
+} from '@/components/polls/types'
 import {
   approveCharter,
   deleteCharter,
@@ -52,7 +58,7 @@ import {
   renameCharterGroup,
   updateCharter,
 } from '@/app/actions/charter'
-import { groupCharter, type CharterTopic } from '@/lib/charter-groups'
+import { groupCharter } from '@/lib/charter-groups'
 import type { CharterEntry } from '@/lib/data/mock-charter'
 import type { LeaguePoll } from '@/lib/data/mock-polls'
 import { cn } from '@/lib/utils'
@@ -77,7 +83,6 @@ export function RulesPanel({
   canManage: boolean
 }) {
   const router = useRouter()
-  const [topicName, setTopicName] = useState<string | null>(null)
   const [entryId, setEntryId] = useState<string | null>(null)
 
   const voting = usePollVoting(leagueId, currentUserId)
@@ -85,25 +90,25 @@ export function RulesPanel({
 
   const membersById = new Map(members.map((m) => [m.id, m]))
   const pollsById = new Map(polls.map((p) => [p.id, p]))
-  const topics = groupCharter(charter)
+  // DRAFT is not in here. It's the preseason page's headline section —
+  // its own card, the date big enough to read across a room — and a
+  // second copy of the same nine facts in a column beside it is the kind
+  // of duplication that ends with the two disagreeing.
+  const topics = groupCharter(charter).filter((t) => t.name !== 'Draft')
 
   // ANOTHER SURFACE ASKING FOR AN ITEM — the draft fixture on the page,
-  // whose rows are the one place outside this panel that still point at
-  // a charter entry. It opens the panel and pages it straight there.
+  // whose rows are the one place outside this panel that point at a
+  // charter entry. It opens the panel on that item.
   useEffect(
     () =>
       subscribeCharterGroup((r: CharterGroupRequest) => {
-        setTopicName(r.group)
         setEntryId(r.entryId ?? null)
         openPanel('rules')
       }),
     []
   )
 
-  const topic = topics.find((t) => t.name === topicName) ?? null
-  const entry = entryId
-    ? (charter.find((e) => e.id === entryId) ?? null)
-    : null
+  const entry = entryId ? (charter.find((e) => e.id === entryId) ?? null) : null
 
   if (entry) {
     const poll = entry.pollId ? (pollsById.get(entry.pollId) ?? null) : null
@@ -111,10 +116,9 @@ export function RulesPanel({
       <ItemPage
         entry={entry}
         poll={poll}
-        // The topic the item is filed under, whether or not you got here
-        // through it — a deep link from the draft card lands on the item
-        // and Back still has somewhere to go.
-        topicName={topic?.name ?? topicName ?? 'Rules'}
+        // Back always says the same word, because there's one page
+        // behind this one now.
+        topicName="Rules"
         onBack={() => setEntryId(null)}
         leagueId={leagueId}
         membersById={membersById}
@@ -135,65 +139,62 @@ export function RulesPanel({
     )
   }
 
-  if (topic) {
-    return (
-      <TopicPage
-        topic={topic}
-        pollsById={pollsById}
-        voting={voting}
-        currentUserId={currentUserId}
-        onBack={() => setTopicName(null)}
-        onOpenEntry={setEntryId}
-        // Only a topic the league invented can be renamed or removed —
-        // the seven built-ins are the shape of the book.
-        editable={
-          canManage && topic.entries.every((e) => e.category === 'custom')
-        }
-        leagueId={leagueId}
-        season={season}
-        onGone={() => {
-          setTopicName(null)
-          router.refresh()
-        }}
-        onRenamed={(to) => {
-          setTopicName(to)
-          router.refresh()
-        }}
-      />
-    )
-  }
-
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div data-testid="rules-panel" className="flex min-h-0 flex-1 flex-col">
       <h2 className="font-display mb-3 shrink-0 text-2xl leading-none tracking-tight uppercase">
         <span className="text-neon-blue">House</span>{' '}
         <span className="text-foreground/80">Rules</span>
       </h2>
-      <div className="scrollbar-hide min-h-0 flex-1 space-y-1.5 overflow-y-auto pb-2">
+      {/* THE WHOLE BOOK, OPEN. Topics used to be five rows you pressed to
+          find out what was in them — a table of contents for a document
+          short enough to just print. Four topics and fifteen-odd items
+          fit in a column with room to spare, so they're all here and the
+          headings are headings rather than doors. */}
+      <div className="scrollbar-hide min-h-0 flex-1 space-y-4 overflow-y-auto pb-2">
         {topics.map((t) => (
-          <button
-            key={t.name}
-            type="button"
-            onClick={() => setTopicName(t.name)}
-            aria-label={`${t.name} — ${t.entries.length} items`}
-            className="flex w-full items-center gap-2.5 rounded-lg border border-white/10 bg-white/[0.02] px-2.5 py-2.5 text-left transition-colors hover:bg-white/[0.06]"
-          >
-            <span className="text-foreground/90 min-w-0 flex-1 truncate text-xs font-semibold tracking-wide uppercase">
-              {t.name}
-            </span>
-            {/* A topic with everything answered is finished business and
-                says nothing; one still owing answers says how many. */}
-            {t.open > 0 ? (
-              <span className="text-neon-pink shrink-0 text-[10px] font-bold tracking-widest uppercase">
-                {t.open} open
-              </span>
-            ) : (
-              <span className="text-muted-foreground shrink-0 text-[10px] tabular-nums">
-                {t.settled}
-              </span>
+          <section key={t.name}>
+            <div className="mb-1.5 flex items-baseline gap-2">
+              <h3 className="text-foreground/70 text-[10px] font-bold tracking-[0.28em] uppercase">
+                {t.name}
+              </h3>
+              {/* Only said when something's outstanding. A settled topic
+                  has its answers printed right underneath and doesn't
+                  need a tally of them. */}
+              {t.open > 0 && (
+                <span className="text-neon-pink text-[9px] font-bold tracking-widest uppercase">
+                  {t.open} open
+                </span>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              {t.entries.map((e) => (
+                <EntryRow
+                  key={e.id}
+                  entry={e}
+                  poll={e.pollId ? (pollsById.get(e.pollId) ?? null) : null}
+                  voting={voting}
+                  currentUserId={currentUserId}
+                  onOpen={() => setEntryId(e.id)}
+                />
+              ))}
+            </div>
+            {/* A topic the league invented can be renamed or removed —
+                the built-ins are the shape of the book. */}
+            {canManage && t.entries.every((e) => e.category === 'custom') && (
+              <NameControls
+                name={t.name}
+                onRename={async (to) => {
+                  await renameCharterGroup(leagueId, season, t.name, to)
+                  router.refresh()
+                }}
+                onDelete={async () => {
+                  await deleteCharterGroup(leagueId, season, t.name)
+                  router.refresh()
+                }}
+                removeLabel="Remove topic"
+              />
             )}
-            <ChevronRight className="text-muted-foreground/60 h-3.5 w-3.5 shrink-0" />
-          </button>
+          </section>
         ))}
         {topics.length === 0 && (
           <p className="text-muted-foreground px-1 py-4 text-xs italic">
@@ -205,87 +206,44 @@ export function RulesPanel({
   )
 }
 
-/** ONE TOPIC — its items and what they were settled at. */
-function TopicPage({
-  topic,
-  pollsById,
+/** One line of the book: what it is, and what it was settled at. */
+function EntryRow({
+  entry,
+  poll,
   voting,
   currentUserId,
-  onBack,
-  onOpenEntry,
-  editable,
-  leagueId,
-  season,
-  onGone,
-  onRenamed,
+  onOpen,
 }: {
-  topic: CharterTopic
-  pollsById: Map<string, LeaguePoll>
+  entry: CharterEntry
+  poll: LeaguePoll | null
   voting: ReturnType<typeof usePollVoting>
   currentUserId: string
-  onBack: () => void
-  onOpenEntry: (id: string) => void
-  editable: boolean
-  leagueId: string
-  season: string
-  onGone: () => void
-  onRenamed: (to: string) => void
+  onOpen: () => void
 }) {
+  const live = poll && poll.status === 'open'
+  const answered = live && hasAnyAnswer(viewerVoteFor(poll, voting.sessionVotes, currentUserId))
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <BackLink label="Rules" onClick={onBack} />
-      <h2 className="font-display text-foreground/90 mb-3 shrink-0 text-2xl leading-none tracking-tight uppercase">
-        {topic.name}
-      </h2>
-      <div className="scrollbar-hide min-h-0 flex-1 space-y-1.5 overflow-y-auto pb-2">
-        {topic.entries.map((e) => {
-          const poll = e.pollId ? (pollsById.get(e.pollId) ?? null) : null
-          return (
-            <button
-              key={e.id}
-              type="button"
-              onClick={() => onOpenEntry(e.id)}
-              aria-label={`${e.label} — ${valueOf(e)}`}
-              className="flex w-full items-start gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-2.5 py-2 text-left transition-colors hover:bg-white/[0.06]"
-            >
-              <StatusMark entry={e} />
-              <span className="text-muted-foreground min-w-0 flex-1 text-[11px] leading-tight">
-                {e.label}
-              </span>
-              <span
-                className={cn(
-                  'min-w-0 max-w-[52%] shrink-0 text-right text-[11px] leading-tight font-semibold',
-                  e.status === 'locked'
-                    ? 'text-foreground/90'
-                    : 'text-muted-foreground/60 italic'
-                )}
-              >
-                {poll && poll.status === 'open'
-                  ? voting.sessionVotes.has(poll.id) ||
-                    viewerVoteFor(poll, voting.sessionVotes, currentUserId)
-                    ? 'Voted'
-                    : 'Needs you'
-                  : valueOf(e)}
-              </span>
-            </button>
-          )
-        })}
-        {editable && (
-          <NameControls
-            name={topic.name}
-            onRename={async (to) => {
-              await renameCharterGroup(leagueId, season, topic.name, to)
-              onRenamed(to)
-            }}
-            onDelete={async () => {
-              await deleteCharterGroup(leagueId, season, topic.name)
-              onGone()
-            }}
-            removeLabel="Remove topic"
-          />
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`${entry.label} — ${valueOf(entry)}`}
+      className="flex w-full items-start gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-2.5 py-2 text-left transition-colors hover:bg-white/[0.06]"
+    >
+      <StatusMark entry={entry} />
+      <span className="text-muted-foreground min-w-0 flex-1 text-[11px] leading-tight">
+        {entry.label}
+      </span>
+      <span
+        className={cn(
+          'min-w-0 max-w-[52%] shrink-0 text-right text-[11px] leading-tight font-semibold',
+          entry.status === 'locked'
+            ? 'text-foreground/90'
+            : 'text-muted-foreground/60 italic'
         )}
-      </div>
-    </div>
+      >
+        {live ? (answered ? 'Voted' : 'Needs you') : valueOf(entry)}
+      </span>
+    </button>
   )
 }
 

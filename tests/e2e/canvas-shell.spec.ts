@@ -158,7 +158,7 @@ test.describe('desktop', () => {
     await expect(page.getByRole('button', { name: '+ New' })).toBeVisible()
   })
 
-  test('RULES pages topic → item without ever leaving the column', async ({
+  test('RULES opens the whole book, and one item pages in', async ({
     page,
     context,
   }) => {
@@ -171,29 +171,33 @@ test.describe('desktop', () => {
     await rules.click()
     await expect(page.locator('.sheet-track.is-slid-right')).toHaveCount(1)
 
-    // The book is topics first. Drill into one and its items print with
-    // the values they were settled at.
-    const stakes = page.getByRole('button', { name: /^Stakes —/ })
-    await expect(stakes).toBeVisible()
-    await stakes.click()
-    const buyIn = page.getByRole('button', { name: /^Buy-in —/ })
-    await expect(buyIn).toBeVisible()
+    // EVERY topic and EVERY line, at once — the topics were their own
+    // page for a while, which made a table of contents for a document
+    // short enough to just print.
+    const book = page.getByTestId('rules-panel')
+    await expect(book.getByText('Stakes', { exact: true })).toBeVisible()
+    await expect(book.getByText('Trading', { exact: true })).toBeVisible()
+    await expect(book.getByText('Format', { exact: true })).toBeVisible()
+    await expect(book.getByText('$50 · 12 teams · $600 pot')).toBeVisible()
+    await expect(book.getByText('Week 10')).toBeVisible()
 
-    // …and one more page in, to the item itself. This used to close the
-    // panel and raise the charter's sheet over the page — the same
-    // content, in a second kind of surface, somewhere else on screen.
-    // Now it pages in place: the card stays pulled back, no dialog.
-    await buyIn.click()
+    // DRAFT is not among them: it's the page's own headline section, and
+    // a second copy of the same nine facts beside it is how two surfaces
+    // start disagreeing.
+    await expect(book.getByText('Draft', { exact: true })).toHaveCount(0)
+    await expect(book.getByText('Keeper Cost', { exact: true })).toHaveCount(0)
+
+    // One page in, to the item itself. This used to close the panel and
+    // raise the charter's sheet over the page — the same content, in a
+    // second kind of surface, somewhere else on screen.
+    await page.getByRole('button', { name: /^Buy-in —/ }).click()
     await expect(page.getByText('Ratified', { exact: false })).toBeVisible()
-    await expect(page.getByText('$50 · 12 teams · $600 pot')).toBeVisible()
     await expect(page.locator('.sheet-track.is-slid-right')).toHaveCount(1)
     await expect(page.getByRole('dialog')).toHaveCount(0)
 
-    // Back walks the same stairs down: item → topic → the book.
-    await page.getByRole('button', { name: /^Stakes$/ }).click()
-    await expect(buyIn).toBeVisible()
+    // …and one step back is the whole book again.
     await page.getByRole('button', { name: /^Rules$/ }).click()
-    await expect(stakes).toBeVisible()
+    await expect(page.getByText('Flag to commish team')).toBeVisible()
   })
 
   test('the draft fixture opens the book at that line', async ({ page, context }) => {
