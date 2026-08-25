@@ -141,8 +141,9 @@ export function WeekCornerDoor({
   /**
    * A word instead of the number, for the week that hasn't got one.
    * There is no week 0 in the NFL — the slab was asserting an ordinal
-   * that doesn't exist and then the word beside it had to say
-   * "Preseason" anyway. The dock had already settled this: PRE.
+   * that doesn't exist, and then the word beside it had to say
+   * "Preseason" anyway. So the slab says it, at whatever width the word
+   * needs, and nothing has to repeat it.
    */
   label?: string
 }) {
@@ -157,7 +158,14 @@ export function WeekCornerDoor({
           ? 'Preseason — open the week list'
           : `Week ${weekNumber} — open the week list`
       }
-      className="group relative -mt-8 -ml-4 flex w-[7.5rem] shrink-0 items-center justify-center overflow-hidden rounded-tl-[20px] pt-8 pb-5 transition-[filter] hover:brightness-125 lg:-ml-14 lg:w-[8.75rem] lg:pl-6"
+      className={cn(
+        'group relative -mt-8 -ml-4 flex shrink-0 items-center justify-center overflow-hidden rounded-tl-[20px] pt-8 pb-5 transition-[filter] hover:brightness-125 lg:-ml-14',
+        // A digit gets a fixed box; a word gets the width it needs. The
+        // slanted edge and the corner radius don't care how wide it is.
+        label
+          ? 'w-auto px-7 lg:pr-10 lg:pl-20'
+          : 'w-[7.5rem] lg:w-[8.75rem] lg:pl-6'
+      )}
       style={{
         clipPath: 'polygon(0 0, 100% 0, calc(100% - 13px) 100%, 0 100%)',
         background: won
@@ -170,10 +178,11 @@ export function WeekCornerDoor({
       <span
         aria-hidden
         className={cn(
-          'font-display -mr-2 leading-none',
-          // A word carries at less size than a lone digit does — Anton is
-          // condensed, so three letters at 6xl would run out of slab.
-          label ? 'text-5xl tracking-tight' : 'text-6xl tabular-nums',
+          'font-display -mr-2 leading-none uppercase',
+          // A word carries at less size than a lone digit does, and this
+          // one is nine letters — Anton is condensed, but not that
+          // condensed.
+          label ? 'text-3xl tracking-tight sm:text-4xl' : 'text-6xl tabular-nums',
           won ? 'text-neon-blue' : lost ? 'text-destructive' : 'text-foreground/75'
         )}
       >

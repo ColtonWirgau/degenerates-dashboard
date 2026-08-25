@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Check, Lock } from 'lucide-react'
+import { Lock } from 'lucide-react'
 import { getLeagueOverviewCached } from '@/lib/data/league-overview-cached'
 import { getLeagueWeeksCached } from '@/lib/data/league-weeks-cached'
 import { getWeekStage } from '@/app/actions/week-stage'
@@ -122,25 +122,27 @@ async function PreseasonStage({ payload: p }: { payload: Payload }) {
   return (
     <>
       {/* THE WEEK, in the shape every other week uses: the door in the
-          left corner, what's true about it across the middle, and one
-          mark in the right corner. It used to be a door and a <h1> in
-          body copy, which put a TITLE where every other week puts a
-          STATE — same slot, different grammar — and left the right half
-          of the band empty, so the whole thing drifted left.
+          left corner and, beside it at the same scale, the other thing
+          that's true here.
 
-          The slab says PRE rather than 0. There is no week 0 in the NFL:
-          it was asserting an ordinal that doesn't exist and then having
-          the word beside it say "Preseason" anyway. */}
-      <header className="mb-1 flex items-stretch justify-between gap-3">
+          The slab says PRESEASON outright. It said 0 — an ordinal the NFL
+          doesn't have — and then the word next to it had to say
+          "Preseason" anyway, so the slab took the word and the second
+          copy went away. It's wider than a week's; the slanted edge and
+          the corner radius don't mind.
+
+          And the middle is the LEAGUE'S NAME. Every other week fills that
+          slot with the week's state; week 0's state was a count of
+          outstanding business, which the RULES rung on the rail already
+          wears — the same number twice on one screen. The league's name
+          isn't anywhere else in the shell at all: the masthead's wordmark
+          is the app, not the league. */}
+      <header className="mb-1 flex items-stretch gap-3">
         <h1 className="sr-only">Preseason</h1>
-        <WeekCornerDoor weekNumber={0} label="PRE" />
-        <p className="font-display text-foreground/35 min-w-0 flex-1 self-center truncate pt-1 text-3xl leading-none tracking-tight uppercase sm:text-4xl">
-          Preseason
+        <WeekCornerDoor weekNumber={0} label="Preseason" />
+        <p className="font-display text-foreground/35 min-w-0 flex-1 self-center truncate pt-1 text-2xl leading-none tracking-tight uppercase sm:text-3xl">
+          {p.league.name}
         </p>
-        {/* The padlock's slot, and its parallel: a week either takes
-            entries or doesn't, and week 0 either wants something from you
-            or doesn't. */}
-        <OutstandingMark count={p.charter.filter((e) => e.status !== 'locked').length} />
       </header>
 
       <OffseasonPollsHub
@@ -159,40 +161,5 @@ async function PreseasonStage({ payload: p }: { payload: Payload }) {
         }))}
       />
     </>
-  )
-}
-
-/**
- * WHAT WEEK 0 STILL WANTS — the padlock's opposite number, in the
- * padlock's box.
- *
- * Every other week's right corner answers "is this still taking
- * entries". The preseason's equivalent question is "is there anything
- * left to settle", so it's answered in the same place at the same size:
- * a count while the league owes answers, a tick once it doesn't.
- */
-function OutstandingMark({ count }: { count: number }) {
-  const label =
-    count > 0
-      ? `${count} thing${count === 1 ? '' : 's'} left to settle`
-      : 'Everything is settled'
-  return (
-    <span
-      role="img"
-      aria-label={label}
-      title={label}
-      className={
-        'flex size-14 shrink-0 items-center justify-center rounded-2xl border ' +
-        (count > 0
-          ? 'border-neon-pink/40 bg-neon-pink/10 text-neon-pink'
-          : 'border-neon-blue/40 bg-neon-blue/10 text-neon-blue')
-      }
-    >
-      {count > 0 ? (
-        <span className="font-display text-3xl leading-none tabular-nums">{count}</span>
-      ) : (
-        <Check className="h-7 w-7" strokeWidth={2.5} />
-      )}
-    </span>
   )
 }
