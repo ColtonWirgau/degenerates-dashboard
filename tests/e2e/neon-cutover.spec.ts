@@ -81,10 +81,14 @@ test('the league opens on the current week — week 0, the rules', async ({ page
   // the league still has to decide. The settled record — Stakes,
   // Playoffs, Trading and the rest — is a RECORD rather than work, so it
   // reads from the RULES panel now and isn't printed down the page.
+  await expect(page.getByRole('heading', { name: /^Vote$/i, level: 2 })).toBeVisible({
+    timeout: 10_000,
+  })
+  // The draft has no heading over it — the card introduces itself, and
+  // the word sits ON it beside KEEPERS.
   await expect(
     page.getByRole('heading', { name: /^Draft$/i, level: 2 })
-  ).toBeVisible({ timeout: 10_000 })
-  await expect(page.getByRole('heading', { name: /^Vote$/i, level: 2 })).toBeVisible()
+  ).toHaveCount(0)
   await expect(page.getByRole('heading', { name: /^Stakes$/i, level: 2 })).toHaveCount(0)
   await expect(
     page.getByRole('heading', { name: /^Format$/i, level: 2 })

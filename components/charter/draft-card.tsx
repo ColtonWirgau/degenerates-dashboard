@@ -122,6 +122,13 @@ export function DraftCard({
         </button>
 
         <div className="flex min-w-0 flex-1 flex-col justify-center gap-2 py-3 pr-3 pl-4">
+          {/* The card's own name, at the weight KEEPERS uses across the
+              gap — two halves, each saying what it is. It used to be a
+              ruled section heading above the card, which introduced
+              something that had already introduced itself. */}
+          <p className="text-neon-blue/70 text-[9px] font-bold tracking-[0.3em] uppercase">
+            Draft
+          </p>
           <Fact
             icon={CalendarDays}
             value={when.day ? when.time : when.raw}

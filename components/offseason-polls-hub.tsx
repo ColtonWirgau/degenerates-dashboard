@@ -268,21 +268,19 @@ function SeasonSetup({
           the far end like every other section's does. */}
       {draftEntries.length > 0 && (
         <>
-          <SectionHeading
-            name="Draft"
-            settled={draftEntries.every((e) => e.status === 'locked')}
-            // No aside. The date is the card's whole left-hand side, six
-            // inches below — putting it up here too is the same fact
-            // twice on one screen. The rule alone gives the section its
-            // weight, and a heading isn't obliged to have a right-hand
-            // end just because the one under it does.
-          />
-          {/* Capped and centred. A date, a place, a format and five
-              keeper rules is a small object; at the card's full width the
-              two halves ended up a thousand pixels apart with nothing
-              between them. The section's rule above still spans the whole
-              width — it's the heading of the section, not of the card. */}
-          <div className="mx-auto mb-8 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02] lg:max-w-4xl">
+          {/* No heading over this one. The card IS the draft — a slab
+              with the date on it, the place, the format — so a ruled row
+              above saying DRAFT was labelling something that had already
+              introduced itself. The word moved onto the card, next to
+              KEEPERS, where it names the half it belongs to. */}
+          {/* Capped, and flush left with everything else on the page. A
+              date, a place, a format and five keeper rules is a small
+              object; at the card's full width its two halves ended up a
+              thousand pixels apart with nothing between them. Centred, it
+              floated free of the column every other thing on this page
+              starts in — so it's capped and left, and the VOTE cards
+              below start on the same line. */}
+          <div className="mt-6 mb-10 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02] lg:max-w-4xl">
             <DraftCard
               entries={draftEntries.map((e) => ({
                 key: e.key,
