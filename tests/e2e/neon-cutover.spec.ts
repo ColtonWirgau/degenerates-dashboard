@@ -87,7 +87,7 @@ test('the league opens on the current week — week 0, the rules', async ({ page
   await expect(page.getByRole('heading', { name: /^Vote$/i, level: 2 })).toBeVisible()
   await expect(page.getByRole('heading', { name: /^Stakes$/i, level: 2 })).toHaveCount(0)
   await expect(
-    page.getByRole('heading', { name: /^Playoffs$/i, level: 2 })
+    page.getByRole('heading', { name: /^Format$/i, level: 2 })
   ).toHaveCount(0)
 
   // The draft reads as a fixture, not a list of pairs.

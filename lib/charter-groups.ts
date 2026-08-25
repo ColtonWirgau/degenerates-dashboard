@@ -17,18 +17,16 @@ export type EntryGroup =
   | 'Draft'
   | 'Stakes'
   | 'Trading'
-  | 'Playoffs'
+  | 'Format'
   | 'Punishment'
-  | 'Rules'
   | 'Logistics'
 
 export const ENTRY_GROUP_ORDER: EntryGroup[] = [
   'Draft',
   'Stakes',
   'Trading',
-  'Playoffs',
+  'Format',
   'Punishment',
-  'Rules',
   'Logistics',
 ]
 
@@ -57,16 +55,21 @@ export const ENTRY_GROUP: Record<string, EntryGroup> = {
   'collusion-process': 'Trading',
   'trade-deadline': 'Trading',
 
-  // Playoffs
-  'playoff-format': 'Playoffs',
-  'regular-season-length': 'Playoffs',
-  'last-place-penalty': 'Playoffs',
+  // Format — how the season is actually played. PLAYOFFS and RULES used
+  // to be two topics, and between them they held four items: the bracket,
+  // the regular season's length, what happens to last place, and whether
+  // there's a median game. Those are one subject read four ways, and two
+  // headings over four rows is filing for its own sake.
+  'playoff-format': 'Format',
+  'regular-season-length': 'Format',
+  'last-place-penalty': 'Format',
+  'league-median': 'Format',
+  'missed-deadline': 'Format',
+  'tie-breaker': 'Format',
+  'mid-season-catchup': 'Format',
 
-  // Punishment / Rules / Logistics
+  // Punishment / Logistics
   punishment: 'Punishment',
-  'missed-deadline': 'Rules',
-  'tie-breaker': 'Rules',
-  'mid-season-catchup': 'Rules',
   commissioner: 'Logistics',
   'kickoff-meet': 'Logistics',
   trophy: 'Logistics',
@@ -77,9 +80,8 @@ export const GROUP_CATEGORY: Record<EntryGroup, CharterCategory> = {
   Draft: 'format',
   Stakes: 'stakes',
   Trading: 'trading',
-  Playoffs: 'playoffs',
+  Format: 'rules',
   Punishment: 'punishment',
-  Rules: 'rules',
   Logistics: 'logistics',
 }
 
@@ -90,10 +92,12 @@ export function isBuiltInGroup(name: string): name is EntryGroup {
 export function groupFor(entry: CharterEntry): EntryGroup {
   // An entry added by hand carries its group; the seeded ones are known
   // by key. Without the first clause a new "Draft" item would silently
-  // file itself under Rules.
+  // file itself under the fallback.
   const named = entry.metadata?.group
   if (named && isBuiltInGroup(named)) return named
-  return ENTRY_GROUP[entry.key] ?? 'Rules'
+  // Anything unrecognised is a rule of some kind, and FORMAT is where
+  // rules live now.
+  return ENTRY_GROUP[entry.key] ?? 'Format'
 }
 
 /**
