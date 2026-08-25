@@ -293,7 +293,11 @@ function SeasonSetup({
             <SectionHeading name="Vote" tone="ask" />
           </div>
 
-          <div className="mb-8 grid grid-cols-1 gap-2 xl:grid-cols-2">
+          {/* A column, not a grid. It was two columns with a tight gap
+              back when a card was a row you pressed to open; now every
+              card carries a whole vote, so they stack — and two votes
+              4px apart read as one long form rather than two questions. */}
+          <div className="mb-8 space-y-4">
             {ballot.map(({ entry, poll, group }) => (
               <BallotCard
                 key={entry.id}
@@ -448,10 +452,7 @@ function BallotCard({
   return (
     <div
       className={cn(
-        // Full width, always. A vote is a column of options with a bar
-        // each, and two of those side by side at half width is a shape
-        // nothing votes well in.
-        'overflow-hidden rounded-xl border transition-colors xl:col-span-2',
+        'overflow-hidden rounded-xl border transition-colors',
         voted
           ? 'border-white/10 bg-white/[0.02]'
           : 'border-neon-pink/35 bg-neon-pink/[0.06]'
