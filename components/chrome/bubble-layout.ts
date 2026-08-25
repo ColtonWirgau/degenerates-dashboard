@@ -41,11 +41,18 @@ export function railC(index: number): number {
 }
 
 /* The action group, bottom-anchored on the right. HOME is the resting
- * ACTIONS bubble; the two ranks above it are where its verbs land (91px
- * rhythm, matching the rail). */
+ * ACTIONS bubble; the ranks above it are where its verbs land (91px
+ * rhythm, matching the rail).
+ *
+ * THREE of them now. Two was the week's own pair — your leg, and closing
+ * the week — and it was full the moment a week wanted to hold a question
+ * as well. Each rank rides its own spring so they arrive staggered
+ * rather than as a block; the card's bites follow the same numbers, so a
+ * disc and its hole can't disagree mid-flight. */
 export const ACTION_HOME_C = 153
 export const ACTION_RANK2_C = 244
 export const ACTION_RANK3_C = 335
+export const ACTION_RANK4_C = 426
 
 /* ---------- What the week offers ---------- */
 
@@ -63,14 +70,14 @@ let actionBite = true
 export function setRailCount(n: number) {
   if (railCount === n) return
   railCount = n
-  frameListeners.forEach((l) => l(t, w))
+  frameListeners.forEach((l) => l(t, w, u))
 }
 
 export function setActionBite(on: boolean) {
   if (actionBite === on) return
   actionBite = on
   if (!on) setSplit(false)
-  frameListeners.forEach((l) => l(t, w))
+  frameListeners.forEach((l) => l(t, w, u))
 }
 
 /* ---------- The split springs ---------- */
@@ -78,18 +85,21 @@ export function setActionBite(on: boolean) {
 let target = 0 // 0 = folded, 1 = split
 let t = 0 // animated split progress (can overshoot past 1)
 let v = 0
-let deep = false // a submenu is showing — the third rank stands down
+let deep = false // a submenu is showing — the upper ranks stand down
 let w = 0
 let vw = 0
+let u = 0
+let vu = 0
 let raf: number | null = null
 let last = 0
 
 /** Per-frame listeners — geometry followers (the clip, the sliding disc). */
-const frameListeners = new Set<(t: number, w: number) => void>()
+const frameListeners = new Set<(t: number, w: number, u: number) => void>()
 /** State listeners — React (which buttons/icons/labels render). */
 const stateListeners = new Set<(open: boolean) => void>()
 
-function thirdTarget(): number {
+/** Ranks 3 and 4 fold away together when a submenu takes the pod. */
+function upperTarget(): number {
   return target === 1 && !deep ? 1 : 0
 }
 
@@ -108,25 +118,35 @@ function tick(now: number) {
   v += (target - t) * STIFFNESS * dt
   v -= v * DAMPING * dt
   t += v * dt
-  const tw = thirdTarget()
+  const tw = upperTarget()
   vw += (tw - w) * STIFFNESS * dt
   vw -= vw * DAMPING * dt
   w += vw * dt
+  // Rank 4 is softer, so it trails the one below it out of the slot
+  // instead of arriving alongside — three discs landing on the same
+  // frame reads as a menu appearing, not as a pod splitting.
+  vu += (tw - u) * (STIFFNESS * 0.72) * dt
+  vu -= vu * DAMPING * dt
+  u += vu * dt
   const settled =
     Math.abs(target - t) < 0.001 &&
     Math.abs(v) < 0.01 &&
     Math.abs(tw - w) < 0.001 &&
-    Math.abs(vw) < 0.01
+    Math.abs(vw) < 0.01 &&
+    Math.abs(tw - u) < 0.001 &&
+    Math.abs(vu) < 0.01
   if (settled) {
     t = target
     v = 0
     w = tw
     vw = 0
+    u = tw
+    vu = 0
     raf = null
   } else {
     raf = requestAnimationFrame(tick)
   }
-  frameListeners.forEach((l) => l(t, w))
+  frameListeners.forEach((l) => l(t, w, u))
 }
 
 function animate() {
@@ -155,9 +175,11 @@ function settleOrAnimate() {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     t = target
     v = 0
-    w = thirdTarget()
+    w = upperTarget()
     vw = 0
-    frameListeners.forEach((l) => l(t, w))
+    u = w
+    vu = 0
+    frameListeners.forEach((l) => l(t, w, u))
     return
   }
   animate()
@@ -179,12 +201,14 @@ export function subscribeSplitState(listener: (open: boolean) => void): () => vo
  * never lands — the bubbles re-emit after mounting.
  */
 export function emitSplitFrame() {
-  frameListeners.forEach((l) => l(t, w))
+  frameListeners.forEach((l) => l(t, w, u))
 }
 
-export function subscribeSplitFrame(listener: (t: number, w: number) => void): () => void {
+export function subscribeSplitFrame(
+  listener: (t: number, w: number, u: number) => void
+): () => void {
   frameListeners.add(listener)
-  listener(t, w)
+  listener(t, w, u)
   return () => frameListeners.delete(listener)
 }
 
@@ -193,9 +217,14 @@ export function rank2C(progress: number): number {
   return ACTION_HOME_C + (ACTION_RANK2_C - ACTION_HOME_C) * progress
 }
 
-/** Rank 3's — on the third-rank spring. */
+/** Rank 3's — on its own spring. */
 export function rank3C(progress: number): number {
   return ACTION_HOME_C + (ACTION_RANK3_C - ACTION_HOME_C) * progress
+}
+
+/** Rank 4's — on the softest spring, so it lands last. */
+export function rank4C(progress: number): number {
+  return ACTION_HOME_C + (ACTION_RANK4_C - ACTION_HOME_C) * progress
 }
 
 /**
@@ -204,7 +233,12 @@ export function rank3C(progress: number): number {
  * downstream makes the overlapping frames of a split legal geometry, so
  * this can be called mid-flight every frame.
  */
-export function resolveBites(cardHeight: number, progress: number, third = 0): Bite[] {
+export function resolveBites(
+  cardHeight: number,
+  progress: number,
+  third = 0,
+  fourth = 0
+): Bite[] {
   const resolved: Bite[] = []
   // The rail, filled top-down: however many bubbles this week has.
   for (let i = 0; i < railCount; i++) {
@@ -233,6 +267,14 @@ export function resolveBites(cardHeight: number, progress: number, third = 0): B
     resolved.push({
       edge: 'right',
       y: cardHeight - rank3C(third),
+      r: BITE_R,
+      fillet: BITE_FILLET,
+    })
+  }
+  if (fourth > 0.001) {
+    resolved.push({
+      edge: 'right',
+      y: cardHeight - rank4C(fourth),
       r: BITE_R,
       fillet: BITE_FILLET,
     })

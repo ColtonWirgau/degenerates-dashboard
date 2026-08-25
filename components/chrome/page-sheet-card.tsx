@@ -29,11 +29,12 @@ export function PageSheetCard({ children }: { children: React.ReactNode }) {
     let h = 0
     let split = 0
     let third = 0
+    let fourth = 0
 
     const apply = () => {
       el.style.clipPath =
         mq.matches && w > 0 && h > 0
-          ? `path("${cardOutline(w, h, RADIUS, resolveBites(h, split, third))}")`
+          ? `path("${cardOutline(w, h, RADIUS, resolveBites(h, split, third, fourth))}")`
           : ''
     }
 
@@ -48,9 +49,10 @@ export function PageSheetCard({ children }: { children: React.ReactNode }) {
     ro.observe(el)
     measure()
 
-    const unsub = subscribeSplitFrame((t, third3) => {
+    const unsub = subscribeSplitFrame((t, third3, fourth4) => {
       split = t
       third = third3
+      fourth = fourth4
       apply()
     })
     mq.addEventListener('change', apply)

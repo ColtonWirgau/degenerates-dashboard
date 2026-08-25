@@ -267,7 +267,7 @@ export default async function LeagueShellLayout({
           askPanel={
             <PanelReveal panel="ask">
               {canManage && (
-                <AskPanel leagueId={p.league.id} nflWeekId={preseasonWeekId} />
+                <AskPanel leagueId={p.league.id} fallbackWeekId={preseasonWeekId} />
               )}
             </PanelReveal>
           }

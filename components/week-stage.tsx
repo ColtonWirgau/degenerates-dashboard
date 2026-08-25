@@ -181,7 +181,6 @@ export function WeekStage({
       {chrome && (
         <WeekPolls
           leagueId={leagueId}
-          nflWeekId={stage.nflWeekId}
           polls={stage.polls}
           currentUserId={chrome.me.id}
           members={members}

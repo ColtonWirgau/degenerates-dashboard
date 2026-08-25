@@ -33,6 +33,7 @@ import {
   isSplit,
   rank2C,
   rank3C,
+  rank4C,
   setActionBite,
   setSplit,
   subscribeSplitFrame,
@@ -100,8 +101,11 @@ export function ActionBubble() {
   const legFace = useRef<HTMLSpanElement>(null)
   const lockBtn = useRef<HTMLButtonElement>(null)
   const lockFace = useRef<HTMLSpanElement>(null)
+  const askBtn = useRef<HTMLButtonElement>(null)
+  const askFace = useRef<HTMLSpanElement>(null)
   const [legVisible, setLegVisible] = useState(false)
   const [lockVisible, setLockVisible] = useState(false)
+  const [askVisible, setAskVisible] = useState(false)
 
   useEffect(() => subscribePanel(setPanel), [])
   useEffect(() => subscribeSplitState(setSplitOpen), [])
@@ -120,9 +124,10 @@ export function ActionBubble() {
 
   useEffect(
     () =>
-      subscribeSplitFrame((t, third) => {
+      subscribeSplitFrame((t, third, fourth) => {
         setLegVisible(t > 0.001)
         setLockVisible(third > 0.001)
+        setAskVisible(fourth > 0.001)
         const face = String(Math.max(0, Math.min(1, (t - 0.2) * 1.7)))
         if (legBtn.current) legBtn.current.style.bottom = `${rank2C(t) - DISC_CENTER}px`
         if (legFace.current) legFace.current.style.opacity = face
@@ -131,6 +136,12 @@ export function ActionBubble() {
         if (lockFace.current)
           lockFace.current.style.opacity = String(
             Math.max(0, Math.min(1, (third - 0.2) * 1.7))
+          )
+        if (askBtn.current)
+          askBtn.current.style.bottom = `${rank4C(fourth) - DISC_CENTER}px`
+        if (askFace.current)
+          askFace.current.style.opacity = String(
+            Math.max(0, Math.min(1, (fourth - 0.2) * 1.7))
           )
       }),
     []
@@ -146,8 +157,8 @@ export function ActionBubble() {
   // writes — re-emit once it's in the DOM. Reduced motion has no second
   // frame to catch it, and the stack would sit at the home slot.
   useLayoutEffect(() => {
-    if (legVisible || lockVisible) emitSplitFrame()
-  }, [legVisible, lockVisible])
+    if (legVisible || lockVisible || askVisible) emitSplitFrame()
+  }, [legVisible, lockVisible, askVisible])
 
   // Folding: any press outside the pod puts it back together. Surfaces
   // marked data-split-keep (the submit reveal) don't count as outside —
@@ -207,6 +218,23 @@ export function ActionBubble() {
           onClick={() => openPanel('compose')}
         >
           <ScrollText size={20} strokeWidth={2.25} />
+        </Bubble>
+      )}
+
+      {/* ASK — the top rank, and the commish's alone. A week can raise a
+          question of its own (someone welched, the punishment needs
+          settling) and until now the only way to open one was a dashed
+          tile sitting under every week that had none. */}
+      {hasSlate && chrome?.canManage && askVisible && (
+        <Bubble
+          ref={askBtn}
+          faceRef={askFace}
+          label="ASK"
+          labelVisible={split}
+          open={panel === 'ask'}
+          onClick={() => openPanel('ask')}
+        >
+          <MessageCircleQuestion size={21} strokeWidth={2.25} />
         </Bubble>
       )}
 

@@ -10,9 +10,12 @@
  * rather than behind a rung — same section grammar as BETTING SLATE
  * above, same cards as the preseason ballot, same voting mechanics.
  *
- * Absent entirely when a week has no questions, which is most weeks. The
- * one thing always on offer for the people who run the league is the way
- * to ask one.
+ * ABSENT ENTIRELY when a week has no questions, which is most weeks —
+ * and absent for the commish too. It used to render for anyone who could
+ * ask, which put an empty dashed "ask the league" tile under every quiet
+ * week: furniture whose only job was advertising a verb. The verb is on
+ * the ACTIONS pod now, with the week's other verbs, and this section is
+ * the answers.
  */
 
 import { useEffect, useState } from 'react'
@@ -27,7 +30,6 @@ import {
   viewerVoteFor,
   type PollMember,
 } from '@/components/polls/types'
-import { AskTheLeague } from '@/components/polls/poll-composer'
 import { closePoll, deletePoll } from '@/app/actions/polls'
 import { getAblyClient } from '@/lib/ably/client'
 import { channelName } from '@/lib/ably/channels'
@@ -45,7 +47,6 @@ const TOPIC_LABEL: Record<LeaguePoll['topic'], string> = {
 
 export function WeekPolls({
   leagueId,
-  nflWeekId,
   polls,
   currentUserId,
   members,
@@ -53,7 +54,6 @@ export function WeekPolls({
   onChanged,
 }: {
   leagueId: string
-  nflWeekId: string
   polls: LeaguePoll[]
   currentUserId: string
   members: PollMember[]
@@ -87,33 +87,14 @@ export function WeekPolls({
     return () => ch.unsubscribe(onAny)
   }, [leagueId, router, onChanged])
 
-  // Nothing to vote on and no right to ask — the section isn't a thing
-  // that exists on this week.
-  if (polls.length === 0 && !canAsk) return null
-
-  const open = polls.filter((p) => p.status === 'open')
-  const needsMe = open.filter(
-    (p) => !hasAnyAnswer(viewerVoteFor(p, voting.sessionVotes, currentUserId))
-  ).length
+  // NO QUESTIONS, NO SECTION. It used to render for anyone who COULD
+  // ask, which put an empty dashed tile under every week that had
+  // nothing to vote on — furniture advertising a verb. The verb is on
+  // the pod now, where the week's other verbs are.
+  if (polls.length === 0) return null
 
   return (
     <section className="mt-10">
-      {/* The slate's heading rule, said again — this is another section of
-          the same page, not another kind of page. */}
-      <div className="mb-3 flex items-end justify-between gap-3 border-b border-white/[0.07] pb-2.5">
-        <h2 className="font-display text-xl leading-none tracking-tight uppercase">
-          <span className="text-neon-pink">On the</span>{' '}
-          <span className="text-foreground/80">Ballot</span>
-        </h2>
-        <p className="text-muted-foreground shrink-0 text-[10px] font-bold tracking-[0.2em] uppercase tabular-nums">
-          {open.length === 0
-            ? 'Nothing open'
-            : needsMe > 0
-              ? `${needsMe} need you`
-              : 'All in'}
-        </p>
-      </div>
-
       <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
         {polls.map((poll) => {
           const myVote = viewerVoteFor(poll, voting.sessionVotes, currentUserId)
@@ -157,17 +138,6 @@ export function WeekPolls({
             </PollCard>
           )
         })}
-
-        {canAsk && (
-          <AskTheLeague
-            leagueId={leagueId}
-            nflWeekId={nflWeekId}
-            onCreated={() => {
-              onChanged()
-              router.refresh()
-            }}
-          />
-        )}
       </div>
     </section>
   )

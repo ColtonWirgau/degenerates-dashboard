@@ -110,11 +110,13 @@ test.describe('desktop', () => {
     await expect(home).toBeVisible()
     await home.click()
 
-    // Both verbs spring out, and they come to rest at DIFFERENT heights.
-    // A stalled spring leaves all three stacked on the home slot, which
-    // is exactly the failure this is here to catch — so assert on the
-    // resting positions, not just that the discs exist.
+    // THREE verbs now — your leg, closing the week, and asking the
+    // league something — and they come to rest at DIFFERENT heights. A
+    // stalled spring leaves them stacked on the home slot, which is
+    // exactly the failure this is here to catch, so assert the resting
+    // positions rather than that the discs exist.
     await expect(page.getByRole('button', { name: 'add leg' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'ask', exact: true })).toBeVisible()
 
     await expect
       .poll(
@@ -129,7 +131,7 @@ test.describe('desktop', () => {
           ),
         { timeout: 4000 }
       )
-      .toBe(3)
+      .toBe(4)
 
     // The home slot became CLOSE, so folding never moves the cursor.
     await expect(page.getByRole('button', { name: 'close' })).toBeVisible()
