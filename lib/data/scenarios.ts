@@ -37,7 +37,6 @@ export interface Scenario {
   };
 }
 
-const ET = 'America/New_York';
 
 const at = (date: string, time = '13:15:00') => {
   // Construct a UTC ISO from an ET wall-clock — week kickoffs are 9:15 AM ET

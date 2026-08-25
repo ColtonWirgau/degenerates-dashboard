@@ -14,7 +14,6 @@ import { type DataAdapter } from './adapter';
 import { getActiveScenario } from './active-scenario';
 import type {
   League,
-  LeagueMember,
   NflWeek,
   Parlay,
   ParlayLeg,
@@ -765,6 +764,15 @@ export const mockAdapter: DataAdapter = {
   },
   async createCharterEntry() {
     throw new Error('mock-adapter.createCharterEntry: not implemented in mock mode')
+  },
+  async getKeepers() {
+    throw new Error('mock-adapter.getKeepers: not implemented in mock mode')
+  },
+  async upsertKeeper() {
+    throw new Error('mock-adapter.upsertKeeper: not implemented in mock mode')
+  },
+  async deleteKeeper() {
+    throw new Error('mock-adapter.deleteKeeper: not implemented in mock mode')
   },
   async updateCharterEntry() {
     throw new Error('mock-adapter.updateCharterEntry: not implemented in mock mode')

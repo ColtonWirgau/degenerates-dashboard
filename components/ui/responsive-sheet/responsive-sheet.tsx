@@ -489,9 +489,6 @@ export function ResponsiveSheet({
           hideHandle={false}
           maxHeight={sheetMaxHeight}
           panelStyle={panelStyle}
-          lightScrollIndicator={
-            panelClassName?.includes('bg-card') || panelClassName?.includes('bg-white')
-          }
           onContentScroll={isCollapsible ? handleCollapsibleScroll : undefined}
           resetScrollKey={currentPage}
         >

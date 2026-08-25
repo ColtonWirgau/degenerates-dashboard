@@ -75,8 +75,10 @@ export function ParlayPanel({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Same masthead as everywhere else the app names a week: the
-          number on its tinted slab, the panel's noun beside it, and the
-          one number that matters at the far end.
+          the panel's NOUN on its tinted slab — the week's number was
+          on it, which the hero beside it already says in 60px type, and
+          which left the panel's own name floating in body text. Now the
+          slab says what this is and the far end says how it's going.
 
           The slab reaches the panel's corner the way the page header
           reaches the card's — negative margins cancelling the panel's
@@ -85,8 +87,7 @@ export function ParlayPanel({
           comes out rounded without asking. */}
       <div className="mb-3 flex shrink-0 items-stretch gap-2.5">
         <div
-          aria-hidden
-          className="relative -mt-5 -ml-5 flex w-[4.75rem] shrink-0 items-center justify-center overflow-hidden rounded-tl-[20px] pt-5 pb-1.5 pl-5"
+          className="relative -mt-5 -ml-5 flex shrink-0 items-center overflow-hidden rounded-tl-[20px] pt-5 pr-5 pb-1.5 pl-5"
           style={{
             clipPath: 'polygon(0 0, 100% 0, calc(100% - 9px) 100%, 0 100%)',
             background: won
@@ -96,28 +97,34 @@ export function ParlayPanel({
                 : 'linear-gradient(150deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))',
           }}
         >
-          <span
+          <h2
             className={cn(
-              'font-display -mr-1.5 text-[1.75rem] leading-none tabular-nums',
-              won ? 'text-neon-blue' : lost ? 'text-destructive' : 'text-foreground/70'
+              'font-display text-lg leading-none tracking-tight uppercase',
+              won ? 'text-neon-blue' : lost ? 'text-destructive' : 'text-foreground/80'
             )}
           >
-            {week.weekNumber}
-          </span>
-        </div>
-
-        <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-          <h2 className="font-display text-foreground/80 text-lg leading-none tracking-tight uppercase">
             The Lay
           </h2>
-          <p className="shrink-0 text-xs font-bold tabular-nums">
-            {graded > 0 ? (
-              <span className={hit === graded ? 'text-neon-blue' : 'text-foreground/80'}>
-                {hit}/{graded} hit
-              </span>
-            ) : (
-              <span className="text-muted-foreground">{lay.totalOdds}</span>
+        </div>
+
+        <div className="flex min-w-0 flex-1 items-center justify-end">
+          {/* The number is the reason you opened this, so it's set like
+              one — the same weight the slab carries, at the far end.
+              It spent a while as 11px of muted grey beside a heading
+              that repeated the panel's own name. */}
+          <p
+            className={cn(
+              'font-display shrink-0 text-[1.75rem] leading-none tabular-nums',
+              graded > 0 && hit === graded
+                ? 'text-neon-blue'
+                : won
+                  ? 'text-neon-blue'
+                  : lost
+                    ? 'text-destructive'
+                    : 'text-foreground/70'
             )}
+          >
+            {graded > 0 ? `${hit}/${graded}` : lay.totalOdds}
           </p>
         </div>
       </div>

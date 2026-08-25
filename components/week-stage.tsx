@@ -121,6 +121,7 @@ export function WeekStage({
         reopenable: false,
         canLock: false,
         submitted: false,
+        submissionCount: 0,
       })
       return
     }
@@ -130,6 +131,7 @@ export function WeekStage({
       reopenable: stage.reopenable,
       canLock: stage.canLock,
       submitted: stage.legs.some((l) => l.userId === chrome?.me.id),
+      submissionCount: stage.legs.length,
     })
   }, [isPreseason, stage, chrome?.me.id])
 

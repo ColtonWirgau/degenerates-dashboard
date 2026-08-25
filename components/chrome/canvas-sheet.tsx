@@ -16,8 +16,8 @@ import {
  * thing you pressed. Only the card moves; the masthead holds still.
  * (Mobile gets ResponsiveSheets instead.)
  */
-const LEFT_PANELS = ['slate', 'parlay', 'board'] as const
-const RIGHT_PANELS = ['submit', 'compose', 'ask', 'profile', 'season', 'venue'] as const
+const LEFT_PANELS = ['slate', 'board'] as const
+const RIGHT_PANELS = ['submit', 'compose', 'ask', 'profile', 'season', 'venue', 'parlay'] as const
 
 const PANEL_LABEL: Record<Exclude<CanvasPanel, null>, string> = {
   season: 'Season',
@@ -72,7 +72,10 @@ export function CanvasSheet({
     p === 'ask' ||
     p === 'profile' ||
     p === 'season' ||
-    p === 'venue'
+    p === 'venue' ||
+    // The lay opens from the hero's RIGHT half, and the card always
+    // slides away FROM the thing you pressed.
+    p === 'parlay'
   useEffect(() => {
     if (panel) {
       setLastSide(onRight(panel) ? 'left' : 'right')
@@ -96,7 +99,6 @@ export function CanvasSheet({
   const slid = wide ? panel : null
   const leftContent = {
     slate: slatePanel,
-    parlay: parlayPanel,
     board: boardPanel,
   } as const
   const rightContent = {
@@ -106,6 +108,7 @@ export function CanvasSheet({
     profile: profilePanel,
     season: seasonPanel,
     venue: venuePanel,
+    parlay: parlayPanel,
   } as const
 
   return (

@@ -344,7 +344,6 @@ function VenueForm({
   const [address, setAddress] = useState(v?.address ?? '')
   const [phone, setPhone] = useState(v?.phone ?? '')
   const [note, setNote] = useState(v?.note ?? '')
-  const [videoUrl, setVideoUrl] = useState(v?.videoUrl ?? '')
 
   return (
     <form
@@ -363,7 +362,6 @@ function VenueForm({
             address,
             phone,
             note,
-            videoUrl,
           })
           if (!res.success) {
             setError(res.error ?? 'Could not save')
@@ -396,12 +394,6 @@ function VenueForm({
       />
       <Field label="Phone" value={phone} onChange={setPhone} type="tel" placeholder="(586) 580-3546" />
       <Field label="Note" value={note} onChange={setNote} placeholder="Back room — ask for Sal" />
-      <Field
-        label="Backdrop video"
-        value={videoUrl}
-        onChange={setVideoUrl}
-        placeholder="/media/don-christos.mp4"
-      />
 
       {error && <p className="text-destructive text-[11px]">{error}</p>}
 

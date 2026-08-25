@@ -17,6 +17,7 @@ import {
 } from '@/components/polls/types'
 import { usePollVoting } from '@/components/polls/use-poll-voting'
 import { KeepersCard } from '@/components/charter/keepers-card'
+import { KeeperBoard, type KeeperBoardRow } from '@/components/charter/keeper-board'
 import { EntryAction } from '@/components/charter/entry-action'
 import type {
   LeaguePoll,
@@ -48,6 +49,14 @@ interface OffseasonPollsHubProps {
   members: PollMember[]
   /** Owners and admins put things on the ballot; everyone else votes. */
   canManage: boolean
+  /** The season being shown — SeasonState's shape varies by phase and
+   *  the offseason variant carries no plain `season`. */
+  season: string
+  /** Every declaration for the season being shown. */
+  keepers: KeeperBoardRow[]
+  /** The draft has started, so declarations are shut. False when the
+   *  league hasn't settled a date — nothing to be late for. */
+  draftPassed: boolean
 }
 
 // Ranked-choice tally — plurality-weighted (3 pts for 1st, 2 for 2nd, 1
@@ -71,6 +80,9 @@ export function OffseasonPollsHub({
   membersCount,
   members,
   canManage,
+  season,
+  keepers,
+  draftPassed,
 }: OffseasonPollsHubProps) {
   void seasonState
   void membersCount
@@ -129,6 +141,11 @@ export function OffseasonPollsHub({
 
   return (
     <SeasonSetup
+      leagueId={leagueId}
+      season={season}
+      people={members}
+      keepers={keepers}
+      draftPassed={draftPassed}
       charter={charter}
       polls={polls}
       membersById={membersById}
@@ -164,6 +181,11 @@ export function OffseasonPollsHub({
 // a "Pitch an idea" affordance that feeds the suggestion pool for that
 // topic. Entries with no natural suggestion mapping (logistics) skip it.
 function SeasonSetup({
+  leagueId,
+  season,
+  people,
+  keepers,
+  draftPassed,
   charter,
   polls,
   membersById,
@@ -179,6 +201,11 @@ function SeasonSetup({
   approvals,
   onApprove,
 }: {
+  leagueId: string
+  season: string
+  people: PollMember[]
+  keepers: KeeperBoardRow[]
+  draftPassed: boolean
   charter: CharterEntry[]
   polls: LeaguePoll[]
   membersById: Map<string, PollMember>
@@ -271,6 +298,24 @@ function SeasonSetup({
           value: e.value,
           status: e.status,
         }))}
+      />
+
+      {/* AND WHO'S ACTUALLY KEEPING WHOM. The rules above are voted on;
+          these are the records they govern, and until now the charter
+          claimed to hold them and held nothing. */}
+      <KeeperBoard
+        leagueId={leagueId}
+        season={season}
+        people={people.map((m) => ({
+          userId: m.id,
+          fullName: m.fullName,
+          email: m.email,
+          avatarUrl: m.avatarUrl,
+        }))}
+        keepers={keepers}
+        currentUserId={currentUserId}
+        canManage={canManage}
+        draftPassed={draftPassed}
       />
 
       {ballot.length > 0 && (

@@ -24,7 +24,7 @@ import {
   pgEnum,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core'
-import { relations } from 'drizzle-orm'
+import { relations, sql } from 'drizzle-orm'
 import type { AdapterAccountType } from 'next-auth/adapters'
 
 // ─── Enums ──────────────────────────────────────────────────────────────────
@@ -564,6 +564,66 @@ export const pollOptionReactions = pgTable(
 // Structured per-season facts (buy-in, keeper rules, watch-party location,
 // punishment, etc.) with per-entry approval rules + status lifecycle.
 // Built outside the original PLAN — see PLAN A12 for the design.
+
+/**
+ * KEEPERS — who's carrying whom into a season, and what it costs them.
+ *
+ * A table rather than a charter entry, because this is the other kind of
+ * thing. The charter holds DECISIONS: how many slots, what a keeper
+ * costs, how long you can hold one — all voted on, all ratified, all one
+ * value per league per year. A keeper is a RECORD: one row per person
+ * per player per season, declared by them, changed until the draft.
+ *
+ * It was a promise instead. `eligible-keepers` said "12 rosters · tap to
+ * view" and carried an empty metadata column in every league and every
+ * season — the roster shape existed only in the mock generator, so the
+ * table that row pointed at had never been written once.
+ *
+ * The unique index is on the LOWERCASED name, so nobody declares
+ * "Bijan Robinson" twice in different capitals.
+ */
+export const leagueKeepers = pgTable(
+  'league_keepers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    leagueId: uuid('league_id')
+      .notNull()
+      .references(() => leagues.id, { onDelete: 'cascade' }),
+    season: text('season').notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    playerName: text('player_name').notNull(),
+    // Free text, not an enum. A league that lets somebody keep a kicker
+    // shouldn't need a migration to say so.
+    position: text('position'),
+    /** What the keeper costs — the round it comes out of. Null while
+     *  undecided; the cost RULE lives in the charter, this is the
+     *  number it produced for this player. */
+    roundCost: integer('round_cost'),
+    /** 1 = first year holding them, 2 = second, and so on. The charter's
+     *  restriction rule is what caps it. */
+    yearOfKeep: integer('year_of_keep').notNull().default(1),
+
+    declaredAt: timestamp('declared_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .notNull()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => ({
+    oneEach: uniqueIndex('league_keepers_unique').on(
+      t.leagueId,
+      t.season,
+      t.userId,
+      sql`lower(${t.playerName})`
+    ),
+    bySeason: index('league_keepers_league_season_idx').on(t.leagueId, t.season),
+  })
+)
 
 export const charterEntries = pgTable(
   'charter_entries',

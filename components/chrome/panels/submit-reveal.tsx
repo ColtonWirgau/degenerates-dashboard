@@ -1,12 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Lock } from 'lucide-react'
+import { useEffect, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { Loader2, Lock, Pencil } from 'lucide-react'
 import { SubmitLegForm } from '@/components/submit-leg-form'
 import { useViewedWeek } from '@/components/chrome/league-chrome-context'
-import { openWeekForSubmission } from '@/app/actions/legs'
+import { markWeekDirty } from '@/components/chrome/canvas-store'
+import { deleteLeg, openWeekForSubmission } from '@/app/actions/legs'
 
 export interface SubmitRevealLeg {
+  /** The leg's own id — what changing it needs, since editing is
+   *  delete-then-resubmit all the way down. */
+  id: string
   description: string
   odds: number
   result: 'win' | 'loss' | 'push' | null
@@ -54,6 +59,16 @@ export function SubmitReveal({
   }, [needsParlay, weekId, leagueId])
 
   const parlayId = week?.parlayId ?? opened
+  // Mid-change: the old leg is gone and the composer is up, carrying
+  // what it said. The text is captured HERE rather than read back off
+  // the leg, because by the time the composer renders the leg has been
+  // deleted and there is nothing left to read.
+  const [changing, setChanging] = useState<{ description: string; odds: string } | null>(
+    null
+  )
+  const [dropping, drop] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   if (!week || !week.hasSlate || (!parlayId && (failed || week.closed))) {
     return (
@@ -74,7 +89,7 @@ export function SubmitReveal({
         Week {week.weekNumber}
       </p>
 
-      {myLeg ? (
+      {myLeg && !changing ? (
         <div className="space-y-3">
           <div className="border-neon-blue/30 bg-neon-blue/5 rounded-lg border px-3 py-3">
             <p className="text-neon-blue mb-1 inline-flex items-center gap-1.5 text-[10px] font-bold tracking-[0.25em] uppercase">
@@ -87,13 +102,60 @@ export function SubmitReveal({
               {myLeg.odds > 0 ? `+${myLeg.odds}` : myLeg.odds}
             </p>
           </div>
-          <p className="text-muted-foreground text-[11px]">
-            Need to change it? Open the week and delete your leg first —
-            then resubmit.
-          </p>
+
+          {/* CHANGE IT, here. This said "open the week and delete your
+              leg first — then resubmit", which described a route that
+              doesn't exist any more: the week page has no delete on it
+              since the lay became a panel. So the only instruction the
+              panel gave was one you couldn't follow.
+              
+              Editing is still delete-then-resubmit underneath, because
+              that's what keeps one leg per person per week true. The
+              difference is that the panel does it, and hands the
+              composer back with what you had in it. */}
+          {week.parlayState === 'open' && !week.closed && parlayId ? (
+            <button
+              type="button"
+              disabled={dropping}
+              onClick={() =>
+                drop(async () => {
+                  const res = await deleteLeg(parlayId, myLeg.id, leagueId)
+                  if (!res.success) {
+                    setError(res.error ?? 'Could not change it')
+                    return
+                  }
+                  setChanging({
+                    description: myLeg.description,
+                    odds: String(myLeg.odds),
+                  })
+                  markWeekDirty()
+                  router.refresh()
+                })
+              }
+              className="text-muted-foreground hover:text-neon-blue hover:border-neon-blue/30 inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-1.5 text-[10px] font-bold tracking-[0.2em] uppercase transition-colors disabled:opacity-50"
+            >
+              {dropping ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Pencil className="h-3 w-3" />
+              )}
+              Change it
+            </button>
+          ) : (
+            <p className="text-muted-foreground text-[11px]">
+              The week is locked — this is what went in.
+            </p>
+          )}
+          {error && <p className="text-destructive text-[11px]">{error}</p>}
         </div>
       ) : parlayId ? (
-        <SubmitLegForm weekId={parlayId} leagueId={leagueId} />
+        <SubmitLegForm
+          weekId={parlayId}
+          leagueId={leagueId}
+          // Handed back what you had in it, so changing one word isn't
+          // retyping the whole thing.
+          existingLeg={changing ?? undefined}
+        />
       ) : (
         <p className="text-muted-foreground px-1 py-4 text-xs italic">
           Opening the week…

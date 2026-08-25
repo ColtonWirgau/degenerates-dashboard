@@ -162,6 +162,8 @@ export interface WeekActions {
   canLock: boolean
   /** The viewer's leg is already in. */
   submitted: boolean
+  /** How many legs are in — the pod asks before ending a week at zero. */
+  submissionCount: number
 }
 
 const NO_ACTIONS: WeekActions = {
@@ -170,6 +172,7 @@ const NO_ACTIONS: WeekActions = {
   reopenable: false,
   canLock: false,
   submitted: false,
+  submissionCount: 0,
 }
 
 let weekActions: WeekActions = NO_ACTIONS

@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useTransition } from 'rea
 import { useRouter } from 'next/navigation'
 import {
   Lock,
+  LockOpen,
   MessageCircleQuestion,
   Pencil,
   Plus,
@@ -185,6 +186,19 @@ export function ActionBubble() {
 
   const toggleLock = () => {
     if (!lockToggleable || pending) return
+    // A week with NOTHING in it is never one you meant to end. Locking
+    // is reversible right up to kickoff, so this is a speed bump rather
+    // than a guard — but the accident it prevents is a whole week of
+    // twelve people's entries closed before anybody made one.
+    if (
+      !locked &&
+      (actions?.submissionCount ?? week.submissionCount) === 0 &&
+      !window.confirm(
+        `Lock week ${week.weekNumber}? Nobody has a leg in yet — locking now ends it with an empty board.`
+      )
+    ) {
+      return
+    }
     setSplit(false)
     start(async () => {
       await setWeekLock(chrome.leagueId, week.id, !locked)
@@ -239,19 +253,34 @@ export function ActionBubble() {
       )}
 
       {/* ─── THE WEEK PAIR ──────────────────────────────────────────── */}
-      {/* SUBMIT — the top rank. Closing the week is the last thing that
-          happens to it, so it sits furthest from the resting slot. */}
+      {/* LOCK — the top rank. Ending the week is the last thing that
+          happens to it, so it sits furthest from the resting slot.
+          
+          It said SUBMIT, which is what this app calls entering your leg
+          EVERYWHERE else — the dock's own disc is labelled "Submit your
+          leg" — and it sat directly above ADD LEG. Pressing the obvious
+          word ended the week for twelve people instead of entering one
+          bet. That is exactly how week 1 of this season got shut with
+          nothing in it.
+          
+          LOCK, because the app already says a week is open or locked and
+          a leg is locked in; CLOSE stays what it is everywhere else,
+          the thing that puts a sheet away. */}
       {hasSlate && lockVisible && (
         <Bubble
           ref={lockBtn}
           faceRef={lockFace}
-          label={locked ? (lockToggleable ? 'REOPEN' : 'CLOSED') : 'SUBMIT'}
+          label={locked ? (lockToggleable ? 'UNLOCK' : 'LOCKED') : 'LOCK'}
           labelVisible={split}
           disabled={!lockToggleable}
           onClick={toggleLock}
         >
-          {locked && !lockToggleable ? (
-            <Lock size={20} strokeWidth={2.25} />
+          {locked ? (
+            lockToggleable ? (
+              <LockOpen size={20} strokeWidth={2.25} />
+            ) : (
+              <Lock size={20} strokeWidth={2.25} />
+            )
           ) : (
             <Ticket size={21} strokeWidth={2.25} />
           )}
@@ -263,7 +292,12 @@ export function ActionBubble() {
         <Bubble
           ref={legBtn}
           faceRef={legFace}
-          label={locked && !submitted ? 'LOCKED' : submitted ? 'YOUR LEG' : 'ADD LEG'}
+          // MISSED, not LOCKED. The disc above now says LOCKED for a
+          // week that's shut, and two adjacent discs wearing one word
+          // for two different facts is how this pod got into trouble in
+          // the first place. This one is about YOU: the week closed and
+          // you never got a leg in.
+          label={locked && !submitted ? 'MISSED' : submitted ? 'YOUR LEG' : 'ADD LEG'}
           labelVisible={split}
           open={panel === 'submit'}
           // A closed week you never entered has nothing to show you; one

@@ -15,7 +15,7 @@ export interface CollapsibleHeaderProps {
  * it via `__isCollapsibleHeader` and reads its props to set up the collapse
  * behavior internally.
  */
-export function CollapsibleHeader(_: CollapsibleHeaderProps): null {
+export function CollapsibleHeader(): null {
   return null;
 }
 

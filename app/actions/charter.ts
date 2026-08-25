@@ -319,7 +319,6 @@ export async function setDraftEvent(input: {
   address: string
   phone: string
   note: string
-  videoUrl: string
   /** ISO `yyyy-mm-dd` and 24h `hh:mm`, straight off the native pickers. */
   date: string
   time: string
@@ -336,7 +335,6 @@ export async function setDraftEvent(input: {
   const address = input.address.trim()
   const phone = input.phone.trim()
   const note = input.note.trim()
-  const videoUrl = input.videoUrl.trim()
 
   // Geocode only when the address actually CHANGED. Re-saving a phone
   // number shouldn't send anyone's server a query, and the coordinates
@@ -354,7 +352,6 @@ export async function setDraftEvent(input: {
     ...(address ? { address } : {}),
     ...(phone ? { phone } : {}),
     ...(note ? { note } : {}),
-    ...(videoUrl ? { videoUrl } : {}),
     ...(lat != null && lng != null ? { lat, lng } : {}),
   }
 

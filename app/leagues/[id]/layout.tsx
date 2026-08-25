@@ -196,6 +196,7 @@ export default async function LeagueShellLayout({
     if (!wd) continue
     if (wd.userLeg) {
       legsByWeek[w.id] = {
+        id: wd.userLeg.id,
         description: wd.userLeg.description,
         odds: parseInt(wd.userLeg.odds, 10) || 0,
         result: wd.userLeg.result,

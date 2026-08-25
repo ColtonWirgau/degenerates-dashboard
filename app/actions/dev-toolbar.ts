@@ -2,7 +2,7 @@
 
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
-import { asc, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { SCENARIO_COOKIE } from '@/lib/data/active-scenario'
 import { MOCK_USER_COOKIE } from '@/lib/data/auth-bridge'
 import { DEV_NOW_COOKIE, DEV_PHASE_COOKIE } from '@/lib/data/dev-now'

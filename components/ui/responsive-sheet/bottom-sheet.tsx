@@ -40,8 +40,6 @@ interface BottomSheetProps {
   hideHandle?: boolean;
   maxHeight?: string;
   zIndex?: string;
-  showScrollIndicator?: boolean;
-  lightScrollIndicator?: boolean;
   panelStyle?: React.CSSProperties;
   onContentScroll?: (scrollTop: number) => void;
   resetScrollKey?: string;
@@ -58,8 +56,6 @@ export function BottomSheet({
   hideHandle = false,
   maxHeight = '90dvh',
   zIndex = 'z-[60]',
-  showScrollIndicator = true,
-  lightScrollIndicator = false,
   panelStyle,
   onContentScroll,
   resetScrollKey,

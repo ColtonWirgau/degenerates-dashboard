@@ -38,11 +38,14 @@ export type CharterCategory =
 export interface KeeperRosterRow {
   userId: string;
   player: string;
-  position: 'QB' | 'RB' | 'WR' | 'TE';
-  /** Cost to keep — round number (or ADP-round in year 2). */
-  round: number;
-  /** 1 = first year keeping this player, 2 = second year (ADP cost). */
-  yearOfKeep: 1 | 2;
+  /** Free text. A league that lets somebody keep a kicker shouldn't
+   *  need a type change to say so. */
+  position: string | null;
+  /** Cost to keep — round number (or ADP-round in year 2). Null while
+   *  the cost hasn't been worked out. */
+  round: number | null;
+  /** 1 = first year keeping this player, 2 = second, and so on. */
+  yearOfKeep: number;
 }
 
 export interface CharterApproval {
@@ -124,11 +127,6 @@ export interface VenueDetails {
    *  needs them — every maps link works off the address text. */
   lat?: number;
   lng?: number;
-  /** The footage behind the hero's venue half. Absent means the
-   *  bundled clip — a league that hasn't picked one still gets a room
-   *  rather than a black rectangle. */
-  videoUrl?: string;
-  posterUrl?: string;
 }
 
 interface CharterTemplate {

@@ -16,7 +16,7 @@ import './load-env'
 
 import { db } from '../db/client'
 import { nflTeams } from '../db/schema'
-import { syncSeason, WEEK_CATALOG } from '../lib/nfl-schedule'
+import { WEEK_CATALOG } from '../lib/nfl-schedule'
 
 // ─── Args ──────────────────────────────────────────────────────────────────
 

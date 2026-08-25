@@ -75,6 +75,15 @@ export interface DataAdapter {
   /** Admin-only: set a leg's result. */
   updateLegResult(legId: string, result: 'win' | 'loss' | 'push'): Promise<ParlayLeg>;
 
+  // ─── Keepers ─────────────────────────────────────────────────────────────
+  /** Everyone's declared keepers for a season, in roster order. */
+  getKeepers(leagueId: string, season: string): Promise<LeagueKeeper[]>;
+  /** Declare or amend one. Keyed on (league, season, user, player) so
+   *  saving the same player twice edits rather than duplicates. */
+  upsertKeeper(input: UpsertKeeperInput): Promise<LeagueKeeper>;
+  /** Withdraw one. */
+  deleteKeeper(keeperId: string): Promise<void>;
+
   // ─── Charter ─────────────────────────────────────────────────────────────
   /** Charter entries for a league + season, assembled with each entry's
    *  approval state. Returns empty array if none seeded yet. */
@@ -161,6 +170,32 @@ export interface CreatePollInput {
   options: Array<{ label: string; hint?: string }>;
   closesAt?: Date | null;
   createdBy: string;
+}
+
+export interface LeagueKeeper {
+  id: string;
+  leagueId: string;
+  season: string;
+  userId: string;
+  playerName: string;
+  position: string | null;
+  roundCost: number | null;
+  yearOfKeep: number;
+  declaredAt: string;
+}
+
+export interface UpsertKeeperInput {
+  leagueId: string;
+  season: string;
+  userId: string;
+  playerName: string;
+  position?: string | null;
+  roundCost?: number | null;
+  yearOfKeep?: number;
+  /** Set when amending an existing declaration rather than adding one —
+   *  it's what lets somebody fix a misspelt name instead of ending up
+   *  with two keepers. */
+  replacingId?: string | null;
 }
 
 export interface UpdateCharterEntryInput {

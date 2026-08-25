@@ -120,7 +120,6 @@ export function DraftHero({ entries, leagueName, memberCount }: DraftHeroProps) 
   const w = parseWhen(valueOf('draft-date'))
   const where = valueOf('draft-location')
   const format = valueOf('draft-format')
-  const venue = entries.find((x) => x.key === 'draft-location')?.metadata?.venue
 
   // The week list lives behind the left half, the same door every other
   // week's corner slab is; the other two open the book at their line —
@@ -138,7 +137,7 @@ export function DraftHero({ entries, leagueName, memberCount }: DraftHeroProps) 
           a hard vertical edge where the video started, cutting across
           the slant it was supposed to be hidden behind. */}
       <div className="relative flex flex-col overflow-hidden sm:h-[10.5rem] sm:flex-row sm:items-stretch lg:h-[12.5rem]">
-        <VenueFootage src={venue?.videoUrl} poster={venue?.posterUrl} />
+        <VenueFootage />
         {/* THE WEEK — its name, and the door to the list of them. Tinted
             and slanted, the same slab grammar every other week's corner
             uses, grown to half a hero. It held the date for a while,
@@ -265,11 +264,11 @@ export function DraftHero({ entries, leagueName, memberCount }: DraftHeroProps) 
  * band's slant so the type stays on solid ink while the far edge opens
  * up. Reduced motion holds the same frame still.
  */
-function VenueFootage({ src, poster }: { src?: string; poster?: string }) {
-  // The bundled clip is the fallback, not the rule — a league that has
-  // never touched this still gets a room rather than a black rectangle.
-  const video = src || '/media/don-christos.mp4'
-  const still = poster || (src ? undefined : '/media/don-christos.jpg')
+function VenueFootage() {
+  // Deliberately not configurable. A URL field with no upload behind it
+  // means a deploy per venue — which is not self-serve, just a sharper
+  // edge: a hotlink that dies leaves half the band black. The clip is
+  // bundled until there's somewhere to put an uploaded one.
   return (
     <span
       aria-hidden
@@ -286,20 +285,17 @@ function VenueFootage({ src, poster }: { src?: string; poster?: string }) {
         muted
         loop
         playsInline
-        poster={still}
+        poster="/media/don-christos.jpg"
         preload="metadata"
         className="h-full w-full object-cover opacity-[0.65] motion-reduce:hidden"
         style={{ objectPosition: 'center 52%', filter: 'blur(2px)' }}
       >
-        <source src={video} type="video/mp4" />
+        <source src="/media/don-christos.mp4" type="video/mp4" />
       </video>
       <span
-        className={cn(
-          'absolute inset-0 hidden opacity-[0.65] motion-reduce:block',
-          still ? '' : 'bg-[#0A0A0A]'
-        )}
+        className="absolute inset-0 hidden opacity-[0.65] motion-reduce:block"
         style={{
-          ...(still ? { backgroundImage: `url('${still}')` } : {}),
+          backgroundImage: "url('/media/don-christos.jpg')",
           backgroundSize: 'cover',
           backgroundPosition: 'center 52%',
           filter: 'blur(2px)',

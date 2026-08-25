@@ -17,6 +17,7 @@ import { getWeekLock } from '@/lib/lock-time'
 import {
   charterApprovals,
   charterEntries,
+  leagueKeepers,
   leagueMembers,
   leagues,
   nflWeeks,
@@ -28,12 +29,7 @@ import {
   polls,
   users,
 } from '@/db/schema'
-import type {
-  CreateCharterEntryInput,
-  CreatePollInput,
-  DataAdapter,
-  PollVote,
-} from './adapter'
+import type { DataAdapter, LeagueKeeper } from './adapter'
 import type {
   LeaderboardEntry,
   League,
@@ -44,8 +40,6 @@ import type {
   ParlayLeg,
   ParlayState,
   Role,
-  SeasonState,
-  SubmitLegInput,
   User,
   UserSeasonStats,
   WeekKind,
@@ -55,6 +49,7 @@ import type {
   CharterApprovalRule,
   CharterCategory,
   CharterStatus,
+  KeeperRosterRow,
 } from './mock-charter'
 import type {
   LeaguePoll,
@@ -956,6 +951,83 @@ export const neonAdapter: DataAdapter = {
     }
   },
 
+  // ─── Keepers ──────────────────────────────────────────────────────────
+  async getKeepers(leagueId, season) {
+    const rows = await db
+      .select()
+      .from(leagueKeepers)
+      .where(and(eq(leagueKeepers.leagueId, leagueId), eq(leagueKeepers.season, season)))
+      .orderBy(asc(leagueKeepers.declaredAt))
+    return rows.map(keeperFromRow)
+  },
+
+  async upsertKeeper(input) {
+    // Amending an existing declaration is an UPDATE by id, because the
+    // name is part of the key: saving a corrected spelling as a new row
+    // would leave the typo standing beside it.
+    if (input.replacingId) {
+      const [row] = await db
+        .update(leagueKeepers)
+        .set({
+          playerName: input.playerName,
+          position: input.position ?? null,
+          roundCost: input.roundCost ?? null,
+          yearOfKeep: input.yearOfKeep ?? 1,
+        })
+        .where(eq(leagueKeepers.id, input.replacingId))
+        .returning()
+      if (row) return keeperFromRow(row)
+    }
+
+    // Look up, then write. The unique index is on an EXPRESSION
+    // (lower(player_name)) and ON CONFLICT can't target one here, so the
+    // match is done in a select. The index is still the backstop: it's
+    // what makes a lost race an error rather than a duplicate keeper.
+    const [existing] = await db
+      .select({ id: leagueKeepers.id })
+      .from(leagueKeepers)
+      .where(
+        and(
+          eq(leagueKeepers.leagueId, input.leagueId),
+          eq(leagueKeepers.season, input.season),
+          eq(leagueKeepers.userId, input.userId),
+          sql`lower(${leagueKeepers.playerName}) = lower(${input.playerName})`
+        )
+      )
+      .limit(1)
+
+    const values = {
+      playerName: input.playerName,
+      position: input.position ?? null,
+      roundCost: input.roundCost ?? null,
+      yearOfKeep: input.yearOfKeep ?? 1,
+    }
+
+    if (existing) {
+      const [row] = await db
+        .update(leagueKeepers)
+        .set(values)
+        .where(eq(leagueKeepers.id, existing.id))
+        .returning()
+      return keeperFromRow(row!)
+    }
+
+    const [row] = await db
+      .insert(leagueKeepers)
+      .values({
+        leagueId: input.leagueId,
+        season: input.season,
+        userId: input.userId,
+        ...values,
+      })
+      .returning()
+    return keeperFromRow(row!)
+  },
+
+  async deleteKeeper(keeperId) {
+    await db.delete(leagueKeepers).where(eq(leagueKeepers.id, keeperId))
+  },
+
   async updateCharterEntry(entryId, patch) {
     const set: Partial<typeof charterEntries.$inferInsert> = {}
     if (patch.label !== undefined) set.label = patch.label
@@ -1164,14 +1236,48 @@ async function loadCharter(leagueId: string, season: string): Promise<CharterEnt
     approvalsByEntry.set(a.entryId, list)
   }
 
+  // ELIGIBLE KEEPERS reads its roster from the keepers table, live.
+  //
+  // The row said "12 rosters · tap to view" and carried an EMPTY
+  // metadata column in every league and every season — the roster shape
+  // existed only in the mock generator, so the table it pointed at had
+  // never been written once. Attaching the real declarations here means
+  // every surface that already renders `metadata.keeperRoster` starts
+  // telling the truth without being touched.
+  const keeperRow = rows.find((r) => r.key === 'eligible-keepers')
+  let keeperRoster: KeeperRosterRow[] = []
+  let declaredCount = 0
+  if (keeperRow) {
+    const declared = await db
+      .select()
+      .from(leagueKeepers)
+      .where(and(eq(leagueKeepers.leagueId, leagueId), eq(leagueKeepers.season, season)))
+      .orderBy(asc(leagueKeepers.declaredAt))
+    keeperRoster = declared.map((k) => ({
+      userId: k.userId,
+      player: k.playerName,
+      position: k.position,
+      round: k.roundCost,
+      yearOfKeep: k.yearOfKeep,
+    }))
+    declaredCount = new Set(declared.map((k) => k.userId)).size
+  }
+
   return rows.map((r): CharterEntry => {
     const entryApprovals = approvalsByEntry.get(r.id) ?? []
+    const isKeeperRow = r.key === 'eligible-keepers'
     return {
       id: r.id,
       key: r.key,
       label: r.label,
       category: r.category as CharterCategory,
-      value: r.value,
+      // The count is DERIVED for this one row, never stored: a number
+      // in a text column goes stale the moment somebody declares.
+      value: isKeeperRow
+        ? declaredCount > 0
+          ? `${declaredCount} declared`
+          : 'Nobody yet'
+        : r.value,
       description: r.description,
       season: r.season,
       source: r.source as CharterEntry['source'],
@@ -1195,7 +1301,14 @@ async function loadCharter(leagueId: string, season: string): Promise<CharterEnt
               })),
             }
           : null,
-      ...(r.metadata ? { metadata: r.metadata as CharterEntry['metadata'] } : {}),
+      ...(r.metadata || isKeeperRow
+        ? {
+            metadata: {
+              ...((r.metadata as CharterEntry['metadata']) ?? {}),
+              ...(isKeeperRow ? { keeperRoster } : {}),
+            },
+          }
+        : {}),
     }
   })
 }
@@ -1349,3 +1462,18 @@ async function loadPolls(
 // type aliases above.
 void (null as LegResult | null)
 void inArray
+
+
+function keeperFromRow(row: typeof leagueKeepers.$inferSelect): LeagueKeeper {
+  return {
+    id: row.id,
+    leagueId: row.leagueId,
+    season: row.season,
+    userId: row.userId,
+    playerName: row.playerName,
+    position: row.position,
+    roundCost: row.roundCost,
+    yearOfKeep: row.yearOfKeep,
+    declaredAt: row.declaredAt.toISOString(),
+  }
+}

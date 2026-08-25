@@ -124,7 +124,7 @@ export function WeekDetailSheet({
       defaultPage={initialPage}
     >
       <SheetPage name="main" title={`Week ${data.week.week_number}`}>
-        <MainPage data={data} leagueId={leagueId} membersCount={membersCount} onClose={onClose} />
+        <MainPage data={data} leagueId={leagueId} membersCount={membersCount} />
       </SheetPage>
 
       {data.userLeg && data.parlayState === 'open' && (
@@ -158,18 +158,15 @@ function MainPage({
   data,
   leagueId,
   membersCount,
-  onClose,
 }: {
   data: WeekDetailData
   leagueId: string
   membersCount: number
-  onClose: () => void
 }) {
   const { navigate } = useResponsiveSheet()
 
   const { week, userLeg, parlayState, totalOdds, submissionCount, weekStats } = data
   const isOpen = parlayState === 'open'
-  const isPostLock = parlayState === 'locked' || parlayState === 'graded' || parlayState === 'won' || parlayState === 'lost'
 
   return (
     <div className="px-5 sm:px-6 pb-6 space-y-4">

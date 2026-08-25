@@ -179,9 +179,13 @@ test('the lay opens from the hero, and is a reveal not a modal', async ({ page }
   })
 
   await page.getByRole('button', { name: /Week 1 — open the lay/i }).click()
-  // The card slides RIGHT for a left-rail panel — a reveal, not an
-  // overlay dropped on top of the page.
-  await expect(page.locator('.sheet-track.is-slid-right')).toBeVisible()
+  // The card slides LEFT: the lay opens from the hero's RIGHT half, and
+  // the card always slides away FROM the thing you pressed. A reveal,
+  // not an overlay dropped on top of the page.
+  await expect(page.locator('.sheet-track.is-slid-left')).toBeVisible()
+  // The slab carries the panel's NOUN, not the week's number — the hero
+  // beside it already says that in 60px type.
+  await expect(page.getByRole('heading', { name: 'The Lay', level: 2 })).toBeVisible()
   // Everyone in the league gets a row, picked or not.
   await expect(page.getByText('no pick').first()).toBeVisible({ timeout: 10_000 })
 })
@@ -208,12 +212,18 @@ test('a finished season is closed, not still taking legs', async ({ page }) => {
   })
 
   // The pod still opens, because a verb that vanishes leaves you
-  // wondering where it went. Both of its verbs wear a padlock and refuse
-  // to move instead: nothing can be entered, and the games have long
-  // since kicked off so it can't be reopened either.
+  // wondering where it went. Both of its verbs refuse to move instead:
+  // nothing can be entered, and the games have long since kicked off so
+  // it can't be reopened either.
+  //
+  // And they say DIFFERENT words. The week's disc used to read SUBMIT
+  // when open — the app's own word for entering your leg, sitting
+  // directly above ADD LEG — which is how a week got shut with nothing
+  // in it. It's LOCK / UNLOCK / LOCKED now, and the leg's dead state is
+  // MISSED, which is about you rather than about the week.
   await page.getByRole('button', { name: 'actions' }).click()
   await expect(page.getByRole('button', { name: 'locked' })).toBeDisabled()
-  await expect(page.getByRole('button', { name: 'closed' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'missed' })).toBeDisabled()
 
   // And a week of a finished season that nobody entered says so in the
   // past tense — "Nobody in", not "Nobody in yet".
@@ -358,4 +368,90 @@ test('the venue opens THE ROOM, not its line in the book', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Apple Maps' })).toBeVisible()
   await expect(page.getByRole('button', { name: /Copy the address/i })).toBeVisible()
   await expect(page.getByText('The room', { exact: true })).toHaveCount(0)
+})
+
+test('a keeper is declared, amended and withdrawn', async ({ page }) => {
+  // This runs against the real league, so it only ever touches the
+  // VIEWER'S OWN declarations, and puts them back. It asserts on its own
+  // row rather than on counts, which anybody else declaring would move.
+  const wipe = () =>
+    pool.query(
+      `delete from league_keepers k using users u
+        where u.id = k.user_id and u.email = $1`,
+      [VIEWER_EMAIL]
+    )
+  await wipe()
+
+  try {
+    await openLeague(page)
+    const board = page.locator('#keeper-board')
+    await board.scrollIntoViewIfNeeded()
+
+    // The charter said "12 rosters · tap to view" and pointed at a table
+    // that had never been written once. This is that table.
+    await expect(board.getByText('Declared keepers')).toBeVisible()
+
+    await page.getByRole('button', { name: /Declare your keeper/i }).click()
+    await page.getByPlaceholder('Player').fill('Bijan Robinson')
+    await page.getByPlaceholder('RB').fill('rb')
+    await page.getByPlaceholder('4').fill('3')
+    await page.getByRole('button', { name: 'Declare' }).click()
+    await expect(board.getByText('Bijan Robinson')).toBeVisible({ timeout: 20_000 })
+    // Position is normalised, and the cost reads as a round.
+    await expect(board.getByText('RB', { exact: true })).toBeVisible()
+    await expect(board.getByText('R3')).toBeVisible()
+
+    // Amending EDITS the row. The name is part of the key, so saving a
+    // different player as a new row would leave the old one standing.
+    await page.getByRole('button', { name: /Change your keeper/i }).click()
+    await page.getByPlaceholder('Player').fill('Puka Nacua')
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(board.getByText('Puka Nacua')).toBeVisible({ timeout: 20_000 })
+    await expect(board.getByText('Bijan Robinson')).toHaveCount(0)
+
+    await page.getByRole('button', { name: /Withdraw your keeper/i }).click()
+    await expect(page.getByRole('button', { name: /Declare your keeper/i })).toBeVisible({
+      timeout: 20_000,
+    })
+  } finally {
+    await wipe()
+  }
+})
+
+test('your leg can be changed from the panel that shows it', async ({ page }) => {
+  await openLeague(page)
+  await page.getByRole('button', { name: /open the week list/i }).click()
+  await page.getByRole('button', { name: /Week 1\b/ }).first().click()
+  await expect(page.getByRole('heading', { name: 'Week 1', level: 1 })).toBeVisible({
+    timeout: 15_000,
+  })
+
+  await page.getByRole('button', { name: 'actions' }).click()
+  await page.getByRole('button', { name: 'your leg' }).click()
+  await expect(page.getByText('Locked in')).toBeVisible({ timeout: 15_000 })
+
+  // Whatever is in there — this runs against the real league, so it puts
+  // back exactly what it found.
+  const box = page.getByPlaceholder(/Chiefs -3\.5/i)
+  const odds = page.getByPlaceholder(/-110, \+150/)
+
+  // The panel used to say "open the week and delete your leg first —
+  // then resubmit", which described a route that no longer exists: the
+  // week page lost its delete when the lay became a panel. The only
+  // instruction it gave was one you couldn't follow.
+  await page.getByRole('button', { name: /Change it/i }).click()
+  await expect(box).toBeVisible({ timeout: 20_000 })
+
+  // And it hands the composer back what you had in it. Reading that off
+  // the leg would fail — by the time the form renders, the leg has been
+  // deleted and there is nothing left to read — so the text is captured
+  // when you press, not looked up after.
+  const wasDescription = await box.inputValue()
+  const wasOdds = await odds.inputValue()
+  expect(wasDescription.length).toBeGreaterThan(0)
+  expect(wasOdds.length).toBeGreaterThan(0)
+
+  await page.getByRole('button', { name: /Update|Lock It In/i }).click()
+  await expect(page.getByText('Locked in')).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByText(wasDescription).first()).toBeVisible()
 })
