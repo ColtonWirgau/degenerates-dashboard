@@ -138,7 +138,13 @@ async function PreseasonStage({ payload: p }: { payload: Payload }) {
       <DraftHero
         entries={p.charter
           .filter((e) => groupFor(e) === 'Draft')
-          .map((e) => ({ id: e.id, key: e.key, value: e.value, status: e.status }))}
+          .map((e) => ({
+            id: e.id,
+            key: e.key,
+            value: e.value,
+            status: e.status,
+            metadata: e.metadata,
+          }))}
         leagueName={p.league.name}
         memberCount={p.members.length}
       />

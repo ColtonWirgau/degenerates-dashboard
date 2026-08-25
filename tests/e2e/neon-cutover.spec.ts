@@ -100,7 +100,7 @@ test('the league opens on the current week — week 0, the rules', async ({ page
   // not its text — the venue's name is also the heading of THE ROOM,
   // which is mounted in its slot whether or not it's open.
   await expect(
-    page.getByRole('button', { name: /Draft location — Don Christos/i })
+    page.getByRole('button', { name: /The draft —.*Don Christos/i })
   ).toBeVisible()
   await expect(page.getByText('Snake + 3rd Rd Reversal')).toBeVisible()
 
@@ -346,7 +346,7 @@ test('the venue opens THE ROOM, not its line in the book', async ({ page }) => {
 
   // The name of the place is a door to the place — a map, the address,
   // the phone — rather than to what the league decided about it.
-  await page.getByRole('button', { name: /Draft location/i }).click()
+  await page.getByRole('button', { name: /The draft —.*Opens the room/i }).click()
   await expect(page.locator('.sheet-track.is-slid-left')).toBeVisible()
   await expect(
     page.getByRole('heading', { name: /Don Christos/i, level: 2 })

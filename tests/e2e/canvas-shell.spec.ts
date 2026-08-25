@@ -235,9 +235,22 @@ test.describe('desktop', () => {
       page.locator('.sheet-track').getByRole('button', { name: /add an option/i })
     ).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'actions' })).toHaveCount(0)
+
+    // …and neither is editing the draft's own details. The pencil is
+    // the commish's; the server refuses anyone else regardless.
+    await page.getByRole('button', { name: /The draft —.*Opens the room/i }).click()
+    await expect(
+      page.getByRole('heading', { name: /Don Christos/i, level: 2 })
+    ).toBeVisible({ timeout: 10_000 })
+    await expect(
+      page.getByRole('button', { name: /Edit the venue details|Add the venue details/i })
+    ).toHaveCount(0)
   })
 
-  test('the hero’s facts open the book at their line', async ({ page, context }) => {
+  test('the hero’s venue half is all door, and the commish alone can edit it', async ({
+    page,
+    context,
+  }) => {
     await signIn(context)
     await page.goto('http://localhost:3001/')
     await page.waitForURL(/\/leagues\//, { timeout: 10_000 })
@@ -245,13 +258,29 @@ test.describe('desktop', () => {
       page.getByRole('heading', { name: 'Preseason', level: 1 })
     ).toBeVisible({ timeout: 15_000 })
 
-    // Each fact points at its own line. It used to raise the charter's
-    // sheet; now it opens the SEASON panel on that item — a right-hand
-    // panel, so the card slides left.
-    await page.getByRole('button', { name: /^Draft date/i }).click()
+    // ONE control over the whole half — footage included — not two
+    // words floating on a picture that did nothing.
+    await expect(page.getByRole('button', { name: /^Draft date/i })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /^Draft location/i })).toHaveCount(0)
+
+    const door = page.getByRole('button', { name: /The draft —.*Opens the room/i })
+    await expect(door).toBeVisible()
+    // It really is the whole half: press the footage, well away from
+    // either line of type.
+    const box = (await door.boundingBox())!
+    await page.mouse.click(box.x + box.width * 0.2, box.y + box.height * 0.75)
+
     await expect(page.locator('.sheet-track.is-slid-left')).toHaveCount(1)
     await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect(
+      page.getByRole('heading', { name: /Don Christos/i, level: 2 })
+    ).toBeVisible({ timeout: 10_000 })
     await expect(page.getByText('Mon, Aug 31 · 8:30pm')).toBeVisible()
+
+    // The commish gets the pencil.
+    await expect(
+      page.getByRole('button', { name: /Edit the venue details|Add the venue details/i })
+    ).toBeVisible()
   })
 })
 

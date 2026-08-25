@@ -169,6 +169,13 @@ export interface UpdateCharterEntryInput {
   approvalRule?: CharterApprovalRule;
   threshold?: number | null;
   metadata?: CharterEntry['metadata'] | null;
+  /** A COMMISSIONER OVERRIDE. Setting a value here settles the row
+   *  outright — status goes to 'locked' and any pending proposal is
+   *  cleared — instead of going through propose-and-approve. It exists
+   *  because a commish correcting the record is a real thing that
+   *  happens, and the alternative is them opening a vote against
+   *  themselves. Every caller must gate it on owner/admin. */
+  value?: string | null;
 }
 
 export interface CreateCharterEntryInput {

@@ -291,21 +291,38 @@ export async function deleteCharterGroup(
 }
 
 /**
- * Save the draft venue's contact details.
+ * Save the draft event: what it is, when it is, and everything about
+ * the room.
  *
- * Not `updateCharter`, for two reasons. It geocodes, which is a network
- * call nobody editing a LABEL should pay for; and it MERGES metadata
- * rather than replacing it, because the column is shared — the same
- * shape carries a custom entry's group and the keeper roster, and a
- * blind write would take those with it.
+ * Two rows, one form, because it's one event. The DECISIONS —
+ * the venue's name, the date — are the entries' `value`, and setting
+ * them here is an explicit commissioner override: it settles the row
+ * outright rather than opening a proposal, which is the honest shape
+ * for a commish correcting the record. Everything else — address,
+ * phone, note, the footage — is reference data about the place, and
+ * rides in `metadata` on the row it describes.
+ *
+ * Not `updateCharter`. It geocodes, which is a network call nobody
+ * editing a LABEL should pay for; and it MERGES metadata rather than
+ * replacing it, because the column is shared — the same shape carries
+ * a custom entry's group and the keeper roster, and a blind write
+ * would take those with it.
  */
-export async function setDraftVenue(input: {
+export async function setDraftEvent(input: {
   leagueId: string
   season: string
+  /** The `draft-location` row. */
   entryId: string
+  /** The `draft-date` row, when the charter has one. */
+  dateEntryId?: string | null
+  name: string
   address: string
   phone: string
   note: string
+  videoUrl: string
+  /** ISO `yyyy-mm-dd` and 24h `hh:mm`, straight off the native pickers. */
+  date: string
+  time: string
 }) {
   const { error } = await requireCommish(input.leagueId)
   if (error) return { success: false, error }
@@ -315,9 +332,11 @@ export async function setDraftVenue(input: {
   const entry = entries.find((e) => e.id === input.entryId)
   if (!entry) return { success: false, error: 'That entry no longer exists' }
 
+  const name = input.name.trim()
   const address = input.address.trim()
   const phone = input.phone.trim()
   const note = input.note.trim()
+  const videoUrl = input.videoUrl.trim()
 
   // Geocode only when the address actually CHANGED. Re-saving a phone
   // number shouldn't send anyone's server a query, and the coordinates
@@ -326,7 +345,7 @@ export async function setDraftVenue(input: {
   let lat = had?.lat
   let lng = had?.lng
   if (address !== (had?.address ?? '').trim()) {
-    const point = address ? await geocode(address) : null
+    const point = address ? await geocode([name, address].filter(Boolean).join(', ')) : null
     lat = point?.lat
     lng = point?.lng
   }
@@ -335,12 +354,62 @@ export async function setDraftVenue(input: {
     ...(address ? { address } : {}),
     ...(phone ? { phone } : {}),
     ...(note ? { note } : {}),
+    ...(videoUrl ? { videoUrl } : {}),
     ...(lat != null && lng != null ? { lat, lng } : {}),
   }
 
   await adapter.updateCharterEntry(input.entryId, {
     metadata: { ...(entry.metadata ?? {}), venue },
+    value: name || null,
   })
+
+  // An EMPTY date leaves the date row alone. The pickers seed from
+  // whatever prose is already on the books, and that parse can fail —
+  // every value in the charter is free text somebody typed. Writing the
+  // blank through would mean a commish who opened this to fix a phone
+  // number silently unsettled the draft date.
+  if (input.dateEntryId && input.date) {
+    const dateEntry = entries.find((e) => e.id === input.dateEntryId)
+    if (dateEntry) {
+      await adapter.updateCharterEntry(input.dateEntryId, {
+        metadata: { ...(dateEntry.metadata ?? {}), when: { date: input.date, time: input.time } },
+        value: formatWhen(input.date, input.time),
+      })
+    }
+  }
+
   revalidatePath(`/leagues/${input.leagueId}`, 'layout')
   return { success: true, error: null, located: lat != null }
+}
+
+/**
+ * "2026-08-31" + "20:30" → "Mon, Aug 31 · 8:30pm".
+ *
+ * The stored value stays PROSE because that's what it has always been —
+ * free text somebody typed, printed by the hero and the book alike —
+ * and changing that would mean migrating every league's history. The
+ * pickers' own values ride in metadata so the editor can round-trip
+ * them without re-parsing its own output.
+ *
+ * Built off the date parts by hand rather than `new Date(...)`, which
+ * would read a bare yyyy-mm-dd as UTC and hand back the day before for
+ * anyone west of Greenwich.
+ */
+function formatWhen(date: string, time: string): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date)
+  if (!m) return null
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  if (Number.isNaN(d.getTime())) return null
+
+  const day = d.toLocaleDateString('en-US', { weekday: 'short' })
+  const month = d.toLocaleDateString('en-US', { month: 'short' })
+  const head = `${day}, ${month} ${Number(m[3])}`
+
+  const t = /^(\d{2}):(\d{2})$/.exec(time)
+  if (!t) return head
+  const h24 = Number(t[1])
+  const mins = t[2]
+  const suffix = h24 < 12 ? 'am' : 'pm'
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12
+  return `${head} · ${h12}:${mins}${suffix}`
 }

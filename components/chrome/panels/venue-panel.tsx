@@ -19,7 +19,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { CalendarDays, Check, Copy, Loader2, MapPin, Pencil, Phone } from 'lucide-react'
-import { setDraftVenue } from '@/app/actions/charter'
+import { setDraftEvent } from '@/app/actions/charter'
 import type { CharterEntry } from '@/lib/data/mock-charter'
 import { cn } from '@/lib/utils'
 
@@ -107,6 +107,7 @@ export function VenuePanel({
           leagueId={leagueId}
           season={season}
           entry={entry}
+          dateEntry={dateEntry}
           onDone={() => setEditing(false)}
         />
       ) : (
@@ -306,25 +307,44 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
-/** The commish's side: the facts about the place, which nobody votes on. */
+/**
+ * The commish's side — the whole event on one form.
+ *
+ * The NAME and the DATE are decisions and the rest are facts about the
+ * room, which is a real distinction and not one worth making somebody
+ * navigate. Saving them together settles the two rows outright; the
+ * charter's propose-and-approve path is still there for anyone who
+ * isn't a commissioner, which is the point of having a rule at all.
+ */
 function VenueForm({
   leagueId,
   season,
   entry,
+  dateEntry,
   onDone,
 }: {
   leagueId: string
   season: string
   entry: CharterEntry
+  dateEntry: CharterEntry | null
   onDone: () => void
 }) {
   const router = useRouter()
   const [pending, start] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const v = entry.metadata?.venue
+  // The pickers seed from the stored halves when they exist, and from
+  // the PROSE when they don't — every league that predates this form
+  // has only the prose, and opening the editor to blank fields would
+  // read as "there is no date" for a draft that has one.
+  const seeded = whenParts(dateEntry, season)
+  const [name, setName] = useState(entry.value ?? '')
+  const [date, setDate] = useState(seeded.date)
+  const [time, setTime] = useState(seeded.time)
   const [address, setAddress] = useState(v?.address ?? '')
   const [phone, setPhone] = useState(v?.phone ?? '')
   const [note, setNote] = useState(v?.note ?? '')
+  const [videoUrl, setVideoUrl] = useState(v?.videoUrl ?? '')
 
   return (
     <form
@@ -332,13 +352,18 @@ function VenueForm({
         e.preventDefault()
         start(async () => {
           setError(null)
-          const res = await setDraftVenue({
+          const res = await setDraftEvent({
             leagueId,
             season,
             entryId: entry.id,
+            dateEntryId: dateEntry?.id ?? null,
+            name,
+            date,
+            time,
             address,
             phone,
             note,
+            videoUrl,
           })
           if (!res.success) {
             setError(res.error ?? 'Could not save')
@@ -350,9 +375,33 @@ function VenueForm({
       }}
       className="space-y-3"
     >
-      <Field label="Address" value={address} onChange={setAddress} placeholder="41 Mulberry St, Chicago IL" />
-      <Field label="Phone" value={phone} onChange={setPhone} placeholder="(312) 555-0132" />
+      <Field label="Place" value={name} onChange={setName} placeholder="Don Christos" />
+
+      {dateEntry && (
+        // Native pickers. The stored value is prose — "Mon, Aug 31 ·
+        // 8:30pm" — because that's what the hero and the book print,
+        // but nobody should have to type prose in a format a regex
+        // will silently reject.
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Date" value={date} onChange={setDate} type="date" placeholder="" />
+          <Field label="Time" value={time} onChange={setTime} type="time" placeholder="" />
+        </div>
+      )}
+
+      <Field
+        label="Address"
+        value={address}
+        onChange={setAddress}
+        placeholder="51748 Van Dyke Ave, Shelby Township, MI"
+      />
+      <Field label="Phone" value={phone} onChange={setPhone} type="tel" placeholder="(586) 580-3546" />
       <Field label="Note" value={note} onChange={setNote} placeholder="Back room — ask for Sal" />
+      <Field
+        label="Backdrop video"
+        value={videoUrl}
+        onChange={setVideoUrl}
+        placeholder="/media/don-christos.mp4"
+      />
 
       {error && <p className="text-destructive text-[11px]">{error}</p>}
 
@@ -374,8 +423,8 @@ function VenueForm({
         </button>
       </div>
       <p className="text-muted-foreground/60 text-[11px] leading-snug">
-        Saving looks the address up to place the map. The maps links work
-        either way.
+        Saving looks the address up to place the map, and settles the
+        place and date on the books. The maps links work either way.
       </p>
     </form>
   )
@@ -386,11 +435,13 @@ function Field({
   value,
   onChange,
   placeholder,
+  type = 'text',
 }: {
   label: string
   value: string
   onChange: (v: string) => void
   placeholder: string
+  type?: string
 }) {
   return (
     <label className="block">
@@ -398,6 +449,7 @@ function Field({
         {label}
       </span>
       <input
+        type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
@@ -405,4 +457,48 @@ function Field({
       />
     </label>
   )
+}
+
+/**
+ * The date pickers' starting values.
+ *
+ * `metadata.when` is authoritative when it's there. When it isn't —
+ * every entry written before this form existed — the display string is
+ * all there is, so it gets parsed: "Mon, Aug 31 · 8:30pm". The YEAR
+ * isn't in it, and can't be: it comes from the season, whose first year
+ * covers Jul–Dec and whose second covers Jan–Jun.
+ *
+ * A parse that fails returns blanks, and blanks mean "leave the date
+ * alone" on save rather than "clear it".
+ */
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+
+function whenParts(
+  dateEntry: CharterEntry | null,
+  season: string
+): { date: string; time: string } {
+  const stored = dateEntry?.metadata?.when
+  if (stored?.date) return { date: stored.date, time: stored.time ?? '' }
+
+  const raw = dateEntry?.value?.trim()
+  if (!raw) return { date: '', time: '' }
+
+  const m = /([A-Za-z]{3,})\.?\s+(\d{1,2})/.exec(raw)
+  if (!m) return { date: '', time: '' }
+  const month = MONTHS.indexOf(m[1]!.slice(0, 3).toLowerCase())
+  if (month < 0) return { date: '', time: '' }
+  const day = Number(m[2])
+
+  const [first, second] = season.split('-')
+  const year = Number(month >= 6 ? first : (second ?? first))
+  if (!Number.isFinite(year)) return { date: '', time: '' }
+
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const date = `${year}-${pad(month + 1)}-${pad(day)}`
+
+  const t = /(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i.exec(raw)
+  if (!t) return { date, time: '' }
+  let h = Number(t[1]) % 12
+  if (t[3]!.toLowerCase() === 'pm') h += 12
+  return { date, time: `${pad(h)}:${t[2] ?? '00'}` }
 }

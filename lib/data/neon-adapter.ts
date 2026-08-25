@@ -963,6 +963,16 @@ export const neonAdapter: DataAdapter = {
     if (patch.approvalRule !== undefined) set.approvalRule = patch.approvalRule
     if (patch.threshold !== undefined) set.threshold = patch.threshold
     if (patch.metadata !== undefined) set.metadata = patch.metadata
+    // A value written here is a settled value: the column is documented
+    // as null until status is 'locked', so writing one without moving
+    // the status would leave a row that reads as undecided while
+    // carrying a decision. Any pending proposal is superseded.
+    if (patch.value !== undefined) {
+      set.value = patch.value
+      set.status = patch.value === null ? 'draft' : 'locked'
+      set.pendingValue = null
+      set.lockedAt = patch.value === null ? null : new Date()
+    }
     if (Object.keys(set).length === 0) return
     await db.update(charterEntries).set(set).where(eq(charterEntries.id, entryId))
   },

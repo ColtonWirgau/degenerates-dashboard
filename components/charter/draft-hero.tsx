@@ -41,6 +41,7 @@
 import { CalendarDays, ChevronLeft } from 'lucide-react'
 import { openCharterGroup, openPanel } from '@/components/chrome/canvas-store'
 import { cn } from '@/lib/utils'
+import type { CharterEntry } from '@/lib/data/mock-charter'
 
 /**
  * WHERE THE DIAGONAL FALLS — and why these are written out longhand.
@@ -79,6 +80,9 @@ export interface DraftHeroEntry {
   key: string
   value: string | null
   status: 'draft' | 'pending' | 'locked'
+  /** `draft-location` carries the room's own details here, including
+   *  which footage plays behind its half of the band. */
+  metadata?: CharterEntry['metadata']
 }
 
 export interface DraftHeroProps {
@@ -116,6 +120,7 @@ export function DraftHero({ entries, leagueName, memberCount }: DraftHeroProps) 
   const w = parseWhen(valueOf('draft-date'))
   const where = valueOf('draft-location')
   const format = valueOf('draft-format')
+  const venue = entries.find((x) => x.key === 'draft-location')?.metadata?.venue
 
   // The week list lives behind the left half, the same door every other
   // week's corner slab is; the other two open the book at their line —
@@ -133,7 +138,7 @@ export function DraftHero({ entries, leagueName, memberCount }: DraftHeroProps) 
           a hard vertical edge where the video started, cutting across
           the slant it was supposed to be hidden behind. */}
       <div className="relative flex flex-col overflow-hidden sm:h-[10.5rem] sm:flex-row sm:items-stretch lg:h-[12.5rem]">
-        <VenueFootage />
+        <VenueFootage src={venue?.videoUrl} poster={venue?.posterUrl} />
         {/* THE WEEK — its name, and the door to the list of them. Tinted
             and slanted, the same slab grammar every other week's corner
             uses, grown to half a hero. It held the date for a while,
@@ -181,52 +186,45 @@ export function DraftHero({ entries, leagueName, memberCount }: DraftHeroProps) 
           </span>
         </button>
 
-        {/* WHEN AND WHERE, over the room itself. Two controls rather
-            than one: each fact opens its own line in the book, and a
-            date that opened the LOCATION entry because it happened to
-            sit inside that button is the kind of thing nobody notices
-            until they're editing the wrong row. */}
-        <div className="relative z-10 flex min-w-0 flex-1 flex-col items-start justify-center px-4 py-5 text-left sm:items-end sm:py-0 sm:pl-14 sm:text-right lg:pr-20">
-          <button
-            type="button"
-            // WHEN and WHERE are one sheet. They're one event — you
-            // don't go to a different place to find out what time it
-            // starts — and two doors an inch apart opening two
-            // different panels was the hero's own two halves
-            // disagreeing about what they described.
-            onClick={() => openPanel('venue')}
-            aria-label={`Draft date — ${w.raw ?? 'not set'}`}
+        {/* WHEN AND WHERE, over the room itself — and the whole half is
+            the door.
+
+            It was two buttons sitting on a picture, which meant the
+            picture was the biggest thing on the band and the only part
+            of it that did nothing: you had to find the words. The half
+            IS the room, footage and all, so pressing any of it opens
+            the room. It also opens ONE sheet — the date and the place
+            are one event, and two doors an inch apart leading to two
+            different panels was the hero disagreeing with itself. */}
+        <button
+          type="button"
+          onClick={() => openPanel('venue')}
+          aria-label={`The draft — ${w.raw ?? 'date not set'}, ${where ?? 'venue not set'}. Opens the room.`}
+          className="group relative z-10 flex min-w-0 flex-1 flex-col items-start justify-center px-4 py-5 text-left transition-[filter] hover:brightness-125 sm:items-end sm:py-0 sm:pl-14 sm:text-right lg:pr-20"
+        >
+          <span
             className={cn(
               'relative z-10 mb-1.5 max-w-full truncate text-[11px] font-bold tracking-[0.28em] uppercase transition-colors',
               EYEBROW_LINE,
               'sm:right-4 lg:right-20',
               w.day
-                ? 'text-neon-blue/85 hover:text-neon-blue'
-                : 'text-muted-foreground/60 hover:text-muted-foreground'
+                ? 'text-neon-blue/85 group-hover:text-neon-blue'
+                : 'text-muted-foreground/60 group-hover:text-muted-foreground'
             )}
           >
             {w.day
               ? [w.weekday, `${w.month} ${w.day}`, w.time].filter(Boolean).join(' · ')
               : (w.raw ?? 'Date TBD')}
-          </button>
-          {/* The venue opens THE ROOM, not its line in the book. The
-              book answers "what did the league decide"; standing in a
-              driveway on draft night you want the other question, and
-              a charter row can't put the place on a map or dial it.
-              The commish edits the address from inside that panel, so
-              nothing is stranded by the swap. */}
-          <button
-            type="button"
-            onClick={() => openPanel('venue')}
-            aria-label={`Draft location — ${where ?? 'not set'}`}
+          </span>
+          <span
             className={cn(
-              'font-display relative z-10 max-w-full truncate text-3xl leading-[0.9] tracking-tight uppercase transition-[filter] hover:brightness-125 sm:text-4xl lg:text-5xl',
+              'font-display relative z-10 max-w-full truncate text-3xl leading-[0.9] tracking-tight uppercase sm:text-4xl lg:text-5xl',
               where ? 'text-foreground' : 'text-foreground/40'
             )}
           >
             {where ?? 'Venue TBD'}
-          </button>
-        </div>
+          </span>
+        </button>
 
       </div>
 
@@ -267,7 +265,11 @@ export function DraftHero({ entries, leagueName, memberCount }: DraftHeroProps) 
  * band's slant so the type stays on solid ink while the far edge opens
  * up. Reduced motion holds the same frame still.
  */
-function VenueFootage() {
+function VenueFootage({ src, poster }: { src?: string; poster?: string }) {
+  // The bundled clip is the fallback, not the rule — a league that has
+  // never touched this still gets a room rather than a black rectangle.
+  const video = src || '/media/don-christos.mp4'
+  const still = poster || (src ? undefined : '/media/don-christos.jpg')
   return (
     <span
       aria-hidden
@@ -284,17 +286,20 @@ function VenueFootage() {
         muted
         loop
         playsInline
-        poster="/media/don-christos.jpg"
+        poster={still}
         preload="metadata"
         className="h-full w-full object-cover opacity-[0.65] motion-reduce:hidden"
         style={{ objectPosition: 'center 52%', filter: 'blur(2px)' }}
       >
-        <source src="/media/don-christos.mp4" type="video/mp4" />
+        <source src={video} type="video/mp4" />
       </video>
       <span
-        className="absolute inset-0 hidden opacity-[0.65] motion-reduce:block"
+        className={cn(
+          'absolute inset-0 hidden opacity-[0.65] motion-reduce:block',
+          still ? '' : 'bg-[#0A0A0A]'
+        )}
         style={{
-          backgroundImage: "url('/media/don-christos.jpg')",
+          ...(still ? { backgroundImage: `url('${still}')` } : {}),
           backgroundSize: 'cover',
           backgroundPosition: 'center 52%',
           filter: 'blur(2px)',

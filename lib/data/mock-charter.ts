@@ -95,6 +95,10 @@ export interface CharterEntry {
     keeperRoster?: KeeperRosterRow[];
     group?: string;
     venue?: VenueDetails;
+    /** On `draft-date`: the machine-readable halves behind the display
+     *  string, so the editor can round-trip what somebody picked
+     *  instead of re-parsing prose it wrote itself. */
+    when?: { date?: string; time?: string };
   };
 }
 
@@ -120,6 +124,11 @@ export interface VenueDetails {
    *  needs them — every maps link works off the address text. */
   lat?: number;
   lng?: number;
+  /** The footage behind the hero's venue half. Absent means the
+   *  bundled clip — a league that hasn't picked one still gets a room
+   *  rather than a black rectangle. */
+  videoUrl?: string;
+  posterUrl?: string;
 }
 
 interface CharterTemplate {
