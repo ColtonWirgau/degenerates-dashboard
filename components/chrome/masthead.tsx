@@ -117,8 +117,15 @@ function SeasonLockup({
       onClick={() => openPanel('season')}
       aria-expanded={open}
       aria-label="Season and league"
+      // The focus ring is spelled out because the browser's own is
+      // wrong here. `outline-style: auto` traces the union of a button's
+      // child boxes, so this one — two spans with a gap between them —
+      // came back as a rounded rect with a notch bitten out of the top
+      // and bottom edges at the seam, in the app's cyan (the global
+      // `* { outline-ring/50 }` colors the UA ring). A plain offset
+      // rectangle is what it was always meant to be.
       className={cn(
-        'group font-display inline-flex shrink-0 items-center gap-1.5 leading-none font-bold uppercase whitespace-nowrap transition-opacity hover:opacity-80',
+        'group font-display inline-flex shrink-0 items-center gap-1.5 rounded-md leading-none font-bold uppercase whitespace-nowrap transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-neon-blue/70',
         className
       )}
     >

@@ -100,9 +100,16 @@ test.describe('desktop', () => {
     // Week 0's pod holds the CHARTER's verbs, not a week's — so move to a
     // week with a slate, through the corner door since the rail no longer
     // carries the week.
+    //
+    // Week TWO, not week one. This runs against the real league, and the
+    // pod's verbs are a function of the week's state: week 1 has legs in
+    // it that were closed by hand, so its pod reads LOCKED / REOPEN and
+    // an assertion on ADD LEG fails for a reason that has nothing to do
+    // with what this test is about. Week 2 is the first one nobody has
+    // touched.
     await page.getByRole('button', { name: /open the week list/i }).click()
-    await page.getByRole('button', { name: /Week 1\b/ }).first().click()
-    await expect(page.getByRole('heading', { name: 'Week 1', level: 1 })).toBeVisible({
+    await page.getByRole('button', { name: /Week 2\b/ }).first().click()
+    await expect(page.getByRole('heading', { name: 'Week 2', level: 1 })).toBeVisible({
       timeout: 15_000,
     })
 

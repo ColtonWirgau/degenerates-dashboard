@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, Crown, Loader2, Shield, UserMinus } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -19,6 +19,7 @@ import { LeagueAvatar } from '@/components/league-avatar'
 import { writeViewSeason } from '@/lib/view-season-cookie'
 import { removeMember, updateMemberRole } from '@/app/actions/leagues'
 import { SlateSettings } from '@/components/league-pages'
+import { Skeleton } from '@/components/ui/skeleton'
 import { DevPhaseSwitcher } from '@/components/user-menu'
 import type { DevPhaseData } from '@/lib/data/dev-toolbar-data'
 import {
@@ -112,9 +113,40 @@ export function SeasonPanel({
   // data actually arrives; this catches the case where the refresh comes
   // back and it never does, so a failure leaves you on a real screen
   // instead of skeletons forever.
+  //
+  // It has to wait for a transition to have actually RUN. `pending` is
+  // false on mount too, and clearing on that would mean reopening this
+  // panel mid-switch cancels the switch it's showing.
+  const ranOne = useRef(false)
   useEffect(() => {
-    if (!pending) setSwitchingSeason(null)
+    if (pending) {
+      ranOne.current = true
+      return
+    }
+    if (ranOne.current) {
+      ranOne.current = false
+      setSwitchingSeason(null)
+    }
   }, [pending])
+
+  // The panel holds still THROUGH the switch and steps aside when it
+  // LANDS. Closing on the click made the year look like it did nothing —
+  // the sheet vanished, the page went to skeleton, and the new season
+  // showed up seconds later with no memory of what you'd pressed.
+  // Closing on arrival keeps the press visible for as long as it takes
+  // and still leaves you on the season you asked for.
+  const switching = chrome?.switching ?? false
+  const iSwitched = useRef(false)
+  useEffect(() => {
+    if (switching) {
+      iSwitched.current = true
+      return
+    }
+    if (iSwitched.current) {
+      iSwitched.current = false
+      closePanel()
+    }
+  }, [switching])
 
   if (!chrome) return null
   const canManage = currentUserRole === 'owner' || currentUserRole === 'admin'
@@ -168,9 +200,15 @@ export function SeasonPanel({
     // freezing you on it.
     writeViewSeason(season === availableSeasons[0] ? null : season)
     // Announce it: the masthead and the tick below move on this, not on
-    // the refresh. Then get out of the way so you can watch it happen.
+    // the refresh.
+    //
+    // And STAY OPEN. This used to close the panel on the way out, which
+    // read as "it just closed and nothing happened": the refresh takes
+    // seconds, so the click's only visible effect was the panel
+    // vanishing and the page going to skeleton. Held open, the tick
+    // lands on the row you pressed in the same frame as the click, and
+    // the sections under it say they're waiting — which is the truth.
     setSwitchingSeason(season)
-    closePanel()
 
     start(() => {
       router.refresh()
@@ -224,8 +262,14 @@ export function SeasonPanel({
         })}
       </div>
 
-      {/* The league, and who was in it that year. */}
-      <div className="min-h-0 shrink border-t border-white/10 pt-4">
+      {/* The league, and who was in it that year.
+          SHRINK-0, like every other block in here. This column scrolls,
+          so a child that's allowed to shrink gets squeezed flat in a
+          short window — the roster collapsed to 17px and painted its
+          faces straight over the book below it. Nothing in a scrolling
+          column should be compressible; the column's job is to be
+          taller than the window, not to fit in it. */}
+      <div className="shrink-0 border-t border-white/10 pt-4">
         <div className="mb-3 flex items-center gap-3">
           <LeagueAvatar leagueId={chrome.leagueId} size="sm" name={chrome.leagueName} />
           <div className="min-w-0 flex-1">
@@ -239,7 +283,12 @@ export function SeasonPanel({
         </div>
 
         {/* The carousel — push through the faces; the trailing card adds
-            the next one. */}
+            the next one. Every card carries a RECORD, which belongs to
+            the year, so mid-switch it holds numbers from the season
+            you've already left. Say nothing rather than say those. */}
+        {chrome.switching ? (
+          <Waiting rows={1} className="h-[4.6rem]" />
+        ) : (
         <div className="scrollbar-hide -mx-1 flex snap-x gap-1.5 overflow-x-auto px-1 pb-1">
           {members.map((m) => {
             const on = openId === m.userId
@@ -288,8 +337,9 @@ export function SeasonPanel({
             </button>
           )}
         </div>
+        )}
 
-        {selected && (
+        {selected && !chrome.switching && (
           <MemberDetail
             key={selected.userId}
             leagueId={chrome.leagueId}
@@ -301,8 +351,11 @@ export function SeasonPanel({
         )}
       </div>
 
-      {/* WHAT THE LEAGUE DECIDED THAT YEAR. */}
-      <div className="mt-5 border-t border-white/10 pt-4">
+      {/* WHAT THE LEAGUE DECIDED THAT YEAR — so it waits with the rest. */}
+      <div className="mt-5 shrink-0 border-t border-white/10 pt-4">
+        {chrome.switching ? (
+          <Waiting rows={6} />
+        ) : (
         <RulesBook
           leagueId={chrome.leagueId}
           season={chrome.season}
@@ -313,18 +366,32 @@ export function SeasonPanel({
           voting={voting}
           onOpenEntry={setEntryId}
         />
+        )}
       </div>
 
       {/* How the league runs — right here, not behind a gear. */}
-      <div className="mt-5 border-t border-white/10 pt-4">
+      <div className="mt-5 shrink-0 border-t border-white/10 pt-4">
         <SlateSettings canManage={canManage} leagueId={chrome.leagueId} />
       </div>
 
       {devPhase && (
-        <div className="mt-2">
+        <div className="mt-2 shrink-0">
           <DevPhaseSwitcher data={devPhase} />
         </div>
       )}
+    </div>
+  )
+}
+
+/** A block of this panel that belongs to the year you're leaving. The
+ *  refresh is a real wait — seconds, not a frame — and the honest thing
+ *  to show for it is nothing, not last season's numbers. */
+function Waiting({ rows, className }: { rows: number; className?: string }) {
+  return (
+    <div aria-busy="true" className="space-y-1.5">
+      {Array.from({ length: rows }, (_, i) => (
+        <Skeleton key={i} className={cn('h-11 rounded-lg', className)} />
+      ))}
     </div>
   )
 }

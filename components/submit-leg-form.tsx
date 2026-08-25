@@ -110,7 +110,7 @@ export function SubmitLegForm({ weekId, leagueId, existingLeg }: SubmitLegFormPr
           </Label>
           <Textarea
             id="description"
-            placeholder="e.g., Lakers ML vs Celtics, Chiefs -3.5, Over 225.5 points"
+            placeholder="e.g., Chiefs -3.5, Bills ML, Over 47.5"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             className="glass border-primary/30 mt-1 resize-none"
