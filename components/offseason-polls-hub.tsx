@@ -64,6 +64,7 @@ import type {
 import {
   ENTRY_GROUP_ORDER,
   GROUP_CATEGORY,
+  displayGroupFor,
   groupFor,
   isBuiltInGroup,
   type EntryGroup,
@@ -491,7 +492,6 @@ function SeasonSetup({
       entry: CharterEntry
       poll: LeaguePoll | null
       group: string
-      custom: boolean
     }> = []
     for (const e of charter) {
       if (e.status === 'locked') continue
@@ -500,13 +500,9 @@ function SeasonSetup({
       // proposed and is waiting on approvals.
       const live = (poll && poll.status === 'open') || e.status === 'pending'
       if (!live) continue
-      const custom = e.category === 'custom'
-      open.push({
-        entry: e,
-        poll,
-        group: custom ? (e.metadata?.group ?? 'Custom') : groupFor(e),
-        custom,
-      })
+      // The topic is a caption here — which sheet it would have opened
+      // stopped mattering when the card stopped being a door.
+      open.push({ entry: e, poll, group: displayGroupFor(e) })
     }
     return open
   }, [charter, pollsById])
@@ -562,7 +558,7 @@ function SeasonSetup({
           </div>
 
           <div className="mb-8 grid grid-cols-1 gap-2 xl:grid-cols-2">
-            {ballot.map(({ entry, poll, group, custom }) => (
+            {ballot.map(({ entry, poll, group }) => (
               <BallotCard
                 key={entry.id}
                 entry={entry}
@@ -573,18 +569,6 @@ function SeasonSetup({
                 myVote={viewerVoteFor(poll, sessionPollVotes, currentUserId)}
                 expanded={ballotOpen(entry.id)}
                 onToggle={() => toggleBallot(entry.id)}
-                canManage={canManage}
-                onOpen={() =>
-                  setOpenGroup(
-                    custom
-                      ? { kind: 'custom', name: group, entryId: entry.id }
-                      : {
-                          kind: 'builtin',
-                          group: group as EntryGroup,
-                          entryId: entry.id,
-                        }
-                  )
-                }
               >
                 {/* The same state-aware panel the charter's sheet uses —
                     it already knows the difference between a live poll, a
@@ -1706,8 +1690,6 @@ function BallotCard({
   myVote,
   expanded,
   onToggle,
-  onOpen,
-  canManage,
   children,
 }: {
   entry: CharterEntry
@@ -1718,9 +1700,6 @@ function BallotCard({
   myVote: SessionVote | null
   expanded: boolean
   onToggle: () => void
-  /** The way through to the charter's sheet, for renaming and removing. */
-  onOpen: () => void
-  canManage: boolean
   /** The vote itself — dropped in underneath once opened. */
   children: React.ReactNode
 }) {
@@ -1840,15 +1819,6 @@ function BallotCard({
       {expanded && (
         <div className="space-y-3 border-t border-white/[0.07] px-3.5 py-3">
           {children}
-          {canManage && (
-            <button
-              type="button"
-              onClick={onOpen}
-              className="text-muted-foreground/60 hover:text-foreground text-[10px] font-bold tracking-[0.2em] uppercase transition-colors"
-            >
-              Open in the charter
-            </button>
-          )}
         </div>
       )}
     </div>
