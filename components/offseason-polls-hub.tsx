@@ -310,7 +310,7 @@ function SeasonSetup({
               rows. */}
           <div
             id="preseason-ballot"
-            className="mb-8 grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start"
+            className="mb-8 grid grid-cols-1 gap-4 xl:grid-cols-2"
           >
             {ballot.map(({ entry, poll, group }) => (
               <BallotCard
@@ -430,7 +430,7 @@ function BallotCard({
   return (
     <div
       className={cn(
-        'overflow-hidden rounded-xl border transition-colors',
+        'flex h-full flex-col overflow-hidden rounded-xl border transition-colors',
         voted
           ? 'border-white/10 bg-white/[0.02]'
           : 'border-neon-pink/35 bg-neon-pink/[0.06]'
@@ -510,7 +510,7 @@ function BallotCard({
       {/* THE VOTE ITSELF — not behind anything. It was in the charter's
           sheet, then behind a fold on the card. Both were a press
           standing between the page's one job and doing it. */}
-      <div className="space-y-3 border-t border-white/[0.07] px-3.5 py-3">
+      <div className="flex-1 space-y-3 border-t border-white/[0.07] px-3.5 py-3">
         {children}
       </div>
     </div>

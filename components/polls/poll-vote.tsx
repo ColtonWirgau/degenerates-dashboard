@@ -16,7 +16,7 @@
  */
 
 import { useState } from 'react'
-import { Check, Hammer, ThumbsDown, ThumbsUp, X } from 'lucide-react'
+import { Check, Hammer, Info, ThumbsDown, ThumbsUp, X } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import type {
@@ -769,6 +769,12 @@ export function RankedOptions({
   for (const r of draftRankings) rankByChoice.set(r.choiceId, r.rank)
   const atCap = draftRankings.length >= maxRanks
 
+  // The chips carry their hints as title tooltips, which is nothing on a
+  // phone — and the punishments are exactly the options whose fine print
+  // people want before ranking. One toggle opens all of them at once.
+  const withHints = poll.options.filter((o) => o.hint)
+  const [hintsOpen, setHintsOpen] = useState(false)
+
   // Build the "Your ranking: 1. X · 2. Y · 3. Z" summary in rank order.
   const orderedSummary = [...draftRankings]
     .sort((a, b) => a.rank - b.rank)
@@ -825,6 +831,28 @@ export function RankedOptions({
           )
         })}
       </div>
+      {withHints.length > 0 && (
+        <div>
+          <button
+            type="button"
+            onClick={() => setHintsOpen((v) => !v)}
+            className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-[0.2em] uppercase text-muted-foreground/70 transition-colors hover:text-foreground"
+          >
+            <Info className="h-3 w-3" />
+            {hintsOpen ? 'Hide the fine print' : 'What these involve'}
+          </button>
+          {hintsOpen && (
+            <ul className="mt-2 space-y-1.5">
+              {withHints.map((o) => (
+                <li key={o.id} className="text-[11px] leading-snug">
+                  <span className="font-semibold text-foreground/85">{o.label}</span>{' '}
+                  <span className="italic text-muted-foreground/80">— {o.hint}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   )
 }

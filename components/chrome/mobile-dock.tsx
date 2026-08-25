@@ -1,30 +1,59 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { Check, Layers, ListTodo, Plus, Trophy } from 'lucide-react'
-import { openPanel, openSubmit } from '@/components/chrome/canvas-store'
+import { useEffect, useRef, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import {
+  Check,
+  Layers,
+  Lock,
+  LockOpen,
+  MessageCircleQuestion,
+  Pencil,
+  Plus,
+  ScrollText,
+  Ticket,
+  Trophy,
+  UserRoundCheck,
+  X,
+} from 'lucide-react'
+import {
+  markWeekDirty,
+  openPanel,
+  openSubmit,
+  subscribeWeekActions,
+  type WeekActions,
+} from '@/components/chrome/canvas-store'
 import {
   useLeagueChrome,
   useOnRecap,
   useViewedWeek,
 } from '@/components/chrome/league-chrome-context'
+import { setWeekLock } from '@/app/actions/week-lock'
 
 /**
- * The mobile dock (ported from RoarTracker): a floating glass PILL of five
- * fixed SLOTS that never move — the center slot is THE button: an
+ * The mobile dock (ported from RoarTracker): a floating glass PILL of
+ * five fixed SLOTS that never move — the center slot is THE button, an
  * electric-blue disc, the one distinguished thing on the bar.
  *
- * It's the left rail at phone width, so it says the same things in the
- * same order — and like the rail it's a function of the WEEK you're
- * looking at, with the disc holding that week's verb:
+ *   root:     WEEK · LAY · (+) · BOARD · SEASON
+ *   verbs:      (✕) · the week's verbs, blooming to its right
  *
- *   a week with a slate:  WEEK · LAY · (+/✓) · BOARD ·
- *   the preseason week:   WEEK ·     · (VOTES) · BOARD · ADD
+ * It is the phone's whole navigation, so it has to carry what the
+ * desktop carries — and the desktop carries TWO things a phone can't
+ * show at once: the left rail's panels and the action pod's verbs. So
+ * the slots are the panels and the DISC IS THE POD. Pressing it splits
+ * the bar into the same verbs the pod holds, and pressing it again (or
+ * anywhere off the bar) folds it back. That's the same gesture as the
+ * pod's outside-pointerdown fold, and the same idea: the bar holds
+ * still, the faces change.
  *
- * Each slot crossfades its face (face-pop) when its live fact changes.
- * There is no Home cell because home IS the week behind the sheets, no
- * League cell because the league lives in the masthead's lockup, and no
- * Profile cell because your face is up there beside it.
+ * The disc used to be a verb itself, which meant the pod's other verbs
+ * were unreachable on a phone — no ASK, no LOCK, and on week 0 no way
+ * to put anything on the ballot at all.
+ *
+ * SEASON lives down here, not in the masthead. The header carries the
+ * brand and you; a phone header with three things in it makes the app's
+ * own name the smallest of them.
  *
  * FIXED, floating over the card: content clears the bar with its own
  * padding, honoring the home-indicator safe area in standalone.
@@ -37,36 +66,54 @@ type Face = {
   content: React.ReactNode
   /** The word under the mark. */
   below?: string
+  disabled?: boolean
 }
+
+type Page = 'root' | 'verbs'
 
 export function MobileDock() {
   const chrome = useLeagueChrome()
   const week = useViewedWeek()
   const onRecap = useOnRecap()
+  const router = useRouter()
   const nav = useRef<HTMLElement>(null)
-  // Reserved for face-morph paging when the dock grows a second page.
-  const [page] = useState<'root'>('root')
-  void page
+  const [page, setPage] = useState<Page>('root')
+  const [actions, setActions] = useState<WeekActions | null>(null)
+  const [locking, lock] = useTransition()
 
+  useEffect(() => subscribeWeekActions(setActions), [])
+
+  // A tap anywhere off the bar folds it home — the same gesture the
+  // desktop pod uses, and the same reason: a bar that stays split is a
+  // bar you have to dismiss.
   useEffect(() => {
-    // Placeholder for the outside-tap fold once paging exists.
-  }, [])
+    if (page === 'root') return
+    const fold = (e: PointerEvent) => {
+      if (nav.current && !nav.current.contains(e.target as Node)) setPage('root')
+    }
+    document.addEventListener('pointerdown', fold, true)
+    return () => document.removeEventListener('pointerdown', fold, true)
+  }, [page])
 
   if (!chrome) return null
 
-  const hasSlate = week?.hasSlate ?? false
-  const openPolls = week?.openPollCount ?? 0
-  const weekFace = week
-    ? week.kind === 'preseason'
-      ? 'PRE'
-      : `WK ${week.weekNumber}`
-    : 'WK –'
+  const hasSlate = (actions?.hasSlate ?? week?.hasSlate ?? false) && !onRecap
+  const preseason = !onRecap && !hasSlate && week?.kind === 'preseason'
+  const locked = actions?.locked ?? week?.parlayState !== 'open'
+  const submitted = actions?.submitted ?? week?.submitted ?? false
+  const mayLock = actions?.canLock ?? false
+  const lockToggleable = mayLock && (!locked || (actions?.reopenable ?? false))
 
   // Every number on this bar belongs to a season, and mid-switch they all
   // belong to the one you just left. The cells keep their places — the bar
   // must not reshuffle under a thumb — and go quiet until the real ones
   // land. Same treatment as the desktop rail's faces.
   const waiting = chrome.switching
+  const weekFace = week
+    ? week.kind === 'preseason'
+      ? 'PRE'
+      : `WK ${week.weekNumber}`
+    : 'WK –'
 
   const weekCell: Face = {
     key: `week-${waiting ? 'switching' : (week?.id ?? '')}`,
@@ -78,26 +125,6 @@ export function MobileDock() {
       <span className="font-display text-[0.82rem]">{weekFace}</span>
     ),
     below: 'Week',
-  }
-  const boardCell: Face = {
-    key: `board-${waiting ? 'switching' : (chrome.myRank ?? '')}`,
-    label: 'Leaderboard',
-    onClick: () => openPanel('board'),
-    content: waiting ? (
-      <Waiting />
-    ) : chrome.myRank != null ? (
-      <span className="font-display text-[0.82rem]">#{chrome.myRank}</span>
-    ) : (
-      <Trophy size={16} strokeWidth={2.25} />
-    ),
-    below: 'Board',
-  }
-  const addCell: Face = {
-    key: 'add',
-    label: 'Add to the book',
-    onClick: () => openPanel('compose'),
-    content: <Plus size={16} strokeWidth={2.25} />,
-    below: 'Add',
   }
   const layCell: Face = {
     key: `lay-${waiting ? 'switching' : (week?.submissionCount ?? 0)}`,
@@ -112,58 +139,181 @@ export function MobileDock() {
     ),
     below: 'Lay',
   }
+  const boardCell: Face = {
+    key: `board-${waiting ? 'switching' : (chrome.myRank ?? '')}`,
+    label: 'Leaderboard',
+    onClick: () => openPanel('board'),
+    content: waiting ? (
+      <Waiting />
+    ) : chrome.myRank != null ? (
+      <span className="font-display text-[0.82rem]">#{chrome.myRank}</span>
+    ) : (
+      <Trophy size={16} strokeWidth={2.25} />
+    ),
+    below: 'Board',
+  }
+  // THE SEASON, down here where RoarTracker keeps it — the year and
+  // everything hanging off it (who's in, the book, the settings).
+  const seasonCell: Face = {
+    key: `season-${chrome.season}`,
+    label: 'Season and league',
+    onClick: () => openPanel('season'),
+    content: (
+      <span className="font-display text-[0.82rem]">
+        <span className="text-muted-foreground/50">&rsquo;</span>
+        {chrome.season.slice(2, 4)}
+      </span>
+    ),
+    below: 'Season',
+  }
 
-  // The disc is the week's verb. A week with a slate wants your leg; the
-  // preseason week wants your vote. A missing cell collapses rather than
-  // reshuffling its neighbours, so the bar never moves under your thumb.
-  // Same reasoning as the rail: on the recap the lay is about a week
-  // that isn't on screen and the board already is. The week cell stays —
-  // it's the way back out.
-  const hasParlay = week?.parlayId != null && !onRecap
-  // The rail's rungs, in the rail's order, and then the preseason's
-  // create verb — the commish's alone. The disc stays the MEMBER's verb:
-  // go and vote.
-  const isPreseason = week?.kind === 'preseason' && !onRecap
-  const slots: (Face | 'park' | null)[] = [
-    weekCell,
-    hasParlay ? layCell : null,
-    'park',
-    onRecap ? null : boardCell,
-    onRecap ? null : isPreseason && chrome.canManage ? addCell : null,
-  ]
+  // ─── The verbs, when the disc is open ──────────────────────────────
+  const toggleLock = () => {
+    if (!lockToggleable || locking || !week) return
+    if (
+      !locked &&
+      (actions?.submissionCount ?? week.submissionCount) === 0 &&
+      !window.confirm(
+        `Lock week ${week.weekNumber}? Nobody has a leg in yet — locking now ends it with an empty board.`
+      )
+    ) {
+      return
+    }
+    setPage('root')
+    lock(async () => {
+      await setWeekLock(chrome.leagueId, week.id, !locked)
+      markWeekDirty()
+      router.refresh()
+    })
+  }
 
-  const disc = hasSlate
-    ? week!.submitted
+  const go = (fn: () => void) => () => {
+    setPage('root')
+    fn()
+  }
+
+  const legVerb: Face = {
+    key: `leg-${locked}-${submitted}`,
+    label: locked && !submitted ? 'Missed' : submitted ? 'Your leg' : 'Add leg',
+    onClick: go(openSubmit),
+    disabled: locked && !submitted,
+    content:
+      locked && !submitted ? (
+        <Lock size={16} strokeWidth={2.25} />
+      ) : submitted ? (
+        <Pencil size={15} strokeWidth={2.25} />
+      ) : (
+        <Plus size={17} strokeWidth={2.25} />
+      ),
+    below: locked && !submitted ? 'Missed' : submitted ? 'Your leg' : 'Leg',
+  }
+  const lockVerb: Face = {
+    key: `lock-${locked}`,
+    label: locked ? (lockToggleable ? 'Unlock' : 'Locked') : 'Lock',
+    onClick: toggleLock,
+    disabled: !lockToggleable,
+    content: locked ? (
+      lockToggleable ? (
+        <LockOpen size={16} strokeWidth={2.25} />
+      ) : (
+        <Lock size={16} strokeWidth={2.25} />
+      )
+    ) : (
+      <Ticket size={16} strokeWidth={2.25} />
+    ),
+    below: locked ? (lockToggleable ? 'Unlock' : 'Locked') : 'Lock',
+  }
+  const askVerb: Face = {
+    key: 'ask',
+    label: 'Ask the league',
+    onClick: go(() => openPanel('ask')),
+    content: <MessageCircleQuestion size={16} strokeWidth={2.25} />,
+    below: 'Ask',
+  }
+  const addVerb: Face = {
+    key: 'add',
+    label: 'Add to the book',
+    onClick: go(() => openPanel('compose')),
+    content: <ScrollText size={16} strokeWidth={2.25} />,
+    below: 'Add',
+  }
+  const keeperVerb: Face = {
+    key: 'keeper',
+    label: 'Your keeper',
+    onClick: go(() => openPanel('keeper')),
+    content: <UserRoundCheck size={16} strokeWidth={2.25} />,
+    below: 'Keeper',
+  }
+
+  // The same verbs the desktop pod holds, in the same order — the leg
+  // and the lock for a week with games; the charter's two and the
+  // keeper for week 0. ADD and ASK stay the commissioner's.
+  const verbs: Face[] = hasSlate
+    ? [legVerb, lockVerb, ...(chrome.canManage ? [askVerb] : [])]
+    : preseason
+      ? [keeperVerb, ...(chrome.canManage ? [addVerb, askVerb] : [])]
+      : []
+
+  const armed = verbs.length > 0
+  // Nothing to split into: the disc goes back to being the way to your
+  // leg, and the recap keeps none of it.
+  const slots: (Face | 'park' | null)[] =
+    page === 'verbs'
+      ? ([
+          'park',
+          ...verbs,
+          ...Array<null>(Math.max(0, 4 - verbs.length)).fill(null),
+        ].slice(0, 5) as (Face | 'park' | null)[])
+      : [
+          weekCell,
+          week?.parlayId != null && !onRecap ? layCell : null,
+          'park',
+          onRecap ? null : boardCell,
+          seasonCell,
+        ]
+
+  // WHERE THE DISC SITS: over its park, wherever that lands.
+  //
+  // It used to be pinned at 50%, which is only the park's centre when
+  // all five slots are live. Week 0 has no lay, that slot collapses,
+  // and the disc drifted off its own hole to sit on the boundary
+  // between the park and BOARD. Counting the slots that actually hold a
+  // share puts it back on the park in every posture — including the
+  // verbs page, where the park is the left end.
+  const shares = slots.filter((sl) => sl !== null)
+  const parkAt = shares.indexOf('park')
+  const at = shares.length > 0 && parkAt >= 0 ? (parkAt + 0.5) / shares.length : 0.5
+
+  const disc =
+    page === 'verbs'
       ? {
-          at: 0.5,
-          faceKey: 'submitted',
-          label: 'Your leg',
-          onClick: openSubmit,
-          icon: <Check size={20} strokeWidth={2.5} />,
+          // Back to the left end, options blooming to its right — the
+          // pod's own shape, laid on its side.
+          at,
+          faceKey: 'close',
+          label: 'Close the menu',
+          onClick: () => setPage('root'),
+          icon: <X size={20} strokeWidth={2.5} />,
         }
-      : {
-          at: 0.5,
-          faceKey: 'submit',
-          label: 'Submit your leg',
-          onClick: openSubmit,
-          icon: <Plus size={22} strokeWidth={2.5} />,
-        }
-    : {
-        // The preseason week's verb is voting, and the votes are ON the
-        // page rather than behind a panel — so the disc takes you to
-        // them. Worth a slot because the charter under the ballot runs
-        // long on a phone, and this is the way back up.
-        at: 0.5,
-        faceKey: `ballot-${openPolls}`,
-        label: openPolls > 0 ? 'Go to the vote' : 'Go to the draft',
-        onClick: toBallot,
-        icon:
-          openPolls > 0 ? (
-            <span className="font-display text-[1rem] leading-none">{openPolls}</span>
-          ) : (
-            <ListTodo size={20} strokeWidth={2.5} />
-          ),
-      }
+      : armed
+        ? {
+            at,
+            faceKey: 'actions',
+            label: 'Actions',
+            onClick: () => setPage('verbs'),
+            icon: <Plus size={22} strokeWidth={2.5} />,
+          }
+        : {
+            at,
+            faceKey: submitted ? 'submitted' : 'submit',
+            label: submitted ? 'Your leg' : 'Submit your leg',
+            onClick: openSubmit,
+            icon: submitted ? (
+              <Check size={20} strokeWidth={2.5} />
+            ) : (
+              <Plus size={22} strokeWidth={2.5} />
+            ),
+          }
 
   return (
     <nav
@@ -175,7 +325,7 @@ export function MobileDock() {
       {/* A PILL floating free of the card. overflow-hidden + isolate pin
           the glass blur inside the radius on iOS, which otherwise paints
           it as a square. */}
-      <div className="glass neon-glow-blue isolate relative flex items-center overflow-hidden rounded-full border border-primary/25 px-2 py-1.5">
+      <div className="glass neon-glow-blue border-primary/25 isolate relative flex items-center overflow-hidden rounded-full border px-2 py-1.5">
         {slots.map((face, i) => (
           <Slot key={i} face={face} />
         ))}
@@ -194,14 +344,16 @@ function Slot({ face }: { face: Face | 'park' | null }) {
   return (
     <button
       type="button"
-      disabled={!live}
-      onClick={live ? face.onClick : undefined}
+      disabled={!live || face.disabled}
+      onClick={live && !face.disabled ? face.onClick : undefined}
       aria-label={live ? face.label : undefined}
       aria-hidden={!live}
       tabIndex={live ? undefined : -1}
       className={`flex min-w-0 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-full py-1.5 transition-[flex-grow,opacity] duration-300 ease-[cubic-bezier(0.2,0.9,0.25,1)] ${
         live
-          ? 'text-muted-foreground hover:bg-white/10 hover:text-foreground'
+          ? face.disabled
+            ? 'text-muted-foreground/40'
+            : 'text-muted-foreground hover:bg-white/10 hover:text-foreground'
           : 'pointer-events-none opacity-0'
       }`}
       style={{ flexGrow: face ? 1 : 0.0001, flexBasis: 0, minHeight: 44 }}
@@ -223,7 +375,8 @@ function Slot({ face }: { face: Face | 'park' | null }) {
 }
 
 /** THE button: an electric-blue disc floating over the bar. Its face
- *  morphs (keyed face-pop); the slide plumbing (`at`) is ready for paging. */
+ *  morphs (keyed face-pop) and it SLIDES between slots when the bar
+ *  pages — centre at rest, the left end once the verbs are out. */
 function HeroDisc({
   at,
   faceKey,
@@ -267,14 +420,4 @@ function Waiting() {
       className="h-1.5 w-1.5 animate-pulse rounded-full bg-current opacity-40"
     />
   )
-}
-
-/** Scroll the preseason's votes into view — or, once they're all
- *  settled and the ballot isn't rendered, the business that replaced
- *  them. */
-function toBallot() {
-  const target =
-    document.getElementById('preseason-ballot') ??
-    document.getElementById('preseason-business')
-  target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }

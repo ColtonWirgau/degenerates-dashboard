@@ -318,6 +318,51 @@ test.describe('mobile', () => {
     ).toBeVisible({ timeout: 5_000 })
   })
 
+  test('the disc IS the pod — it splits into the week’s verbs', async ({
+    page,
+    context,
+  }) => {
+    await signIn(context)
+    await page.goto('http://localhost:3001/')
+    await page.waitForURL(/\/leagues\//, { timeout: 10_000 })
+    await expect(
+      page.getByRole('heading', { name: 'Preseason', level: 1 })
+    ).toBeVisible({ timeout: 15_000 })
+
+    const dock = page.getByRole('navigation', { name: 'Main' })
+
+    // ROOT is the desktop's PANELS. The card-edge rail can't exist on a
+    // phone, so its rungs are cells — and SEASON is one of them.
+    await expect(dock.getByRole('button', { name: 'Weeks' })).toBeVisible()
+    await expect(dock.getByRole('button', { name: 'Leaderboard' })).toBeVisible()
+    await expect(dock.getByRole('button', { name: 'Season and league' })).toBeVisible()
+
+    // The DISC is the desktop's POD. It used to be a verb itself, which
+    // left every other verb unreachable on a phone: no ASK, no LOCK, and
+    // on week 0 no way to put anything on the ballot at all.
+    await dock.getByRole('button', { name: 'Actions' }).click()
+    await expect(dock.getByRole('button', { name: 'Your keeper' })).toBeVisible()
+    await expect(dock.getByRole('button', { name: 'Add to the book' })).toBeVisible()
+    await expect(dock.getByRole('button', { name: 'Ask the league' })).toBeVisible()
+    // The panels are gone while the verbs are out — the bar holds still,
+    // the faces change.
+    await expect(dock.getByRole('button', { name: 'Weeks' })).toHaveCount(0)
+
+    // Pressing off the bar folds it home, same gesture as the pod's.
+    await page.mouse.click(195, 300)
+    await expect(dock.getByRole('button', { name: 'Weeks' })).toBeVisible()
+
+    // A week with games holds the week's verbs instead.
+    await dock.getByRole('button', { name: 'Weeks' }).click()
+    await page.getByRole('button', { name: /Week 2\b/ }).first().click()
+    await expect(page.getByRole('heading', { name: 'Week 2', level: 1 })).toBeVisible({
+      timeout: 15_000,
+    })
+    await dock.getByRole('button', { name: 'Actions' }).click()
+    await expect(dock.getByRole('button', { name: 'Add leg' })).toBeVisible()
+    await expect(dock.getByRole('button', { name: 'Lock' })).toBeVisible()
+  })
+
   test('the season sheet carries the book on a phone too', async ({
     page,
     context,
@@ -327,11 +372,15 @@ test.describe('mobile', () => {
     await page.waitForURL(/\/leagues\//, { timeout: 10_000 })
 
     // No rules cell on the bar — the book went behind the season door,
-    // which on a phone is the masthead's lockup.
+    // which on a phone is a DOCK CELL. It was the masthead's lockup,
+    // which meant the phone header carried the brand, the season AND
+    // your face, and the app's own name came out smallest of the three
+    // — abbreviated to "DD" beside a neon year twice its size.
     const dock = page.getByRole('navigation', { name: 'Main' })
     await expect(dock.getByRole('button', { name: 'House rules' })).toHaveCount(0)
+    await expect(page.getByText('DEGENERATES')).toBeVisible()
 
-    await page.getByRole('button', { name: 'Season and league' }).first().click()
+    await dock.getByRole('button', { name: 'Season and league' }).click()
     await expect(
       page.getByRole('dialog').getByTestId('rules-book')
     ).toBeVisible({ timeout: 5_000 })

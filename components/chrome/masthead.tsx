@@ -30,12 +30,20 @@ const initials = (name: string | null, email: string) => {
  * The shell's masthead — sits ON the canvas (not the card) and holds
  * still while the card slides.
  *
- * Two lockups, two nouns. On the left the wordmark. On the right the
- * SEASON — the door to the league and everything about it (the year,
- * who's in, who runs it, the settings, the history). Your face sits
- * beside it at phone width and opens YOU; on desktop it moves down into
- * the card's right-edge notch. The week is never named up here — that's
- * the left rail's job, and naming it twice is how a shell gets muddy.
+ * Two postures, and they hold different numbers of things.
+ *
+ *   DESKTOP: two lockups, two nouns — the wordmark on the left, the
+ *   SEASON on the right (the door to the league and everything about
+ *   it: the year, who's in, who runs it, the settings, the history).
+ *
+ *   MOBILE: the full lockup owns the left, YOU own the right, and
+ *   that's all. The season moved down to the dock, where RoarTracker
+ *   keeps it — a phone strip holding brand AND season AND avatar made
+ *   the app's own name the smallest thing on it, squeezed to two
+ *   letters beside a neon year twice its size.
+ *
+ * The week is never named up here — that's the dock's job, and naming
+ * it twice is how a shell gets muddy.
  */
 export function Masthead() {
   const chrome = useLeagueChrome()
@@ -75,20 +83,21 @@ export function Masthead() {
               them changing — they're one lockup, and half of it moving
               read as a glitch. Slow, because at this size an instant
               swap is a flash. */}
-          <h1 className="flex items-center leading-none font-bold whitespace-nowrap sm:gap-2">
-            <span className="text-neon-blue group-hover:text-neon-pink relative z-10 text-3xl tracking-[-0.18em] transition-colors duration-500 ease-out sm:text-3xl sm:tracking-tight lg:text-[2.6rem]">
-              <span className="sm:hidden">D</span>
-              <span className="hidden sm:inline">DEGENERATES</span>
+          {/* STACKED on a phone, one line from sm up. The name is
+              twenty condensed caps — at 390px it either wraps, shrinks
+              to nothing, or gets abbreviated to "DD", and abbreviating
+              is what it used to do: the app's own name reduced to two
+              letters so a season picker could have the middle. Two
+              lines is the same lockup, whole, at a size you can read. */}
+          <h1 className="flex flex-col leading-[0.82] font-bold whitespace-nowrap sm:flex-row sm:items-center sm:gap-2 sm:leading-none">
+            <span className="text-neon-blue group-hover:text-neon-pink relative z-10 text-[1.4rem] tracking-tight transition-colors duration-500 ease-out sm:text-3xl lg:text-[2.6rem]">
+              DEGENERATES
             </span>
-            <span className="text-neon-pink group-hover:text-neon-blue relative z-0 text-3xl tracking-tight transition-colors duration-500 ease-out sm:text-3xl lg:text-[2.6rem]">
-              <span className="sm:hidden">D</span>
-              <span className="hidden sm:inline">DASHBOARD</span>
+            <span className="text-neon-pink group-hover:text-neon-blue relative z-0 text-[1.4rem] tracking-tight transition-colors duration-500 ease-out sm:text-3xl lg:text-[2.6rem]">
+              DASHBOARD
             </span>
           </h1>
         </Link>
-
-        {/* Mobile: the season lockup, then your face. */}
-        <SeasonLockup season={chrome.season} className="lg:hidden" compact />
 
         <button
           type="button"
@@ -128,15 +137,7 @@ export function Masthead() {
  * opens the league sheet: the year, the members, the settings, the
  * history — everything the league is, as opposed to what you are.
  */
-function SeasonLockup({
-  season,
-  className,
-  compact = false,
-}: {
-  season: string
-  className?: string
-  compact?: boolean
-}) {
+function SeasonLockup({ season, className }: { season: string; className?: string }) {
   const [open, setOpen] = useState(false)
   useEffect(() => subscribePanel((p) => setOpen(p === 'season')), [])
 
@@ -158,21 +159,11 @@ function SeasonLockup({
         className
       )}
     >
-      <span className={cn('flex items-center', compact ? 'gap-1.5' : 'gap-2')}>
-        <span
-          className={cn(
-            'text-neon-blue tracking-tight',
-            compact ? 'text-xl' : 'text-3xl lg:text-[2.6rem]'
-          )}
-        >
+      <span className="flex items-center gap-2">
+        <span className="text-neon-blue text-3xl tracking-tight lg:text-[2.6rem]">
           {seasonLabel(season)}
         </span>
-        <span
-          className={cn(
-            'text-neon-pink tracking-tight',
-            compact ? 'text-xl' : 'text-3xl lg:text-[2.6rem]'
-          )}
-        >
+        <span className="text-neon-pink text-3xl tracking-tight lg:text-[2.6rem]">
           SEASON
         </span>
       </span>
