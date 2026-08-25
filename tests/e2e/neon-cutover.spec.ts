@@ -100,6 +100,26 @@ test('the league opens on the current week — week 0, the rules', async ({ page
   await expect(page.getByText('$50 · 12 teams · $600 pot')).toBeVisible()
 })
 
+test('the ballot is voted on in place, not behind a sheet', async ({ page }) => {
+  await openLeague(page)
+  await expect(page.getByRole('heading', { name: /^Vote$/i, level: 2 })).toBeVisible({
+    timeout: 10_000,
+  })
+
+  // A ballot card opens where it stands and the options come with it. No
+  // dialog: pressing a question used to raise a sheet over the page you
+  // were already reading, showing you the same question again.
+  await page.getByText('League Median Game').click()
+  await expect(page.getByText('Cast your vote', { exact: false })).toBeVisible()
+  await expect(page.getByText('Yes — all season')).toBeVisible()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+
+  // An open poll is votable whatever the row's provenance. This entry is
+  // source='manual' with a live poll attached, and requiring
+  // 'derived-from-poll' meant its vote rendered nowhere at all.
+  await expect(page.getByText(/be the first to pitch a value/i)).toHaveCount(0)
+})
+
 test('picking a week swaps the stage without navigating', async ({ page }) => {
   await openLeague(page)
   const url = page.url()

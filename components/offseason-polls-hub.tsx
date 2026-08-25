@@ -400,6 +400,11 @@ function SeasonSetup({
     | null
   >(null)
 
+  // Which ballot card is open. One at a time: a vote is a column of
+  // options and two of them expanded at once is a page you scroll rather
+  // than read.
+  const [openBallotId, setOpenBallotId] = useState<string | null>(null)
+
   // THE RULES PANEL ASKING FOR AN EDITOR. It prints the book but can't
   // change it — the poll, the approvals, the rename and the delete all
   // live in the sheet below — so it names a topic and an item and this
@@ -532,6 +537,11 @@ function SeasonSetup({
                 membersById={membersById}
                 membersCount={membersCount}
                 myVote={viewerVoteFor(poll, sessionPollVotes, currentUserId)}
+                expanded={openBallotId === entry.id}
+                onToggle={() =>
+                  setOpenBallotId(openBallotId === entry.id ? null : entry.id)
+                }
+                canManage={canManage}
                 onOpen={() =>
                   setOpenGroup(
                     custom
@@ -543,7 +553,31 @@ function SeasonSetup({
                         }
                   )
                 }
-              />
+              >
+                {/* The same state-aware panel the charter's sheet uses —
+                    it already knows the difference between a live poll, a
+                    proposal waiting on approvals, and a line the commish
+                    rules on. One vote UI, two places it can appear. */}
+                <EntryAction
+                  entry={entry}
+                  poll={poll}
+                  membersById={membersById}
+                  membersCount={membersCount}
+                  currentUserId={currentUserId}
+                  sessionVoteForPoll={
+                    entry.pollId ? sessionPollVotes.get(entry.pollId) ?? null : null
+                  }
+                  onPollVote={
+                    entry.pollId ? (vote) => onPollVote(entry.pollId!, vote) : null
+                  }
+                  viewerApproved={approvals.get(entry.id) ?? null}
+                  onApprove={() => onApprove(entry.id)}
+                  sessionOptionReactions={sessionOptionReactions}
+                  onOptionReaction={onOptionReaction}
+                  sessionAddedOptions={sessionAddedOptions}
+                  onAddOption={onAddOption}
+                />
+              </BallotCard>
             ))}
           </div>
         </>
@@ -1479,13 +1513,20 @@ function EntryAction({
     )
   }
 
-  // ─── Draft + poll-derived: inline vote when the linked poll is open ────
-  if (
-    entry.status === 'draft' &&
-    entry.source === 'derived-from-poll' &&
-    poll &&
-    poll.status === 'open'
-  ) {
+  // ─── Draft + an open poll: vote ────────────────────────────────────────
+  //
+  // This used to also require `source === 'derived-from-poll'`, which is
+  // where the row CAME FROM — and a row's provenance has nothing to do
+  // with whether it can be voted on. An entry someone added by hand and
+  // gave options to comes back `source: 'manual'` with a perfectly good
+  // open poll attached, and the extra clause meant its vote rendered
+  // nowhere at all: not in the charter's sheet, not on the ballot. The
+  // League Median question sat like that from the day it was written.
+  //
+  // Same shape of bug as an entry whose approval_rule is 'poll' with its
+  // poll already closed: a question nothing on earth can answer. The
+  // condition is the poll, and only the poll.
+  if (entry.status === 'draft' && poll && poll.status === 'open') {
     return (
       <div className="space-y-3">
         {descriptionBlock}
@@ -1631,7 +1672,11 @@ function BallotCard({
   membersById,
   membersCount,
   myVote,
+  expanded,
+  onToggle,
   onOpen,
+  canManage,
+  children,
 }: {
   entry: CharterEntry
   poll: LeaguePoll | null
@@ -1639,7 +1684,13 @@ function BallotCard({
   membersById: Map<string, PollMember>
   membersCount: number
   myVote: SessionVote | null
+  expanded: boolean
+  onToggle: () => void
+  /** The way through to the charter's sheet, for renaming and removing. */
   onOpen: () => void
+  canManage: boolean
+  /** The vote itself — dropped in underneath once opened. */
+  children: React.ReactNode
 }) {
   const voted = hasAnyAnswer(myVote)
   const pick = voted && poll && myVote ? myPickSummary(poll, myVote) : null
@@ -1650,14 +1701,24 @@ function BallotCard({
   const awaiting = Math.max(0, membersCount - inCount)
 
   return (
+    <div
+      className={cn(
+        'overflow-hidden rounded-xl border transition-colors',
+        // A vote is a column of options with a bar each — two of those
+        // side by side at half width is a shape nothing votes well in.
+        expanded && 'xl:col-span-2',
+        voted
+          ? 'border-white/10 bg-white/[0.02]'
+          : 'border-neon-pink/35 bg-neon-pink/[0.06]'
+      )}
+    >
     <button
       type="button"
-      onClick={onOpen}
+      onClick={onToggle}
+      aria-expanded={expanded}
       className={cn(
-        'group flex items-stretch overflow-hidden rounded-xl border text-left transition-colors',
-        voted
-          ? 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05]'
-          : 'border-neon-pink/35 bg-neon-pink/[0.06] hover:bg-neon-pink/[0.1]'
+        'group flex w-full items-stretch text-left transition-colors',
+        voted ? 'hover:bg-white/[0.03]' : 'hover:bg-neon-pink/[0.06]'
       )}
     >
       {/* The same slab the rest of the app puts an identity on — here it
@@ -1729,5 +1790,25 @@ function BallotCard({
         </div>
       </div>
     </button>
+
+      {/* THE VOTE ITSELF. It used to be behind the charter's sheet — you
+          pressed a card on the ballot and a sheet came up over the page
+          you were already reading, showing the same question again.
+          There's room now, so the answer happens where the question is. */}
+      {expanded && (
+        <div className="space-y-3 border-t border-white/[0.07] px-3.5 py-3">
+          {children}
+          {canManage && (
+            <button
+              type="button"
+              onClick={onOpen}
+              className="text-muted-foreground/60 hover:text-foreground text-[10px] font-bold tracking-[0.2em] uppercase transition-colors"
+            >
+              Open in the charter
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
