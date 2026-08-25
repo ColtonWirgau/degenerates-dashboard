@@ -69,7 +69,7 @@ async function openWeek18(page: Page) {
   await page.getByRole('button', { name: 'Week 18' }).click()
 }
 
-test('the league opens on the current week — week 0, the house rules', async ({ page }) => {
+test('the league opens on the current week — week 0, the rules', async ({ page }) => {
   await openLeague(page)
   // Week 0's identity is now the corner door — the "0" slab that opens
   // the week list, same as every other week.
@@ -77,15 +77,18 @@ test('the league opens on the current week — week 0, the house rules', async (
     page.getByRole('button', { name: /Preseason — open the week list/i })
   ).toBeVisible()
 
-  // Three sections, in this order: the one dated event, then what still
-  // needs deciding, then the settled record.
+  // Every topic is a section of its own — the dated event first, then
+  // what still needs deciding, then each part of the settled record.
+  // There is no umbrella heading over the rulebook any more.
   await expect(
     page.getByRole('heading', { name: /^Draft$/i, level: 2 })
   ).toBeVisible({ timeout: 10_000 })
   await expect(page.getByRole('heading', { name: /^Vote$/i, level: 2 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /^Stakes$/i, level: 2 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /^Playoffs$/i, level: 2 })).toBeVisible()
   await expect(
     page.getByRole('heading', { name: /House Rules/i, level: 2 })
-  ).toBeVisible()
+  ).toHaveCount(0)
 
   // The draft reads as a fixture, not a list of pairs.
   await expect(page.getByText('Don Christos')).toBeVisible()

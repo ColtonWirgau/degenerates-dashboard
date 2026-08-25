@@ -578,14 +578,10 @@ function SeasonSetup({
           the far end like every other section's does. */}
       {draftEntries.length > 0 && (
         <>
-          {/* One word, its section's colour whole — blue because this
-              one is settled. No rule under it and no tally beside it:
-              the card below already says what the draft is, and "9/9
-              settled" was a score for a thing nobody is keeping score
-              of. */}
-          <h2 className="font-display text-neon-blue mb-2.5 text-xl leading-none tracking-tight uppercase">
-            Draft
-          </h2>
+          <SectionHeading
+            name="Draft"
+            settled={draftEntries.every((e) => e.status === 'locked')}
+          />
           <div className="mb-8 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
             <DraftCard
               entries={draftEntries.map((e) => ({
@@ -608,17 +604,12 @@ function SeasonSetup({
           {/* The dock's disc aims here — on a phone the charter below
               runs long, and "take me back to the votes" is the one verb
               the preseason week has. */}
-          {/* Pink, because this is the one asking you for something.
-              The count is gone from here — every card underneath already
-              says NEEDS YOU or VOTED on its own face, and saying it
-              twice made the section header the third place to read the
-              same fact. */}
-          <h2
-            id="preseason-ballot"
-            className="font-display text-neon-pink mb-2.5 text-xl leading-none tracking-tight uppercase"
-          >
-            Vote
-          </h2>
+          {/* Pink whatever its state — this is the one asking you for
+              something. The count is gone: every card underneath says
+              NEEDS YOU or VOTED on its own face. */}
+          <div id="preseason-ballot">
+            <SectionHeading name="Vote" tone="ask" />
+          </div>
 
           <div className="mb-8 grid grid-cols-1 gap-2 xl:grid-cols-2">
             {ballot.map(({ entry, poll, group, custom }) => (
@@ -647,23 +638,11 @@ function SeasonSetup({
         </>
       )}
 
-      {/* EVERYTHING ALREADY SETTLED — the league's own record. Worth
-          having, not worth leading with.
-
-          Called HOUSE RULES, not "the charter": the tables underneath are
-          charter_entries and will stay that way, but nobody in a fantasy
-          league has ever said "check the charter". It covers the rules
-          AND the arrangements — buy-in, payouts, keepers, where the draft
-          is — which is exactly what house rules means. */}
-      <h2 className="font-display mb-2.5 text-xl leading-none tracking-tight uppercase">
-        <span className="text-neon-blue">House</span>{' '}
-        <span className="text-foreground/80">Rules</span>
-      </h2>
-
-      {/* One panel per category — a prominent clickable header bar
-          (opens the group's sheet summary) over a quiet list of charter
-          rows. Rows with a live poll carry a small pink voting accent;
-          the header aggregates what still needs the viewer. */}
+      {/* EVERYTHING ALREADY SETTLED — the league's own record.
+          No HOUSE RULES umbrella over it any more: an umbrella heading
+          whose only job is to introduce more headings is a level of
+          hierarchy nobody was reading. Each topic is a section in its own
+          right, same as DRAFT and VOTE above. */}
       {ENTRY_GROUP_ORDER.map((group) => {
         // Draft has its own section overhead.
         if (group === 'Draft') return null
@@ -673,18 +652,12 @@ function SeasonSetup({
           (e) => e.status === 'locked'
         ).length
         return (
-          <div
-            key={group}
-            className="mb-4 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]"
-          >
-            <GroupHeaderRow
+          <section key={group} className="mb-8">
+            <SectionHeading
               name={group}
-              icon={GROUP_META[group].icon}
-              lockedCount={lockedInGroup}
-              total={entries.length}
-              onOpen={() => setOpenGroup({ kind: 'builtin', group })}
+              settled={entries.length > 0 && lockedInGroup === entries.length}
             />
-            <ul className="divide-y divide-white/5">
+            <ul className="divide-y divide-white/5 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
               {entries.map((entry) => {
                 const poll = entry.pollId
                   ? pollsById.get(entry.pollId) ?? null
@@ -706,33 +679,30 @@ function SeasonSetup({
                 )
               })}
             </ul>
-          </div>
+          </section>
         )
       })}
 
-      {/* Custom user-added groups — same panel pattern. */}
+      {/* Custom user-added groups — same shape. */}
       {customGroups.map((cg) => (
-        <div
-          key={cg.name}
-          className="mb-4 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]"
-        >
-          <GroupHeaderRow
+        <section key={cg.name} className="mb-8">
+          <SectionHeading
             name={cg.name}
-            icon={Sparkles}
-            lockedCount={cg.entries.filter((e) => e.status === 'locked').length}
-            total={cg.entries.length}
-            onOpen={() => setOpenGroup({ kind: 'custom', name: cg.name })}
+            settled={
+              cg.entries.length > 0 &&
+              cg.entries.every((e) => e.status === 'locked')
+            }
           />
           {cg.entries.length === 0 ? (
             <button
               type="button"
               onClick={() => setOpenGroup({ kind: 'custom', name: cg.name })}
-              className="w-full px-3.5 py-3 text-left text-[11px] italic text-muted-foreground hover:bg-white/[0.03] transition-colors"
+              className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-3 text-left text-[11px] italic text-muted-foreground hover:bg-white/[0.03] transition-colors"
             >
               Nothing here yet — tap to add the first item.
             </button>
           ) : (
-            <ul className="divide-y divide-white/5">
+            <ul className="divide-y divide-white/5 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
               {cg.entries.map((entry) => (
                 <CharterRow
                   key={entry.id}
@@ -749,7 +719,7 @@ function SeasonSetup({
               ))}
             </ul>
           )}
-        </div>
+        </section>
       ))}
 
       {customError && (
@@ -848,55 +818,41 @@ function myPickSummary(poll: LeaguePoll, vote: SessionVote): string | null {
 // Prominent header bar atop each category panel. Opens the group's
 // sheet on its summary (main) page. The per-row "needs your vote"
 // treatment carries the attention signal; the header stays quiet.
-function GroupHeaderRow({
+/**
+ * A section's name, and nothing else.
+ *
+ * These were header BARS inside each card — a slab with "4/4", an icon, a
+ * chevron. That was a group label inside a list of groups, and the list
+ * is gone: every topic is a section of the page now, so it gets a section
+ * heading like DRAFT and VOTE do.
+ *
+ * The tally went with the bar, but the one bit of it worth keeping
+ * survives as tone: blue once everything in the section is settled,
+ * quiet while anything still isn't. Same signal, no arithmetic.
+ */
+function SectionHeading({
   name,
-  icon: Icon,
-  lockedCount,
-  total,
-  onOpen,
+  settled,
+  tone,
 }: {
   name: string
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number | string }>
-  lockedCount: number
-  total: number
-  onOpen: () => void
+  settled?: boolean
+  /** Overrides `settled` — VOTE is pink whatever state it's in. */
+  tone?: 'ask'
 }) {
-  const done = total > 0 && lockedCount === total
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="group flex w-full items-stretch border-b border-white/10 text-left transition-colors hover:bg-white/[0.04] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+    <h2
+      className={cn(
+        'font-display mb-2.5 text-xl leading-none tracking-tight uppercase',
+        tone === 'ask'
+          ? 'text-neon-pink'
+          : settled
+            ? 'text-neon-blue'
+            : 'text-foreground/60'
+      )}
     >
-      {/* The slab, at its smallest — here it carries how much of this
-          topic is actually settled. */}
-      <span
-        aria-hidden
-        className="relative flex w-[3.25rem] shrink-0 items-center justify-center self-stretch py-2"
-        style={{
-          clipPath: 'polygon(0 0, 100% 0, calc(100% - 9px) 100%, 0 100%)',
-          background: done
-            ? 'linear-gradient(150deg, rgba(0,217,255,0.16), rgba(0,217,255,0.03))'
-            : 'linear-gradient(150deg, rgba(255,255,255,0.07), rgba(255,255,255,0.015))',
-        }}
-      >
-        <span
-          className={`font-display -mr-1 text-base leading-none tabular-nums ${
-            done ? 'text-neon-blue/85' : 'text-foreground/50'
-          }`}
-        >
-          {lockedCount}/{total}
-        </span>
-      </span>
-
-      <span className="flex min-w-0 flex-1 items-center gap-2.5 py-2.5 pr-3 pl-3">
-        <Icon className="text-foreground/70 h-4 w-4 shrink-0" />
-        <span className="font-display text-foreground/85 min-w-0 flex-1 truncate text-lg leading-none tracking-tight uppercase">
-          {name}
-        </span>
-        <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
-      </span>
-    </button>
+      {name}
+    </h2>
   )
 }
 
