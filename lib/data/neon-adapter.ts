@@ -1093,7 +1093,7 @@ export const neonAdapter: DataAdapter = {
       })
   },
 
-  async addPollOption(pollId, userId, label) {
+  async addPollOption(pollId, userId, label, hint) {
     const p = await db.select().from(polls).where(eq(polls.id, pollId)).limit(1)
     if (!p[0]) throw new Error(`poll ${pollId} not found`)
     if (p[0].optionPolicy === 'closed') {
@@ -1105,7 +1105,7 @@ export const neonAdapter: DataAdapter = {
     // author are the same person and the queue was one waiting on itself.
     await db
       .insert(pollOptions)
-      .values({ pollId, label, addedBy: userId, status: 'approved', sortOrder: 999 })
+      .values({ pollId, label, hint: hint ?? null, addedBy: userId, status: 'approved', sortOrder: 999 })
   },
 
   async reactToPollOption(pollId, optionId, userId, value) {

@@ -119,8 +119,8 @@ export function WeekPolls({
                   voting.setOptionReaction(poll.id, optionId, value)
                 }
                 sessionAddedOptions={voting.sessionAddedOptions.get(poll.id) ?? []}
-                onAddOption={(label) =>
-                  voting.addOption(poll.id, label, poll.optionPolicy)
+                onAddOption={(label, hint) =>
+                  voting.addOption(poll.id, label, poll.optionPolicy, hint)
                 }
                 canManage={canAsk}
               />

@@ -130,7 +130,7 @@ export interface DataAdapter {
   submitPollResponse(pollId: string, userId: string, vote: PollVote): Promise<void>;
   /** Member adds an option to a curated/open poll. For 'curated' policies
    *  the option lands in the pending lane until the commish promotes it. */
-  addPollOption(pollId: string, userId: string, label: string): Promise<void>;
+  addPollOption(pollId: string, userId: string, label: string, hint?: string): Promise<void>;
   /** Up/down/clear reaction to a pending option (curated polls only). */
   reactToPollOption(pollId: string, optionId: string, userId: string, value: 1 | -1 | null): Promise<void>;
   /** Admin: create a new poll. */

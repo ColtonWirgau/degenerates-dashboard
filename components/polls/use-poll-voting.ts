@@ -63,15 +63,22 @@ export function usePollVoting(leagueId: string, currentUserId: string) {
     void reactToPollOptionAction(leagueId, pollId, optionId, value)
   }
 
-  const addOption = (pollId: string, label: string, policy: PollOptionPolicy) => {
+  const addOption = (
+    pollId: string,
+    label: string,
+    policy: PollOptionPolicy,
+    hint?: string
+  ) => {
     const text = label.trim()
     if (!text) return
+    const fine = hint?.trim() || undefined
     // A stand-in so the option is on screen before the server has one.
     // The id is namespaced to the viewer so it can't collide with a real
     // row that arrives on the next refresh.
     const optimistic: PollOption = {
       id: `viewer::${pollId}::${Date.now()}`,
       label: text,
+      hint: fine,
       addedBy: currentUserId,
       addedAt: new Date().toISOString(),
       status: policy === 'open' ? 'approved' : 'pending',
@@ -82,7 +89,7 @@ export function usePollVoting(leagueId: string, currentUserId: string) {
       next.set(pollId, [...(next.get(pollId) ?? []), optimistic])
       return next
     })
-    void addPollOptionAction(leagueId, pollId, text)
+    void addPollOptionAction(leagueId, pollId, text, fine)
   }
 
   return {

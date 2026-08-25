@@ -74,7 +74,7 @@ export function EntryAction({
   sessionOptionReactions: Map<string, 1 | -1 | null>
   onOptionReaction: (pollId: string, optionId: string, value: 1 | -1 | null) => void
   sessionAddedOptions: Map<string, PollOption[]>
-  onAddOption: (pollId: string, label: string, policy: PollOptionPolicy) => void
+  onAddOption: (pollId: string, label: string, policy: PollOptionPolicy, hint?: string) => void
   /** Owners and admins put things on the ballot; everyone else votes. */
   canManage: boolean
 }) {
@@ -238,7 +238,9 @@ export function EntryAction({
             onOptionReaction(poll.id, optionId, value)
           }
           sessionAddedOptions={sessionAddedOptions.get(poll.id) ?? []}
-          onAddOption={(label) => onAddOption(poll.id, label, poll.optionPolicy)}
+          onAddOption={(label, hint) =>
+            onAddOption(poll.id, label, poll.optionPolicy, hint)
+          }
           canManage={canManage}
         />
       </div>

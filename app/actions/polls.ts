@@ -36,12 +36,14 @@ export async function submitPollVote(
 export async function addPollOption(
   leagueId: string,
   pollId: string,
-  label: string
+  label: string,
+  hint?: string
 ) {
   const me = await getCurrentUser()
   if (!me) return { success: false, error: 'Unauthorized' }
   const trimmed = label.trim()
   if (!trimmed) return { success: false, error: 'Option label is empty' }
+  const trimmedHint = hint?.trim() || undefined
   const adapter = await getDataAdapter()
   // Adding to the ballot is the commish's, same as opening the question
   // in the first place. It used to be anyone's, with a curated flow where
@@ -52,7 +54,7 @@ export async function addPollOption(
     return { success: false, error: 'Only the commish can add options' }
   }
   try {
-    await adapter.addPollOption(pollId, me.id, trimmed)
+    await adapter.addPollOption(pollId, me.id, trimmed, trimmedHint)
   } catch (err) {
     return {
       success: false,

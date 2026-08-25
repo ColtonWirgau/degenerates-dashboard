@@ -55,7 +55,7 @@ export function InlinePollVote({
   sessionOptionReactions: Map<string, 1 | -1 | null>
   onOptionReaction: (optionId: string, value: 1 | -1 | null) => void
   sessionAddedOptions: PollOption[]
-  onAddOption: (label: string) => void
+  onAddOption: (label: string, hint?: string) => void
   /** Owners and admins put things on the ballot; everyone else votes. */
   canManage?: boolean
 }) {
@@ -614,10 +614,11 @@ export function PendingOptionsLane({
 export function AddOptionControl({
   onSubmit,
 }: {
-  onSubmit: (label: string) => void
+  onSubmit: (label: string, hint?: string) => void
 }) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState('')
+  const [hintDraft, setHintDraft] = useState('')
 
   if (!open) {
     return (
@@ -634,8 +635,9 @@ export function AddOptionControl({
 
   const submit = () => {
     if (draft.trim().length === 0) return
-    onSubmit(draft.trim())
+    onSubmit(draft.trim(), hintDraft.trim() || undefined)
     setDraft('')
+    setHintDraft('')
     setOpen(false)
   }
 
@@ -651,12 +653,22 @@ export function AddOptionControl({
         rows={2}
         className="w-full rounded-md bg-black/30 border border-white/10 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-neon-pink/50 resize-none"
       />
+      {/* The fine print — what "What these involve" prints for this
+          option. Optional; a label that explains itself can go alone. */}
+      <textarea
+        value={hintDraft}
+        onChange={(e) => setHintDraft(e.target.value)}
+        placeholder="The fine print — rules, scope, what it actually takes (optional)"
+        rows={2}
+        className="w-full rounded-md bg-black/30 border border-white/10 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-neon-pink/50 resize-none"
+      />
       <div className="flex items-center justify-end gap-2">
         <button
           type="button"
           onClick={() => {
             setOpen(false)
             setDraft('')
+            setHintDraft('')
           }}
           className="px-3 py-1.5 text-[11px] font-bold tracking-widest uppercase text-muted-foreground hover:text-foreground transition-colors"
         >

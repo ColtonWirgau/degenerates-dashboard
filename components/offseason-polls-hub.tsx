@@ -200,7 +200,7 @@ function SeasonSetup({
   sessionOptionReactions: Map<string, 1 | -1 | null>
   onOptionReaction: (pollId: string, optionId: string, value: 1 | -1 | null) => void
   sessionAddedOptions: Map<string, PollOption[]>
-  onAddOption: (pollId: string, label: string, policy: PollOptionPolicy) => void
+  onAddOption: (pollId: string, label: string, policy: PollOptionPolicy, hint?: string) => void
   approvals: Map<string, boolean>
   onApprove: (entryId: string) => void
 }) {
