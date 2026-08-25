@@ -38,7 +38,7 @@
  * settled nothing still gets a hero.
  */
 
-import { CalendarDays } from 'lucide-react'
+import { CalendarDays, ChevronLeft } from 'lucide-react'
 import { openCharterGroup, openPanel } from '@/components/chrome/canvas-store'
 import { cn } from '@/lib/utils'
 
@@ -151,6 +151,19 @@ export function DraftHero({ entries, leagueName, memberCount }: DraftHeroProps) 
               'linear-gradient(115deg, rgba(0,217,255,0.22), rgba(0,217,255,0.06) 62%, rgba(0,217,255,0.02))',
           }}
         >
+          {/* The half was already the door to the week list — every
+              week's corner slab is — but nothing said so, and a control
+              nobody can see is not a control. It sits in the eyebrow
+              slot, which makes both halves the same shape: a small line
+              over a big word.
+
+              Not "back": the list isn't somewhere you came from, it's
+              the other weeks, and the chevron points the way the panel
+              actually arrives from. */}
+          <span className="text-muted-foreground/60 group-hover:text-neon-blue mb-1.5 inline-flex items-center gap-1 text-[10px] font-bold tracking-[0.28em] uppercase transition-colors">
+            <ChevronLeft className="h-3 w-3" />
+            All weeks
+          </span>
           <span className="font-display text-foreground text-4xl leading-[0.85] tracking-tight uppercase sm:text-5xl lg:text-6xl">
             Preseason
           </span>
