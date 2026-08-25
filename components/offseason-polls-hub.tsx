@@ -373,13 +373,8 @@ function SeasonSetup({
     return m
   }, [charter])
 
-  // The draft is its own section now, so the rules below must not count
-  // it twice — once in its own heading and again in HOUSE RULES' total.
+  // The draft is its own section now; the groups below skip it.
   const draftEntries = byGroup.get('Draft') ?? []
-  const houseEntries = useMemo(
-    () => charter.filter((e) => e.category === 'custom' || groupFor(e) !== 'Draft'),
-    [charter]
-  )
 
   // User-added groups + entries. The server truth is charter entries with
   // category 'custom' carrying their group name in metadata.group; local
@@ -566,12 +561,6 @@ function SeasonSetup({
     return open
   }, [charter, pollsById])
 
-  const needsMe = ballot.filter(
-    ({ poll }) =>
-      poll != null &&
-      !hasAnyAnswer(viewerVoteFor(poll, sessionPollVotes, currentUserId))
-  ).length
-
   return (
     // No heading of its own: this IS the preseason week's content, and
     // the week page already says so overhead. A second "Season Setup"
@@ -589,17 +578,14 @@ function SeasonSetup({
           the far end like every other section's does. */}
       {draftEntries.length > 0 && (
         <>
-          <div className="mb-3 flex items-end justify-between gap-3 border-b border-white/[0.07] pb-2.5">
-            {/* One word, so it takes the section's colour whole rather
-                than splitting it — blue because this one is settled. */}
-            <h2 className="font-display text-neon-blue text-xl leading-none tracking-tight uppercase">
-              Draft
-            </h2>
-            <p className="text-muted-foreground text-[10px] font-bold tracking-[0.2em] uppercase tabular-nums">
-              {draftEntries.filter((e) => e.status === 'locked').length}/
-              {draftEntries.length} settled
-            </p>
-          </div>
+          {/* One word, its section's colour whole — blue because this
+              one is settled. No rule under it and no tally beside it:
+              the card below already says what the draft is, and "9/9
+              settled" was a score for a thing nobody is keeping score
+              of. */}
+          <h2 className="font-display text-neon-blue mb-2.5 text-xl leading-none tracking-tight uppercase">
+            Draft
+          </h2>
           <div className="mb-8 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
             <DraftCard
               entries={draftEntries.map((e) => ({
@@ -622,18 +608,17 @@ function SeasonSetup({
           {/* The dock's disc aims here — on a phone the charter below
               runs long, and "take me back to the votes" is the one verb
               the preseason week has. */}
-          <div
+          {/* Pink, because this is the one asking you for something.
+              The count is gone from here — every card underneath already
+              says NEEDS YOU or VOTED on its own face, and saying it
+              twice made the section header the third place to read the
+              same fact. */}
+          <h2
             id="preseason-ballot"
-            className="mb-3 flex items-end justify-between gap-3 border-b border-white/[0.07] pb-2.5"
+            className="font-display text-neon-pink mb-2.5 text-xl leading-none tracking-tight uppercase"
           >
-            {/* Pink, because this is the one asking you for something. */}
-            <h2 className="font-display text-neon-pink text-xl leading-none tracking-tight uppercase">
-              Vote
-            </h2>
-            <p className="text-muted-foreground text-[10px] font-bold tracking-[0.2em] uppercase tabular-nums">
-              {needsMe > 0 ? `${needsMe} need you` : 'All in'}
-            </p>
-          </div>
+            Vote
+          </h2>
 
           <div className="mb-8 grid grid-cols-1 gap-2 xl:grid-cols-2">
             {ballot.map(({ entry, poll, group, custom }) => (
@@ -670,16 +655,10 @@ function SeasonSetup({
           league has ever said "check the charter". It covers the rules
           AND the arrangements — buy-in, payouts, keepers, where the draft
           is — which is exactly what house rules means. */}
-      <div className="mb-3 flex items-end justify-between gap-3 border-b border-white/[0.07] pb-2.5">
-        <h2 className="font-display text-xl leading-none tracking-tight uppercase">
-          <span className="text-neon-blue">House</span>{' '}
-          <span className="text-foreground/80">Rules</span>
-        </h2>
-        <p className="text-muted-foreground text-[10px] font-bold tracking-[0.2em] uppercase tabular-nums">
-          {houseEntries.filter((e) => e.status === 'locked').length}/
-          {houseEntries.length} settled
-        </p>
-      </div>
+      <h2 className="font-display mb-2.5 text-xl leading-none tracking-tight uppercase">
+        <span className="text-neon-blue">House</span>{' '}
+        <span className="text-foreground/80">Rules</span>
+      </h2>
 
       {/* One panel per category — a prominent clickable header bar
           (opens the group's sheet summary) over a quiet list of charter
