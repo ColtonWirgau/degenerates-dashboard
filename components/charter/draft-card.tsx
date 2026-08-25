@@ -150,7 +150,7 @@ export function DraftCard({
           material, and they take the card's right half rather than a
           band under everything. */}
       {keepers.length > 0 && (
-        <div className="px-3 py-2.5 lg:w-[46%] lg:shrink-0 lg:border-l lg:border-white/10 lg:py-3">
+        <div className="px-3 py-2.5 lg:w-[46%] lg:shrink-0 lg:py-3">
           <p className="text-muted-foreground/60 mb-2 text-[9px] font-bold tracking-[0.3em] uppercase">
             Keepers
           </p>
