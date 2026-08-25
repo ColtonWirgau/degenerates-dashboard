@@ -31,6 +31,13 @@ import { cn } from '@/lib/utils'
  * card is the faces: who hit, who missed, who never picked. A season you
  * can read by scrolling.
  */
+/* Every card in this list stands the same height, and that height is the
+ * tallest one any of them naturally wants: a week carrying both a hit row
+ * and a miss row. Sizing to content made the list read as ragged — a
+ * recap card half the height of a week card looks like a different kind
+ * of object rather than a peer of it. */
+const CARD_H = 'min-h-[97px]'
+
 export function SlatePanel({
   laysByWeek,
 }: {
@@ -73,30 +80,35 @@ export function SlatePanel({
             aria-current={view === 'recap' ? 'true' : undefined}
             className={cn(
               'flex w-full items-stretch overflow-hidden rounded-xl border text-left transition-colors',
+              CARD_H,
               view === 'recap'
                 ? 'border-neon-blue/45 bg-neon-blue/[0.09]'
                 : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.06]'
             )}
           >
+            {/* Same slab width as a week's number, so the two slab cards
+                share a left edge down the list. */}
             <div
               aria-hidden
-              className="relative flex w-[3.25rem] shrink-0 items-center justify-center self-stretch"
+              className="relative flex w-[4.25rem] shrink-0 items-center justify-center self-stretch"
               style={{
-                clipPath: 'polygon(0 0, 100% 0, calc(100% - 9px) 100%, 0 100%)',
+                clipPath: 'polygon(0 0, 100% 0, calc(100% - 11px) 100%, 0 100%)',
                 background:
                   'linear-gradient(150deg, rgba(0,217,255,0.18), rgba(0,217,255,0.03))',
               }}
             >
-              <Trophy className="text-neon-blue h-4 w-4" strokeWidth={2.25} />
+              <Trophy className="text-neon-blue h-6 w-6" strokeWidth={2.25} />
             </div>
-            <div className="min-w-0 flex-1 py-2 pr-3 pl-2.5">
-              <p className="font-display text-foreground/85 text-sm leading-none tracking-tight uppercase">
-                The Recap
-              </p>
-              <p className="text-muted-foreground mt-1 text-[10px] tracking-wider uppercase">
-                How the whole year went
-              </p>
-            </div>
+            {/* The preseason's typography exactly — these two are the
+                cards that aren't weeks, so they say so the same way. */}
+            <span
+              className={cn(
+                'font-display flex min-w-0 flex-1 items-center px-3 text-[2.1rem] leading-none tracking-tight uppercase',
+                view === 'recap' ? 'text-neon-blue' : 'text-foreground/55'
+              )}
+            >
+              The Recap
+            </span>
           </button>
         )}
         {ordered.map((w) => (
@@ -147,6 +159,7 @@ function WeekCard({
 
   const shell = cn(
     'group relative block w-full overflow-hidden rounded-xl border text-left transition-colors',
+    CARD_H,
     active
       ? 'border-neon-blue/50 bg-neon-blue/[0.07]'
       : won
@@ -166,12 +179,12 @@ function WeekCard({
         onClick={open}
         aria-label="Preseason"
         aria-current={active ? 'true' : undefined}
-        className={shell}
+        className={cn(shell, 'flex items-center')}
       >
         {isCurrent && <NowPip />}
         <span
           className={cn(
-            'font-display block px-4 py-4 text-[2.1rem] leading-none tracking-tight uppercase',
+            'font-display block px-4 text-[2.1rem] leading-none tracking-tight uppercase',
             active || isCurrent ? 'text-neon-blue' : 'text-foreground/55'
           )}
         >
@@ -234,7 +247,7 @@ function WeekCard({
       {/* The week's cast. Once results land it splits in two — who
           survived, who went down — because that's the shape of the
           question you're asking when you scroll back through a season. */}
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5 py-2.5 pr-3 pl-2.5">
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 py-2.5 pr-3 pl-2.5">
         <div className="flex items-center gap-2">
           <span
             className={cn(
