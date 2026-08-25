@@ -23,7 +23,10 @@ export type CanvasPanel =
   | 'slate'
   | 'parlay'
   | 'board'
+  | 'rules'
   | 'submit'
+  | 'compose'
+  | 'ask'
   | 'profile'
   | null
 
@@ -235,6 +238,45 @@ export function subscribeLeagueSheet(
   leagueListeners.add(listener)
   listener(leaguePage)
   return () => leagueListeners.delete(listener)
+}
+
+/* ---------- Opening one charter topic ---------- */
+
+/* The RULES panel is a READER: it prints the league's settled business on
+ * the canvas, topic by topic. Changing any of it is the preseason page's
+ * job, and that page owns a sheet that already does it properly — with
+ * the live poll, the approvals, the rename and the delete.
+ *
+ * Rather than grow a second, worse editor inside a 19rem column, the
+ * panel hands the request across: "open Stakes, on Buy-in". The hub picks
+ * it up if it's mounted, which it is exactly when the charter is
+ * editable. Same seam as openSubmit — a request, not a state. */
+export interface CharterGroupRequest {
+  /** The topic's display name — built-in ("Stakes") or one the league made. */
+  group: string
+  /** Land straight on one item's page instead of the topic's list. */
+  entryId?: string
+  /** Versioned so asking twice for the same topic re-opens it. */
+  version: number
+}
+
+let charterRequest: CharterGroupRequest | null = null
+const charterListeners = new Set<(r: CharterGroupRequest) => void>()
+
+export function openCharterGroup(group: string, entryId?: string) {
+  charterRequest = {
+    group,
+    ...(entryId ? { entryId } : {}),
+    version: (charterRequest?.version ?? 0) + 1,
+  }
+  charterListeners.forEach((l) => l(charterRequest!))
+}
+
+export function subscribeCharterGroup(
+  listener: (r: CharterGroupRequest) => void
+): () => void {
+  charterListeners.add(listener)
+  return () => charterListeners.delete(listener)
 }
 
 /* ---------- The submit reveal's arm counter ---------- */

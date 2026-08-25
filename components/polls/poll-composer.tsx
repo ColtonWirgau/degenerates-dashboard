@@ -42,12 +42,22 @@ export function AskTheLeague({
   leagueId,
   nflWeekId,
   onCreated,
+  /**
+   * 'card' is the dashed add-tile that expands in place, for a grid of
+   * polls. 'panel' is the same form living in a canvas panel, where it
+   * IS the surface — there's nothing to expand out of and nothing to
+   * collapse back into, so it opens open and has no ✕ of its own (the
+   * bubble it came from is the ✕).
+   */
+  variant = 'card',
 }: {
   leagueId: string
   nflWeekId: string
   onCreated: () => void
+  variant?: 'card' | 'panel'
 }) {
-  const [open, setOpen] = useState(false)
+  const panel = variant === 'panel'
+  const [open, setOpen] = useState(panel)
   const [title, setTitle] = useState('')
   const [topic, setTopic] = useState<Topic>('season')
   const [kind, setKind] = useState<Kind>('single')
@@ -63,7 +73,7 @@ export function AskTheLeague({
     setAnyoneAdds(false)
     setOptions(['', ''])
     setError(null)
-    setOpen(false)
+    setOpen(panel)
   }
 
   if (!open) {
@@ -112,20 +122,33 @@ export function AskTheLeague({
   }
 
   return (
-    <div className="border-neon-pink/30 bg-neon-pink/[0.04] space-y-3 rounded-xl border p-3 xl:col-span-2">
-      <div className="flex items-center gap-2">
-        <h3 className="font-display text-foreground/80 text-sm leading-none tracking-tight uppercase">
-          Ask the league
-        </h3>
-        <button
-          type="button"
-          onClick={reset}
-          aria-label="Cancel"
-          className="text-muted-foreground hover:text-foreground ml-auto"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
+    <div
+      className={
+        panel
+          ? 'scrollbar-hide flex min-h-0 flex-1 flex-col space-y-3 overflow-y-auto pb-2'
+          : 'border-neon-pink/30 bg-neon-pink/[0.04] space-y-3 rounded-xl border p-3 xl:col-span-2'
+      }
+    >
+      {panel ? (
+        <h2 className="font-display shrink-0 text-2xl leading-none tracking-tight uppercase">
+          <span className="text-neon-pink">Ask</span>{' '}
+          <span className="text-foreground/80">The League</span>
+        </h2>
+      ) : (
+        <div className="flex items-center gap-2">
+          <h3 className="font-display text-foreground/80 text-sm leading-none tracking-tight uppercase">
+            Ask the league
+          </h3>
+          <button
+            type="button"
+            onClick={reset}
+            aria-label="Cancel"
+            className="text-muted-foreground hover:text-foreground ml-auto"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       <input
         autoFocus

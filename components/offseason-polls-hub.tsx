@@ -61,6 +61,14 @@ import type {
   CharterStatus,
   KeeperRosterRow,
 } from '@/lib/data/mock-charter'
+import {
+  ENTRY_GROUP_ORDER,
+  GROUP_CATEGORY,
+  groupFor,
+  isBuiltInGroup,
+  type EntryGroup,
+} from '@/lib/charter-groups'
+import { subscribeCharterGroup } from '@/components/chrome/canvas-store'
 import type { SeasonState } from '@/lib/data/types'
 
 export type { PollMember }
@@ -195,86 +203,9 @@ export function OffseasonPollsHub({
 // Charter entries grouped by functional topic (Draft, Stakes, etc.).
 // Status is conveyed by per-row color + icon rather than by ordering.
 
-type EntryGroup =
-  | 'Draft'
-  | 'Stakes'
-  | 'Trading'
-  | 'Playoffs'
-  | 'Punishment'
-  | 'Rules'
-  | 'Logistics'
-
-const ENTRY_GROUP_ORDER: EntryGroup[] = [
-  'Draft',
-  'Stakes',
-  'Trading',
-  'Playoffs',
-  'Punishment',
-  'Rules',
-  'Logistics',
-]
-
-const ENTRY_GROUP: Record<string, EntryGroup> = {
-  // Draft — date, format (incl. 3rd-round-reversal mechanic), location
-  // and all keeper rules (keeper machinery happens at draft, so it
-  // lives here).
-  'draft-date': 'Draft',
-  'draft-format': 'Draft',
-  'draft-location': 'Draft',
-  'keeper-slots': 'Draft',
-  'keeper-cost': 'Draft',
-  'keeper-restrictions': 'Draft',
-  'keeper-traded-pick': 'Draft',
-  'keeper-deadline': 'Draft',
-  'eligible-keepers': 'Draft',
-
-  // Stakes — money in/out
-  'buy-in': 'Stakes',
-  payouts: 'Stakes',
-  'weekly-pot': 'Stakes',
-  'dues-tracking': 'Stakes',
-
-  // Trading
-  'trade-veto-policy': 'Trading',
-  'collusion-process': 'Trading',
-  'trade-deadline': 'Trading',
-
-  // Playoffs
-  'playoff-format': 'Playoffs',
-  'regular-season-length': 'Playoffs',
-  'last-place-penalty': 'Playoffs',
-
-  // Punishment / Rules / Logistics
-  punishment: 'Punishment',
-  'missed-deadline': 'Rules',
-  'tie-breaker': 'Rules',
-  'mid-season-catchup': 'Rules',
-  commissioner: 'Logistics',
-  'kickoff-meet': 'Logistics',
-  trophy: 'Logistics',
-}
-
-/** Which built-in category maps to which charter category on write. */
-const GROUP_CATEGORY: Record<EntryGroup, CharterCategory> = {
-  Draft: 'format',
-  Stakes: 'stakes',
-  Trading: 'trading',
-  Playoffs: 'playoffs',
-  Punishment: 'punishment',
-  Rules: 'rules',
-  Logistics: 'logistics',
-}
-
-function groupFor(entry: CharterEntry): EntryGroup {
-  // An entry added by hand carries its group; the seeded ones are known
-  // by key. Without the first clause a new "Draft" item would silently
-  // file itself under Rules.
-  const named = entry.metadata?.group
-  if (named && (ENTRY_GROUP_ORDER as string[]).includes(named)) {
-    return named as EntryGroup
-  }
-  return ENTRY_GROUP[entry.key] ?? 'Rules'
-}
+// The filing system moved out — the RULES panel prints the same topics
+// in the same order, and two copies of that mapping drift the first time
+// a key is added to one of them. See lib/charter-groups.
 
 // Per-group card visuals. `icon` is the semantic glyph rendered large
 // behind the slanted dual-color header. `palette` is the [left, right]
@@ -376,15 +307,18 @@ function SeasonSetup({
   // The draft is its own section now; the groups below skip it.
   const draftEntries = byGroup.get('Draft') ?? []
 
-  // User-added groups + entries. The server truth is charter entries with
-  // category 'custom' carrying their group name in metadata.group; local
-  // state holds just-created empty groups and optimistic entries until the
-  // refresh brings the real rows back.
+  // User-added topics, straight off the server: charter entries with
+  // category 'custom' carrying their topic name in metadata.group.
+  //
+  // There's no local mirror any more. It existed to hold a topic that had
+  // been NAMED but had nothing in it yet — which the old dashed card could
+  // make and nothing else could. The ADD panel takes the name and the
+  // first item together, so an empty topic can't be created, and the only
+  // state left to hold is the server's.
   const router = useRouter()
-  const [localGroups, setLocalGroups] = useState<CustomGroupState[]>([])
   const [customError, setCustomError] = useState<string | null>(null)
 
-  const serverCustomGroups = useMemo(() => {
+  const customGroups: CustomGroupState[] = useMemo(() => {
     const m = new Map<string, CharterEntry[]>()
     for (const e of charter) {
       if (e.category !== 'custom') continue
@@ -393,42 +327,8 @@ function SeasonSetup({
       arr.push(e)
       m.set(g, arr)
     }
-    return m
+    return [...m].map(([name, entries]) => ({ name, entries }))
   }, [charter])
-
-  const customGroups: CustomGroupState[] = useMemo(() => {
-    const out: CustomGroupState[] = []
-    const seen = new Set<string>()
-    for (const [name, entries] of serverCustomGroups) {
-      const local = localGroups.find(
-        (g) => g.name.toLowerCase() === name.toLowerCase()
-      )
-      // Optimistic entries drop out once the server row with the same key
-      // arrives via refresh.
-      const extra =
-        local?.entries.filter((le) => !entries.some((se) => se.key === le.key)) ?? []
-      out.push({ name, entries: [...entries, ...extra] })
-      seen.add(name.toLowerCase())
-    }
-    for (const g of localGroups) {
-      if (!seen.has(g.name.toLowerCase())) out.push(g)
-    }
-    return out
-  }, [serverCustomGroups, localGroups])
-
-  const addCustomGroup = (name: string) => {
-    setLocalGroups((prev) => {
-      if (
-        prev.some((g) => g.name.toLowerCase() === name.toLowerCase()) ||
-        [...serverCustomGroups.keys()].some(
-          (n) => n.toLowerCase() === name.toLowerCase()
-        )
-      ) {
-        return prev
-      }
-      return [...prev, { name, entries: [] }]
-    })
-  }
 
   /**
    * ADD ONE ITEM — to any topic, built-in or your own. Give it options
@@ -443,13 +343,12 @@ function SeasonSetup({
     options: string[]
   ) => {
     setCustomError(null)
-    const builtIn = (ENTRY_GROUP_ORDER as string[]).includes(groupName)
     void addCharterItem({
       leagueId,
       season,
       nflWeekId,
       group: groupName,
-      category: builtIn ? GROUP_CATEGORY[groupName as EntryGroup] : 'custom',
+      category: isBuiltInGroup(groupName) ? GROUP_CATEGORY[groupName] : 'custom',
       label,
       approvalRule: rule,
       options,
@@ -477,9 +376,6 @@ function SeasonSetup({
 
   const renameGroup = (from: string, to: string) => {
     setCustomError(null)
-    setLocalGroups((prev) =>
-      prev.map((g) => (g.name === from ? { ...g, name: to } : g))
-    )
     void renameCharterGroup(leagueId, season, from, to).then((res) => {
       if (res.error) setCustomError(res.error)
       else router.refresh()
@@ -488,7 +384,6 @@ function SeasonSetup({
 
   const removeGroup = (name: string) => {
     setCustomError(null)
-    setLocalGroups((prev) => prev.filter((g) => g.name !== name))
     void deleteCharterGroup(leagueId, season, name).then((res) => {
       if (res.error) setCustomError(res.error)
       else router.refresh()
@@ -505,6 +400,22 @@ function SeasonSetup({
     | null
   >(null)
 
+  // THE RULES PANEL ASKING FOR AN EDITOR. It prints the book but can't
+  // change it — the poll, the approvals, the rename and the delete all
+  // live in the sheet below — so it names a topic and an item and this
+  // opens them. Built-in or custom is decided here, from the name,
+  // because the panel files by display name and doesn't care which.
+  useEffect(
+    () =>
+      subscribeCharterGroup(({ group, entryId }) => {
+        setOpenGroup(
+          isBuiltInGroup(group)
+            ? { kind: 'builtin', group, ...(entryId ? { entryId } : {}) }
+            : { kind: 'custom', name: group, ...(entryId ? { entryId } : {}) }
+        )
+      }),
+    []
+  )
 
   // Resolve the entries + sheet header info for whatever group is open.
   const sheetData = (() => {
@@ -638,102 +549,21 @@ function SeasonSetup({
         </>
       )}
 
-      {/* EVERYTHING ALREADY SETTLED — the league's own record.
-          No HOUSE RULES umbrella over it any more: an umbrella heading
-          whose only job is to introduce more headings is a level of
-          hierarchy nobody was reading. Each topic is a section in its own
-          right, same as DRAFT and VOTE above. */}
-      {ENTRY_GROUP_ORDER.map((group) => {
-        // Draft has its own section overhead.
-        if (group === 'Draft') return null
-        const entries = byGroup.get(group) ?? []
-        if (entries.length === 0) return null
-        const lockedInGroup = entries.filter(
-          (e) => e.status === 'locked'
-        ).length
-        return (
-          <section key={group} className="mb-8">
-            <SectionHeading
-              name={group}
-              settled={entries.length > 0 && lockedInGroup === entries.length}
-            />
-            <ul className="divide-y divide-white/5 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
-              {entries.map((entry) => {
-                const poll = entry.pollId
-                  ? pollsById.get(entry.pollId) ?? null
-                  : null
-                return (
-                  <CharterRow
-                    key={entry.id}
-                    entry={entry}
-                    poll={poll}
-                    myVote={viewerVoteFor(poll, sessionPollVotes, currentUserId)}
-                    onOpen={() =>
-                      setOpenGroup({
-                        kind: 'builtin',
-                        group,
-                        entryId: entry.id,
-                      })
-                    }
-                  />
-                )
-              })}
-            </ul>
-          </section>
-        )
-      })}
+      {/* EVERYTHING ALREADY SETTLED used to print here — seven topics and
+          thirty-odd rows of it, under the two things that are actually
+          live. It's a RECORD of decisions already made, which is
+          reference rather than work, so it moved to the RULES panel on
+          the rail (and the dock's RULES cell on a phone). What's left on
+          this page is what week 0 is FOR: the draft, and the votes.
 
-      {/* Custom user-added groups — same shape. */}
-      {customGroups.map((cg) => (
-        <section key={cg.name} className="mb-8">
-          <SectionHeading
-            name={cg.name}
-            settled={
-              cg.entries.length > 0 &&
-              cg.entries.every((e) => e.status === 'locked')
-            }
-          />
-          {cg.entries.length === 0 ? (
-            <button
-              type="button"
-              onClick={() => setOpenGroup({ kind: 'custom', name: cg.name })}
-              className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-3 text-left text-[11px] italic text-muted-foreground hover:bg-white/[0.03] transition-colors"
-            >
-              Nothing here yet — tap to add the first item.
-            </button>
-          ) : (
-            <ul className="divide-y divide-white/5 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
-              {cg.entries.map((entry) => (
-                <CharterRow
-                  key={entry.id}
-                  entry={entry}
-                  poll={null}
-                  onOpen={() =>
-                    setOpenGroup({
-                      kind: 'custom',
-                      name: cg.name,
-                      entryId: entry.id,
-                    })
-                  }
-                />
-              ))}
-            </ul>
-          )}
-        </section>
-      ))}
+          The panel hands a row back here when someone wants to change it
+          — see the charter-group subscription above, which opens the same
+          sheet the rows always opened. */}
 
       {customError && (
         <p className="mb-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
           {customError}
         </p>
-      )}
-
-      {/* Add-a-topic affordance — lives at the very bottom now that
-          the masonry is gone. */}
-      {canManage && (
-        <div>
-          <AddTopicCard onAdd={addCustomGroup} />
-        </div>
       )}
 
       {sheetData && (
@@ -785,12 +615,6 @@ interface CustomGroupState {
   entries: CharterEntry[]
 }
 
-// ─── Charter row ──────────────────────────────────────────────────────
-// One charter entry as a compact row: status chip + label on the left,
-// current value on the right. Entries with a live poll get the loud
-// neon treatment — everything else stays quiet so actionable rows pop.
-// Clicking any row opens the group sheet.
-
 // Short label for what the viewer picked — shown on voting rows once
 // they've voted. Multi/ranked collapse to "first pick +N".
 function myPickSummary(poll: LeaguePoll, vote: SessionVote): string | null {
@@ -815,16 +639,13 @@ function myPickSummary(poll: LeaguePoll, vote: SessionVote): string | null {
   return null
 }
 
-// Prominent header bar atop each category panel. Opens the group's
-// sheet on its summary (main) page. The per-row "needs your vote"
-// treatment carries the attention signal; the header stays quiet.
 /**
  * A section's name, and nothing else.
  *
  * These were header BARS inside each card — a slab with "4/4", an icon, a
  * chevron. That was a group label inside a list of groups, and the list
- * is gone: every topic is a section of the page now, so it gets a section
- * heading like DRAFT and VOTE do.
+ * is gone: the page is down to DRAFT and VOTE, and those get section
+ * headings rather than furniture.
  *
  * The tally went with the bar, but the one bit of it worth keeping
  * survives as tone: blue once everything in the section is settled,
@@ -856,106 +677,6 @@ function SectionHeading({
   )
 }
 
-function CharterRow({
-  entry,
-  poll,
-  myVote,
-  onOpen,
-}: {
-  entry: CharterEntry
-  poll?: LeaguePoll | null
-  myVote?: SessionVote | null
-  onOpen: () => void
-}) {
-  const isLocked = entry.status === 'locked'
-  const isPending = entry.status === 'pending' && !!entry.pending
-  const isVoting = !isLocked && !!poll && poll.status === 'open'
-
-  // A live vote used to shout here — pulsing dot, "NEEDS YOUR VOTE".
-  // It has its own card on the ballot above now, and the same question
-  // demanding attention twice on one screen is one demand too many. Down
-  // here it's just another line in the record, marked open.
-  if (isVoting && poll) {
-    const voted = hasAnyAnswer(myVote ?? null)
-    const pick = voted && myVote ? myPickSummary(poll, myVote) : null
-    return (
-      <li>
-        <button
-          type="button"
-          onClick={onOpen}
-          className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-white/[0.03] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
-        >
-          <span className="ring-neon-pink/50 bg-neon-pink/15 inline-flex h-3.5 w-3.5 shrink-0 rounded-full ring-1 ring-inset" />
-          <span className="text-muted-foreground shrink-0 text-[12px] font-medium tracking-wide">
-            {entry.label}
-          </span>
-          <span className="min-w-0 flex-1 truncate text-right text-[12px]">
-            {voted && pick ? (
-              <span className="text-muted-foreground truncate text-[11px]">
-                You: {pick}
-              </span>
-            ) : (
-              <span className="text-muted-foreground/60 text-[11px] italic">
-                On the ballot
-              </span>
-            )}
-          </span>
-          <ChevronRight className="text-muted-foreground/0 group-hover:text-muted-foreground/70 h-3 w-3 shrink-0 transition-colors" />
-        </button>
-      </li>
-    )
-  }
-
-  const valueText =
-    isLocked && entry.value
-      ? entry.value
-      : isPending && entry.pending
-        ? entry.pending.value
-        : 'Awaiting'
-
-  return (
-    <li>
-      <button
-        type="button"
-        onClick={onOpen}
-        className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left hover:bg-white/[0.03] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
-      >
-        <span
-          className={cn(
-            'inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full',
-            isLocked
-              ? 'bg-neon-blue ring-1 ring-neon-blue/40'
-              : isPending
-                ? 'bg-neon-pink ring-1 ring-neon-pink/40'
-                : 'bg-white/[0.06] ring-1 ring-white/15'
-          )}
-        >
-          {isLocked ? (
-            <Check className="h-2 w-2 text-black" strokeWidth={4} />
-          ) : isPending ? (
-            <Hourglass className="h-2 w-2 text-black" strokeWidth={3} />
-          ) : null}
-        </span>
-        <span className="shrink-0 text-[12px] font-medium tracking-wide text-muted-foreground">
-          {entry.label}
-        </span>
-        <span
-          className={cn(
-            'flex-1 min-w-0 truncate text-right text-[12px] tabular-nums',
-            isLocked
-              ? 'font-semibold text-foreground/95'
-              : isPending
-                ? 'italic text-neon-pink/80'
-                : 'italic text-muted-foreground/50'
-          )}
-        >
-          {isPending ? `${valueText} · pending` : valueText}
-        </span>
-        <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-colors" />
-      </button>
-    </li>
-  )
-}
 function GroupSheet({
   open,
   onClose,
@@ -1155,76 +876,6 @@ function GroupSheet({
         </SheetPage>
       ))}
     </ResponsiveSheet>
-  )
-}
-
-// "+ Add a topic" — the dashed trailing card in the grid. Collapsed
-// state matches a card's footprint so the grid stays even; tapping
-// expands an inline input in place.
-function AddTopicCard({ onAdd }: { onAdd: (name: string) => void }) {
-  const [open, setOpen] = useState(false)
-  const [draft, setDraft] = useState('')
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="group flex w-full min-h-[7.25rem] items-center justify-center gap-2 rounded-xl border border-dashed border-white/10 bg-white/[0.015] p-4 text-[11px] font-bold tracking-widest uppercase text-muted-foreground hover:border-neon-pink/30 hover:text-neon-pink hover:bg-white/[0.03] transition-colors"
-      >
-        <Sparkles className="h-3 w-3" />
-        Add a topic
-      </button>
-    )
-  }
-  const submit = () => {
-    const name = draft.trim()
-    if (!name) return
-    onAdd(name)
-    setDraft('')
-    setOpen(false)
-  }
-  return (
-    <div className="rounded-xl border border-neon-pink/30 bg-neon-pink/[0.04] p-3.5 min-h-[7.25rem] space-y-2">
-      <p className="text-[10px] font-bold tracking-[0.28em] uppercase text-neon-pink">
-        New Topic
-      </p>
-      <input
-        autoFocus
-        type="text"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        placeholder="Side bets, prop pool, etc."
-        className="w-full rounded-md bg-black/30 border border-white/10 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-neon-pink/50"
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') submit()
-          if (e.key === 'Escape') {
-            setOpen(false)
-            setDraft('')
-          }
-        }}
-      />
-      <div className="flex items-center justify-end gap-2">
-        <button
-          type="button"
-          onClick={() => {
-            setOpen(false)
-            setDraft('')
-          }}
-          className="px-3 py-1.5 text-[11px] font-bold tracking-widest uppercase text-muted-foreground hover:text-foreground transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={submit}
-          disabled={draft.trim().length === 0}
-          className="px-3 py-1.5 rounded-md text-[11px] font-bold tracking-widest uppercase text-black bg-neon-pink disabled:opacity-40 disabled:cursor-not-allowed hover:bg-neon-pink/90 transition-colors"
-        >
-          Add topic
-        </button>
-      </div>
-    </div>
   )
 }
 

@@ -16,15 +16,18 @@ import {
  * thing you pressed. Only the card moves; the masthead holds still.
  * (Mobile gets ResponsiveSheets instead.)
  */
-const LEFT_PANELS = ['slate', 'parlay', 'board'] as const
-const RIGHT_PANELS = ['submit', 'profile', 'season'] as const
+const LEFT_PANELS = ['slate', 'parlay', 'board', 'rules'] as const
+const RIGHT_PANELS = ['submit', 'compose', 'ask', 'profile', 'season'] as const
 
 const PANEL_LABEL: Record<Exclude<CanvasPanel, null>, string> = {
   season: 'Season',
   slate: 'Weeks',
   parlay: 'The Lay',
   board: 'Board',
+  rules: 'Rules',
   submit: 'The Leg',
+  compose: 'Add',
+  ask: 'Ask',
   profile: 'Profile',
 }
 
@@ -33,7 +36,10 @@ export function CanvasSheet({
   slatePanel,
   parlayPanel,
   boardPanel,
+  rulesPanel,
   submitPanel,
+  composePanel,
+  askPanel,
   profilePanel,
   children,
 }: {
@@ -41,7 +47,10 @@ export function CanvasSheet({
   slatePanel: React.ReactNode
   parlayPanel: React.ReactNode
   boardPanel: React.ReactNode
+  rulesPanel: React.ReactNode
   submitPanel: React.ReactNode
+  composePanel: React.ReactNode
+  askPanel: React.ReactNode
   profilePanel: React.ReactNode
   children: React.ReactNode
 }) {
@@ -58,7 +67,11 @@ export function CanvasSheet({
 
   useEffect(() => subscribePanel(setPanel), [])
   const onRight = (p: CanvasPanel) =>
-    p === 'submit' || p === 'profile' || p === 'season'
+    p === 'submit' ||
+    p === 'compose' ||
+    p === 'ask' ||
+    p === 'profile' ||
+    p === 'season'
   useEffect(() => {
     if (panel) {
       setLastSide(onRight(panel) ? 'left' : 'right')
@@ -84,9 +97,12 @@ export function CanvasSheet({
     slate: slatePanel,
     parlay: parlayPanel,
     board: boardPanel,
+    rules: rulesPanel,
   } as const
   const rightContent = {
     submit: submitPanel,
+    compose: composePanel,
+    ask: askPanel,
     profile: profilePanel,
     season: seasonPanel,
   } as const

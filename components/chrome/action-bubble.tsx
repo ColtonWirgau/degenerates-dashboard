@@ -2,9 +2,17 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Lock, Pencil, Plus, Ticket } from 'lucide-react'
+import {
+  Lock,
+  MessageCircleQuestion,
+  Pencil,
+  Plus,
+  ScrollText,
+  Ticket,
+} from 'lucide-react'
 import {
   markWeekDirty,
+  openPanel,
   openSubmit,
   subscribePanel,
   subscribeWeekActions,
@@ -38,12 +46,28 @@ import {
  * the mouse. The card's cutout follows the spring frame by frame, off
  * the same numbers that move the discs (bubble-layout.ts).
  *
- * The two verbs are the two halves of how a week actually runs:
+ * A WEEK WITH A SLATE has the two halves of how it runs:
  *
  *   YOUR LEG   — what you're putting in.
  *   SUBMIT     — the commish saying "that's everyone, I'm placing it",
  *                which closes the week. Tap it again to reopen, right up
  *                until the first game we bet kicks off.
+ *
+ * THE PRESEASON WEEK has no slate, and for a long time that meant no pod
+ * at all — so its creates ended up scattered through the page as inline
+ * furniture: a dashed "add a topic" card at the foot, an "add an item"
+ * button buried inside each topic's sheet, and no way to open a plain
+ * question at all. They're verbs like any other week's, so they live
+ * where verbs live:
+ *
+ *   ADD        — one form that makes a topic, an item, or a vote, because
+ *                an item with two answers IS a vote and a topic is just
+ *                the name you file it under.
+ *   ASK        — a question that settles nothing in the book.
+ *
+ * Both are commish-only server-side, so for everyone else the preseason
+ * pod isn't carved at all — a bubble that can only ever refuse you is
+ * worse than no bubble.
  *
  * Once the week is closed, the things that can no longer be done say so
  * rather than disappearing: the disc wears a padlock and stops
@@ -83,13 +107,16 @@ export function ActionBubble() {
   useEffect(() => subscribeSplitState(setSplitOpen), [])
   useEffect(() => subscribeWeekActions(setActions), [])
 
-  // Both verbs act on a WEEK. The recap is a season, so the pod has
-  // nothing to offer it — and offering to put a leg into a year that
+  // WHICH PAIR OF VERBS the pod is holding. The recap is a season rather
+  // than a week, so it gets none — offering to put a leg into a year that
   // finished in February is worse than offering nothing.
   const hasSlate = !onRecap && (actions?.hasSlate ?? week?.hasSlate ?? false)
+  const preseason =
+    !onRecap && !hasSlate && week?.kind === 'preseason' && (chrome?.canManage ?? false)
+  const armed = hasSlate || preseason
   useEffect(() => {
-    setActionBite(hasSlate)
-  }, [hasSlate])
+    setActionBite(armed)
+  }, [armed])
 
   useEffect(
     () =>
@@ -109,10 +136,10 @@ export function ActionBubble() {
     []
   )
 
-  // The submit reveal can open from elsewhere (the dock, a deep link);
-  // split so its ✕ has a bubble to live on.
+  // A reveal can open from elsewhere (the dock, a deep link); split so
+  // its ✕ has a bubble to live on.
   useEffect(() => {
-    if (panel === 'submit') setSplit(true)
+    if (panel === 'submit' || panel === 'compose' || panel === 'ask') setSplit(true)
   }, [panel])
 
   // A disc mounts BECAUSE of a frame, so it misses that frame's ref
@@ -136,7 +163,7 @@ export function ActionBubble() {
     return () => document.removeEventListener('pointerdown', fold, true)
   }, [split])
 
-  if (!week || !chrome || !hasSlate) return null
+  if (!week || !chrome || !armed) return null
 
   const locked = actions?.locked ?? week.parlayState !== 'open'
   const submitted = actions?.submitted ?? week.submitted
@@ -157,9 +184,36 @@ export function ActionBubble() {
 
   return (
     <>
+      {/* ─── THE PRESEASON PAIR ─────────────────────────────────────── */}
+      {preseason && lockVisible && (
+        <Bubble
+          ref={lockBtn}
+          faceRef={lockFace}
+          label="ASK"
+          labelVisible={split}
+          open={panel === 'ask'}
+          onClick={() => openPanel('ask')}
+        >
+          <MessageCircleQuestion size={21} strokeWidth={2.25} />
+        </Bubble>
+      )}
+      {preseason && legVisible && (
+        <Bubble
+          ref={legBtn}
+          faceRef={legFace}
+          label="ADD"
+          labelVisible={split}
+          open={panel === 'compose'}
+          onClick={() => openPanel('compose')}
+        >
+          <ScrollText size={20} strokeWidth={2.25} />
+        </Bubble>
+      )}
+
+      {/* ─── THE WEEK PAIR ──────────────────────────────────────────── */}
       {/* SUBMIT — the top rank. Closing the week is the last thing that
           happens to it, so it sits furthest from the resting slot. */}
-      {lockVisible && (
+      {hasSlate && lockVisible && (
         <Bubble
           ref={lockBtn}
           faceRef={lockFace}
@@ -177,7 +231,7 @@ export function ActionBubble() {
       )}
 
       {/* YOUR LEG — springs up out of the home slot to the middle rank. */}
-      {legVisible && (
+      {hasSlate && legVisible && (
         <Bubble
           ref={legBtn}
           faceRef={legFace}

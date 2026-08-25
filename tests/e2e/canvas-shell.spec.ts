@@ -80,9 +80,9 @@ test.describe('desktop', () => {
     await page.goto('http://localhost:3001/')
     await page.waitForURL(/\/leagues\//, { timeout: 10_000 })
 
-    // Week 0 has no slate, so no pod at all. Move to a week that does —
-    // through the corner door, since the rail no longer carries the week.
-    await expect(page.getByRole('button', { name: 'actions' })).toHaveCount(0)
+    // Week 0's pod holds the CHARTER's verbs, not a week's — so move to a
+    // week with a slate, through the corner door since the rail no longer
+    // carries the week.
     await page.getByRole('button', { name: /open the week list/i }).click()
     await page.getByRole('button', { name: /Week 1\b/ }).first().click()
     await expect(page.getByRole('heading', { name: 'Week 1', level: 1 })).toBeVisible({
@@ -117,6 +117,76 @@ test.describe('desktop', () => {
     // The home slot became CLOSE, so folding never moves the cursor.
     await expect(page.getByRole('button', { name: 'close' })).toBeVisible()
   })
+
+  test('week 0’s pod splits into ADD and ASK', async ({ page, context }) => {
+    await signIn(context)
+    await page.goto('http://localhost:3001/')
+    await page.waitForURL(/\/leagues\//, { timeout: 10_000 })
+    await expect(
+      page.getByRole('heading', { name: 'Preseason', level: 1 })
+    ).toBeVisible({ timeout: 15_000 })
+
+    const home = page.getByRole('button', { name: 'actions' })
+    await expect(home).toBeVisible()
+    await home.click()
+
+    // The charter's two verbs, at rest on three distinct heights — a
+    // stalled spring stacks them on the home slot.
+    await expect(page.getByRole('button', { name: 'add' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'ask' })).toBeVisible()
+    await expect
+      .poll(
+        async () =>
+          page.evaluate(
+            () =>
+              new Set(
+                [...document.querySelectorAll('[data-action-bubble]')].map(
+                  (b) => (b as HTMLElement).style.bottom
+                )
+              ).size
+          ),
+        { timeout: 4000 }
+      )
+      .toBe(3)
+
+    // ADD opens the compose panel on the right — the card slides LEFT.
+    await page.getByRole('button', { name: 'add' }).click()
+    await expect(page.locator('.sheet-track.is-slid-left')).toHaveCount(1)
+    await expect(page.getByText(/what are we deciding/i)).toBeVisible()
+    await expect(page.getByPlaceholder(/side bet ledger/i)).toBeVisible()
+    // The topic is a FIELD, not a second feature — a new one is a chip.
+    await expect(page.getByRole('button', { name: '+ New' })).toBeVisible()
+  })
+
+  test('RULES panel pages into a topic and hands a row to the charter', async ({
+    page,
+    context,
+  }) => {
+    await signIn(context)
+    await page.goto('http://localhost:3001/')
+    await page.waitForURL(/\/leagues\//, { timeout: 10_000 })
+
+    const rules = page.getByRole('button', { name: 'rules panel' })
+    await expect(rules).toBeVisible()
+    await rules.click()
+    await expect(page.locator('.sheet-track.is-slid-right')).toHaveCount(1)
+
+    // The book is topics first. Drill into one and its items print with
+    // the values they were settled at.
+    const stakes = page.getByRole('button', { name: /^Stakes —/ })
+    await expect(stakes).toBeVisible()
+    await stakes.click()
+    const buyIn = page.getByRole('button', { name: /^Buy-in —/ })
+    await expect(buyIn).toBeVisible()
+
+    // Tapping a row closes the panel and opens the charter's own sheet on
+    // that item — the panel reads, the sheet writes.
+    await buyIn.click()
+    await expect(page.locator('.sheet-track.is-slid-right')).toHaveCount(0)
+    await expect(
+      page.getByRole('dialog').getByText('Buy-in', { exact: false }).first()
+    ).toBeVisible({ timeout: 5_000 })
+  })
 })
 
 test.describe('mobile', () => {
@@ -138,6 +208,18 @@ test.describe('mobile', () => {
     // The panel arrives as a portaled bottom sheet.
     await expect(
       page.getByRole('dialog').getByText('Board', { exact: false }).first()
+    ).toBeVisible({ timeout: 5_000 })
+  })
+
+  test('the book has a dock cell of its own', async ({ page, context }) => {
+    await signIn(context)
+    await page.goto('http://localhost:3001/')
+    await page.waitForURL(/\/leagues\//, { timeout: 10_000 })
+
+    const dock = page.getByRole('navigation', { name: 'Main' })
+    await dock.getByRole('button', { name: 'House rules' }).click()
+    await expect(
+      page.getByRole('dialog').getByText('Rules', { exact: false }).first()
     ).toBeVisible({ timeout: 5_000 })
   })
 })

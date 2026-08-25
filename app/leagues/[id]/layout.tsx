@@ -30,6 +30,10 @@ import {
   type ParlayPanelWeek,
 } from '@/components/chrome/panels/parlay-panel'
 import { ProfilePanel } from '@/components/chrome/panels/profile-panel'
+import { RulesPanel } from '@/components/chrome/panels/rules-panel'
+import { groupCharter, unsettledCount } from '@/lib/charter-groups'
+import { ComposePanel } from '@/components/chrome/panels/compose-panel'
+import { AskPanel } from '@/components/chrome/panels/ask-panel'
 
 /**
  * The league shell — the canvas-reveal chrome around every league route.
@@ -107,6 +111,9 @@ export default async function LeagueShellLayout({
     }
   })
 
+  const canManage =
+    p.currentUserRole === 'owner' || p.currentUserRole === 'admin'
+
   // `switching` is the provider's to add — it's a fact about the client's
   // in-flight season change, which the server can't know.
   const chrome: Omit<LeagueChrome, 'switching'> = {
@@ -135,7 +142,17 @@ export default async function LeagueShellLayout({
       email: p.me.email,
       avatarUrl: p.me.avatarUrl,
     },
+    canManage,
+    charterCount: p.charter.length,
+    charterOpen: unsettledCount(p.charter),
   }
+
+  // The topics the ADD form can file into — the ones that already exist,
+  // in the order the book prints them, plus whatever the league invents
+  // in the form itself.
+  const charterTopics = groupCharter(p.charter).map((t) => t.name)
+  const preseasonWeekId =
+    chromeWeeks.find((w) => w.kind === 'preseason')?.id ?? ''
 
   // The roster, each carrying their record for the season being shown —
   // the season panel is where "who was in it and how did they do" gets
@@ -218,9 +235,33 @@ export default async function LeagueShellLayout({
               />
             </PanelReveal>
           }
+          rulesPanel={
+            <PanelReveal panel="rules">
+              <RulesPanel charter={p.charter} editable={canManage} />
+            </PanelReveal>
+          }
           submitPanel={
             <PanelReveal panel="submit">
               <SubmitReveal leagueId={p.league.id} legsByWeek={legsByWeek} />
+            </PanelReveal>
+          }
+          composePanel={
+            <PanelReveal panel="compose">
+              {canManage && (
+                <ComposePanel
+                  leagueId={p.league.id}
+                  season={p.season}
+                  nflWeekId={preseasonWeekId}
+                  topics={charterTopics}
+                />
+              )}
+            </PanelReveal>
+          }
+          askPanel={
+            <PanelReveal panel="ask">
+              {canManage && (
+                <AskPanel leagueId={p.league.id} nflWeekId={preseasonWeekId} />
+              )}
             </PanelReveal>
           }
           profilePanel={

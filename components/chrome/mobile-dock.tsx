@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Check, Layers, ListTodo, Plus, Trophy } from 'lucide-react'
+import { Check, Layers, ListTodo, Plus, ScrollText, Trophy } from 'lucide-react'
 import { openPanel, openSubmit } from '@/components/chrome/canvas-store'
 import {
   useLeagueChrome,
@@ -18,8 +18,8 @@ import {
  * same order — and like the rail it's a function of the WEEK you're
  * looking at, with the disc holding that week's verb:
  *
- *   a week with a slate:  WEEK · LAY · (+/✓) · BOARD · POLLS?
- *   the preseason week:   WEEK ·  ·  (POLLS) · BOARD ·
+ *   a week with a slate:  WEEK · LAY · (+/✓) · BOARD · RULES
+ *   the preseason week:   WEEK · RULES · (VOTES) · BOARD · ADD
  *
  * Each slot crossfades its face (face-pop) when its live fact changes.
  * There is no Home cell because home IS the week behind the sheets, no
@@ -92,6 +92,28 @@ export function MobileDock() {
     ),
     below: 'Board',
   }
+  const rulesCell: Face = {
+    key: `rules-${waiting ? 'switching' : chrome.charterOpen}`,
+    label: 'House rules',
+    onClick: () => openPanel('rules'),
+    content: waiting ? (
+      <Waiting />
+    ) : chrome.charterOpen > 0 ? (
+      <span className="font-display text-neon-pink text-[0.82rem]">
+        {chrome.charterOpen}
+      </span>
+    ) : (
+      <ScrollText size={16} strokeWidth={2.25} />
+    ),
+    below: 'Rules',
+  }
+  const addCell: Face = {
+    key: 'add',
+    label: 'Add to the book',
+    onClick: () => openPanel('compose'),
+    content: <Plus size={16} strokeWidth={2.25} />,
+    below: 'Add',
+  }
   const layCell: Face = {
     key: `lay-${waiting ? 'switching' : (week?.submissionCount ?? 0)}`,
     label: 'The lay',
@@ -113,13 +135,23 @@ export function MobileDock() {
   // that isn't on screen and the board already is. The week cell stays —
   // it's the way back out.
   const hasParlay = week?.parlayId != null && !onRecap
+  // The rail's rungs, in the rail's order. RULES rides every week for the
+  // same reason it does up there — the buy-in doesn't change in October —
+  // and the last slot is the preseason's create verb, which is the
+  // commish's alone. The disc stays the MEMBER's verb: go and vote.
+  const isPreseason = week?.kind === 'preseason' && !onRecap
   const slots: (Face | 'park' | null)[] = [
     weekCell,
     hasParlay ? layCell : null,
     'park',
     onRecap ? null : boardCell,
-    null,
+    onRecap ? null : isPreseason && chrome.canManage ? addCell : chrome.charterCount > 0 ? rulesCell : null,
   ]
+  // On the preseason week the rules are the page's own subject matter, so
+  // the book gets a cell of its own rather than sharing with ADD.
+  if (isPreseason && chrome.canManage && chrome.charterCount > 0 && !hasParlay) {
+    slots[1] = rulesCell
+  }
 
   const disc = hasSlate
     ? week!.submitted

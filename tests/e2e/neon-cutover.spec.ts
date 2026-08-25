@@ -77,23 +77,27 @@ test('the league opens on the current week — week 0, the rules', async ({ page
     page.getByRole('button', { name: /Preseason — open the week list/i })
   ).toBeVisible()
 
-  // Every topic is a section of its own — the dated event first, then
-  // what still needs deciding, then each part of the settled record.
-  // There is no umbrella heading over the rulebook any more.
+  // The page is down to the two live things: the dated event, and what
+  // the league still has to decide. The settled record — Stakes,
+  // Playoffs, Trading and the rest — is a RECORD rather than work, so it
+  // reads from the RULES panel now and isn't printed down the page.
   await expect(
     page.getByRole('heading', { name: /^Draft$/i, level: 2 })
   ).toBeVisible({ timeout: 10_000 })
   await expect(page.getByRole('heading', { name: /^Vote$/i, level: 2 })).toBeVisible()
-  await expect(page.getByRole('heading', { name: /^Stakes$/i, level: 2 })).toBeVisible()
-  await expect(page.getByRole('heading', { name: /^Playoffs$/i, level: 2 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /^Stakes$/i, level: 2 })).toHaveCount(0)
   await expect(
-    page.getByRole('heading', { name: /House Rules/i, level: 2 })
+    page.getByRole('heading', { name: /^Playoffs$/i, level: 2 })
   ).toHaveCount(0)
 
   // The draft reads as a fixture, not a list of pairs.
   await expect(page.getByText('Don Christos')).toBeVisible()
-  await expect(page.getByText('$50 · 12 teams · $600 pot')).toBeVisible()
   await expect(page.getByText('Snake + 3rd Rd Reversal')).toBeVisible()
+
+  // …and the record is one rung away, wearing what's still unanswered.
+  await page.getByRole('button', { name: 'rules panel' }).click()
+  await page.getByRole('button', { name: /^Stakes —/ }).click()
+  await expect(page.getByText('$50 · 12 teams · $600 pot')).toBeVisible()
 })
 
 test('picking a week swaps the stage without navigating', async ({ page }) => {
