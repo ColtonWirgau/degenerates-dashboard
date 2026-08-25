@@ -1,3 +1,4 @@
+import { assignRanks } from '@/lib/leaderboard-rank'
 import { getLeagueOverviewCached } from '@/lib/data/league-overview-cached'
 import { getLeagueWeeksCached } from '@/lib/data/league-weeks-cached'
 import { getCurrentUser } from '@/lib/data/auth-bridge'
@@ -75,6 +76,10 @@ export default async function LeagueShellLayout({
   // Before then the table is twelve zeroes in arbitrary order, and
   // stamping "#3" on the viewer's bubble would be inventing a standing.
   const seasonHasResults = p.leaderboard.some((e) => e.wins + e.losses + e.pushes > 0)
+  // Level records share a place, so a rank is looked up rather than
+  // counted off — otherwise the dock tells you you're 9th while the board
+  // it opens has you tied for 7th.
+  const boardRanks = assignRanks(p.leaderboard)
   const myRankIdx = seasonHasResults
     ? p.leaderboard.findIndex((e) => e.userId === p.me.id)
     : -1
@@ -111,7 +116,7 @@ export default async function LeagueShellLayout({
     seasonKind: p.seasonState.kind,
     weeks: chromeWeeks,
     currentWeekId: currentWeek?.nflWeekId ?? null,
-    myRank: myRankIdx >= 0 ? myRankIdx + 1 : null,
+    myRank: myRankIdx >= 0 ? (boardRanks[myRankIdx] ?? null) : null,
     memberCount: p.members.length,
     // The BOARD bubble wears the podium. Same guard as the rank: before
     // anyone has a result the table is twelve zeroes in arbitrary order,

@@ -155,13 +155,8 @@ export function SeasonRecap({
 
       <Section title="The Board" accent="blue">
         <div className="space-y-1.5">
-          {data.people.map((p, i) => (
-            <PersonRow
-              key={p.userId}
-              rank={i + 1}
-              person={p}
-              isMe={p.userId === data.meId}
-            />
+          {data.people.map((p) => (
+            <PersonRow key={p.userId} person={p} isMe={p.userId === data.meId} />
           ))}
         </div>
       </Section>
@@ -171,11 +166,9 @@ export function SeasonRecap({
 }
 
 function PersonRow({
-  rank,
   person,
   isMe,
 }: {
-  rank: number
   person: SeasonRecapPayload['people'][number]
   isMe: boolean
 }) {
@@ -186,13 +179,16 @@ function PersonRow({
         isMe ? 'border-neon-blue/40 bg-neon-blue/[0.08]' : 'border-white/10 bg-white/[0.02]'
       )}
     >
+      {/* A repeated number reads as a bug unless the rows sharing it
+          say so — hence the T. */}
       <span
         className={cn(
-          'font-display w-6 shrink-0 text-center text-sm leading-none',
-          rank === 1 || isMe ? 'text-neon-blue' : 'text-muted-foreground'
+          'font-display w-7 shrink-0 text-center text-sm leading-none',
+          person.rank === 1 || isMe ? 'text-neon-blue' : 'text-muted-foreground'
         )}
       >
-        {rank}
+        {person.tied && <span className="align-top text-[0.7em]">T</span>}
+        {person.rank}
       </span>
       <Avatar className="h-7 w-7 shrink-0 ring-1 ring-white/10">
         <AvatarImage src={person.avatarUrl ?? undefined} alt="" />

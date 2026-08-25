@@ -5,6 +5,7 @@ import { ArrowLeft, Minus, Skull, Trophy } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import type { ChromeWeek } from '@/components/chrome/league-chrome-context'
 import type { ParlayPanelWeek } from '@/components/chrome/panels/parlay-panel'
+import { assignRanks } from '@/lib/leaderboard-rank'
 import { cn } from '@/lib/utils'
 
 export interface BoardPanelEntry {
@@ -56,12 +57,14 @@ export function BoardPanel({
 }) {
   const [openId, setOpenId] = useState<string | null>(null)
   const person = entries.find((e) => e.userId === openId) ?? null
+  // Level records share a place — see lib/leaderboard-rank.
+  const ranks = assignRanks(entries)
 
   if (person) {
     return (
       <PersonSeason
         person={person}
-        rank={entries.findIndex((e) => e.userId === person.userId) + 1}
+        rank={ranks[entries.findIndex((e) => e.userId === person.userId)] ?? 1}
         isMe={person.userId === currentUserId}
         weeks={weeks}
         laysByWeek={laysByWeek}
@@ -79,6 +82,8 @@ export function BoardPanel({
       <div className="scrollbar-hide min-h-0 flex-1 space-y-1.5 overflow-y-auto pb-2">
         {entries.map((e, i) => {
           const isMe = e.userId === currentUserId
+          const rank = ranks[i]!
+          const tied = ranks.filter((r) => r === rank).length > 1
           return (
             <button
               key={e.userId}
@@ -92,13 +97,16 @@ export function BoardPanel({
                   : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.06]'
               )}
             >
+              {/* A repeated number reads as a bug unless the rows
+                  sharing it say so — hence the T. */}
               <span
                 className={cn(
                   'font-display w-7 shrink-0 text-center text-sm leading-none',
-                  i === 0 || isMe ? 'text-neon-blue' : 'text-muted-foreground'
+                  rank === 1 || isMe ? 'text-neon-blue' : 'text-muted-foreground'
                 )}
               >
-                {i + 1}
+                {tied && <span className="text-[0.7em] align-top">T</span>}
+                {rank}
               </span>
               <Avatar className="h-7 w-7 shrink-0">
                 <AvatarImage src={e.avatarUrl ?? undefined} alt="" />

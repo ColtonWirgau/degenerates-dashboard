@@ -24,6 +24,7 @@ import { and, eq } from 'drizzle-orm'
 import { nflWeeks, parlayLegs, parlays, users } from '@/db/schema'
 import { getCurrentUser } from '@/lib/data/auth-bridge'
 import { getDataAdapter } from '@/lib/data/adapter'
+import { assignRanks, compareForBoard } from '@/lib/leaderboard-rank'
 
 export interface RecapLeg {
   weekNumber: number
@@ -54,6 +55,10 @@ export interface RecapPerson {
   losses: number
   pushes: number
   winRate: number
+  /** Place on the board. Level records share one. */
+  rank: number
+  /** Somebody else finished level. */
+  tied: boolean
   weeksIn: number
   /** Longest run of winning legs, week over week. */
   streak: number
@@ -179,12 +184,25 @@ export async function getSeasonRecap(
         losses,
         pushes,
         winRate: decided === 0 ? 0 : Math.round((wins / decided) * 100),
+        // Filled in below, once the list is in order.
+        rank: 0,
+        tied: false,
         weeksIn: new Set(sorted.map((r) => r.weekNumber)).size,
         streak,
         trace: sorted.map((r) => ({ weekNumber: r.weekNumber, result: r.result })),
       }
     })
-    .sort((a, b) => b.winRate - a.winRate || b.wins - a.wins)
+    // The board panel's sort, shared — the two used to order by
+    // different things, which meant the recap and the rail could
+    // disagree about who came third.
+    .sort(compareForBoard)
+
+  // Places, with ties: three people level on 7–8 are all 7th.
+  const ranks = assignRanks(people)
+  for (let i = 0; i < people.length; i++) {
+    people[i]!.rank = ranks[i]!
+    people[i]!.tied = ranks.filter((r) => r === ranks[i]).length > 1
+  }
 
   // ─── The awards ───────────────────────────────────────────────────
   const awards: RecapAward[] = []
