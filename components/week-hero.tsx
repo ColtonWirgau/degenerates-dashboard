@@ -129,8 +129,16 @@ export function WeekHero({
           </span>
         </button>
 
-        {/* THE LEAGUE'S WEEK. Everyone's leg, in one line. */}
-        <div className="relative z-10 flex min-w-0 flex-1 flex-col justify-center px-4 py-6 sm:py-0 sm:pl-14 lg:pr-20">
+        {/* THE LEAGUE'S WEEK, and the door to it. The chart is the shape
+            of the lay — who's in, who's missing, how it went — so
+            pressing it opens the lay itself, at full detail. THE LAY had
+            a rung on the rail wearing a count, which was a second, worse
+            way of saying what this whole half already says. */}
+        <button
+          type="button"
+          onClick={() => openPanel('parlay')}
+          aria-label={`Week ${weekNumber} — open the lay`}
+          className="group relative z-10 flex min-w-0 flex-1 flex-col justify-center px-4 py-6 text-left transition-[filter] hover:brightness-125 sm:py-0 sm:pl-14 lg:pr-20">
           <span
             className={cn(
               'mb-3 text-[10px] font-bold tracking-[0.28em] uppercase',
@@ -152,7 +160,7 @@ export function WeekHero({
               Nobody&apos;s in yet.
             </span>
           )}
-        </div>
+        </button>
       </div>
     </section>
   )

@@ -1,13 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Clock, Skull, Trophy } from 'lucide-react'
+import { Trophy } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   useLeagueChrome,
   useOnRecap,
-  useViewedWeek,
-  type ChromeWeek,
   type PodiumMember,
 } from '@/components/chrome/league-chrome-context'
 import {
@@ -21,11 +19,8 @@ import { railC, setRailCount } from '@/components/chrome/bubble-layout'
 
 /**
  * The card's LEFT rail — the clipped-cutout construction ported from
- * RoarTracker, each bubble wearing its panel's live fact. In order,
- * always:
+ * RoarTracker, the bubble wearing its panel's live fact:
  *
- *   PARLAY  how the lay is doing — a count while it's filling, then a
- *           trophy or a skull once it's settled
  *   BOARD   the season's podium, three faces in gold, silver and bronze
  *
  * The week list is NOT here any more. It had a bubble wearing the week's
@@ -38,34 +33,29 @@ import { railC, setRailCount } from '@/components/chrome/bubble-layout'
  * every vote under ON THE BALLOT already, and a rung saying the same
  * thing smaller could only agree with it by accident.
  *
- * The first comes and goes with the week (the preseason has no parlay)
- * and the rail closes up behind it, so it's never a ladder with a rung
- * missing. Open, a bubble becomes its own ✕. They render inside
- * .page-sheet, so they ride every slide the card makes.
+ * THE LAY was the other one, and it's gone the same way: the week hero's
+ * right half IS the lay — everyone's leg, drawn — so pressing it opens
+ * the panel. A rung wearing a count of the same legs was a second, worse
+ * way of saying what a whole half of the hero already says.
+ *
+ * Open, a bubble becomes its own ✕. They render inside .page-sheet, so
+ * they ride every slide the card makes.
  */
-type Rung = 'parlay' | 'board'
+type Rung = 'board'
 
 export function PanelBubbles() {
   const chrome = useLeagueChrome()
-  const week = useViewedWeek()
   const onRecap = useOnRecap()
   const [panel, setPanel] = useState<CanvasPanel>(null)
   useEffect(() => subscribePanel(setPanel), [])
 
-  const hasParlay = week?.parlayId != null
-
-  // Rail order is fixed; presence is not. The clip follows exactly —
-  // resolveBites carves this many holes, top-down.
+  // ONE RUNG. The clip follows exactly — resolveBites carves this many
+  // holes, top-down.
   //
-  // The recap empties it. THE LAY answers for one week and the recap
-  // isn't one; the BOARD is already the middle of the page, and a rung
-  // that opens a panel over the thing it duplicates is a door to the
-  // room you're standing in.
-  const rungs: Rung[] = []
-  if (!onRecap) {
-    if (hasParlay) rungs.push('parlay')
-    rungs.push('board')
-  }
+  // The recap empties it: the BOARD is already the middle of that page,
+  // and a rung that opens a panel over the thing it duplicates is a door
+  // to the room you're standing in.
+  const rungs: Rung[] = onRecap ? [] : ['board']
 
   const count = rungs.length
   useEffect(() => {
@@ -122,7 +112,7 @@ export function PanelBubbles() {
               style={{ left: 10, top: 15.5, width: 44, height: 44 }}
             >
               <span
-                key={`${p}-${open}-${faceKey(p, week, chrome.podium)}`}
+                key={`${p}-${open}-${faceKey(p, chrome.podium)}`}
                 className="face-pop flex items-center justify-center"
               >
                 {open ? (
@@ -138,7 +128,7 @@ export function PanelBubbles() {
                     className="h-2 w-2 animate-pulse rounded-full bg-current opacity-40"
                   />
                 ) : (
-                  <Face panel={p} week={week} podium={chrome.podium} />
+                  <Face panel={p} podium={chrome.podium} />
                 )}
               </span>
             </span>
@@ -151,60 +141,20 @@ export function PanelBubbles() {
 
 function arcText(panel: Rung): string {
   switch (panel) {
-    case 'parlay':
-      return 'THE LAY'
     case 'board':
       return 'BOARD'
   }
 }
 
-function faceKey(
-  panel: Rung,
-  week: ChromeWeek | null,
-  podium: PodiumMember[]
-): string | number {
+function faceKey(panel: Rung, podium: PodiumMember[]): string | number {
   switch (panel) {
-    case 'parlay':
-      return `${week?.parlayState ?? ''}:${week?.submissionCount ?? 0}`
     case 'board':
       return podium.map((m) => m.userId).join(',') || '–'
   }
 }
 
-function Face({
-  panel,
-  week,
-  podium,
-}: {
-  panel: Rung
-  week: ChromeWeek | null
-  podium: PodiumMember[]
-}) {
+function Face({ panel, podium }: { panel: Rung; podium: PodiumMember[] }) {
   switch (panel) {
-    case 'parlay': {
-      // How the lay is DOING, not just how full it is. While it's still
-      // taking legs the count is the state; once it's settled the count
-      // stops mattering and the verdict is the whole story.
-      switch (week?.parlayState) {
-        case 'won':
-          return <Trophy size={20} strokeWidth={2.25} />
-        case 'lost':
-          // The disc's own ink is the blue of a good outcome; a skull
-          // wearing it says the opposite of what it means.
-          return <Skull size={20} strokeWidth={2.25} className="text-destructive" />
-        case 'locked':
-        case 'graded':
-          return (
-            <Clock size={19} strokeWidth={2.25} className="text-muted-foreground" />
-          )
-        default:
-          return (
-            <span className="font-display text-[1.05rem] leading-none">
-              {week?.submissionCount ?? 0}
-            </span>
-          )
-      }
-    }
     case 'board':
       return podium.length > 0 ? (
         <Podium members={podium} />

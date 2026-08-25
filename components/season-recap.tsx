@@ -19,6 +19,7 @@
 
 import { useEffect, useState } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { ChevronLeft } from 'lucide-react'
 import { ConnectedDots, type ConnectedDotsResult } from '@/components/connected-dots'
 import { getSeasonRecap, type SeasonRecapPayload } from '@/app/actions/season-recap'
 import { openPanel } from '@/components/chrome/canvas-store'
@@ -65,38 +66,43 @@ export function SeasonRecap({
 
   return (
     <div>
-      {/* THE HEADLINE. The one number that decides how a year gets
-          talked about, at the size that decision deserves.
+      {/* THE YEAR, as a fixture band — the same construction the draft
+          and every week now use. It was a corner slab and the words THE
+          RECAP across an empty strip, which named the view without
+          saying anything about the season it was recapping.
 
-          The year slab is the corner door, same as a week's number is —
-          the recap is a whole view of the stage, so without it there'd be
-          no way back to the weeks from here. */}
-      <header className="flex items-stretch gap-4">
-        <button
-          type="button"
-          onClick={() => openPanel('slate')}
-          aria-label={`${data.season} — open the week list`}
-          className="relative -mt-8 -ml-4 flex w-[7.5rem] shrink-0 items-center justify-center overflow-hidden rounded-tl-[20px] pt-8 pb-5 transition-[filter] hover:brightness-125 lg:-ml-20 lg:w-[8.75rem] lg:pl-6"
-          style={{
-            clipPath: 'polygon(0 0, 100% 0, calc(100% - 13px) 100%, 0 100%)',
-            background:
-              'linear-gradient(150deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))',
-          }}
-        >
-          <span
-            aria-hidden
-            className="font-display text-foreground/75 -mr-2 text-4xl leading-none tabular-nums"
+          The right half is WHO WON IT. That's the one fact a year gets
+          remembered by; the board underneath is the argument, and this
+          is the verdict. A tie says so rather than picking one. */}
+      <section
+        aria-label={`${data.season} recap`}
+        className="relative -mx-4 -mt-8 mb-8 lg:-mx-20"
+      >
+        <h1 className="sr-only">The {year} recap</h1>
+        <div className="relative flex flex-col overflow-hidden sm:h-[10.5rem] sm:flex-row sm:items-stretch lg:h-[12.5rem]">
+          <button
+            type="button"
+            onClick={() => openPanel('slate')}
+            aria-label={`${data.season} — open the week list`}
+            className="group relative z-20 flex w-full flex-col items-start justify-center px-4 py-5 text-left transition-[filter] hover:brightness-110 sm:w-[46%] sm:shrink-0 sm:py-0 sm:pr-12 sm:[clip-path:polygon(0_0,100%_0,calc(100%-46px)_100%,0_100%)] lg:w-[42%] lg:pl-20"
+            style={{
+              backgroundColor: '#0A0A0A',
+              backgroundImage:
+                'linear-gradient(115deg, rgba(0,217,255,0.22), rgba(0,217,255,0.06) 62%, rgba(0,217,255,0.02))',
+            }}
           >
-            {year}
-          </span>
-        </button>
-        <div className="min-w-0 flex-1 self-center pt-1">
-          <h1 className="font-display text-3xl leading-none tracking-tight uppercase sm:text-4xl">
-            <span className="text-neon-blue">The</span>{' '}
-            <span className="text-foreground/80">Recap</span>
-          </h1>
+            <span className="text-muted-foreground/60 group-hover:text-neon-blue mb-1.5 inline-flex items-center gap-1 text-[10px] font-bold tracking-[0.28em] uppercase transition-colors">
+              <ChevronLeft className="h-3 w-3" />
+              All weeks
+            </span>
+            <span className="font-display text-foreground text-4xl leading-[0.85] tracking-tight uppercase tabular-nums sm:text-5xl lg:text-6xl">
+              {year}
+            </span>
+          </button>
+
+          <Champions people={data.people} />
         </div>
-      </header>
+      </section>
 
       {data.awards.length > 0 && (
         <Section title="The Honors" accent="pink">
@@ -161,6 +167,48 @@ export function SeasonRecap({
         </div>
       </Section>
 
+    </div>
+  )
+}
+
+/**
+ * WHO WON THE YEAR — the recap band's right half.
+ *
+ * One fact, said at the size it deserves: the name, the record, the
+ * face. A tie prints both names rather than picking a winner, because
+ * the board it sits over doesn't pick one either.
+ */
+function Champions({ people }: { people: SeasonRecapPayload['people'] }) {
+  const champs = people.filter((p) => p.rank === 1)
+  if (champs.length === 0) {
+    return <div className="relative z-10 flex min-w-0 flex-1" />
+  }
+  const [first] = champs
+  const shared = champs.length > 1
+
+  return (
+    <div className="relative z-10 flex min-w-0 flex-1 flex-col justify-center px-4 py-6 sm:py-0 sm:pl-14 lg:pr-20">
+      <span className="text-neon-blue/85 mb-2 text-[10px] font-bold tracking-[0.28em] uppercase">
+        {shared ? `Shared · ${first!.wins}–${first!.losses}` : `Champion · ${first!.wins}–${first!.losses}`}
+      </span>
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex shrink-0 -space-x-3">
+          {champs.slice(0, 3).map((c) => (
+            <Avatar
+              key={c.userId}
+              className="ring-neon-blue/50 h-11 w-11 ring-2 lg:h-14 lg:w-14"
+            >
+              <AvatarImage src={c.avatarUrl ?? undefined} alt="" />
+              <AvatarFallback className="bg-primary/80 text-primary-foreground text-xs font-bold">
+                {(c.fullName ?? c.email).slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+          ))}
+        </div>
+        <span className="font-display text-foreground min-w-0 truncate text-3xl leading-[0.9] tracking-tight uppercase sm:text-4xl lg:text-5xl">
+          {champs.map((c) => c.name).join(' & ')}
+        </span>
+      </div>
     </div>
   )
 }
@@ -261,24 +309,36 @@ function Section({
 function RecapSkeleton() {
   return (
     <div aria-busy="true" aria-label="Loading the recap">
-      <header className="flex items-stretch gap-4">
-        <div
-          aria-hidden
-          className="relative -mt-8 -ml-4 flex w-[7.5rem] shrink-0 items-center justify-center overflow-hidden rounded-tl-[20px] pt-8 pb-5 lg:-ml-20 lg:w-[8.75rem] lg:pl-6"
-          style={{
-            clipPath: 'polygon(0 0, 100% 0, calc(100% - 13px) 100%, 0 100%)',
-            background:
-              'linear-gradient(150deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))',
-          }}
-        >
-          <Skeleton className="-mr-2 h-9 w-20 rounded-lg" />
+      {/* The band's own geometry — full bleed, the same height, the same
+          slanted seam — so nothing moves when the year lands. */}
+      <section className="relative -mx-4 -mt-8 mb-8 lg:-mx-20">
+        <div className="relative flex flex-col overflow-hidden sm:h-[10.5rem] sm:flex-row sm:items-stretch lg:h-[12.5rem]">
+          <div
+            aria-hidden
+            className="flex w-full flex-col items-start justify-center px-4 py-5 sm:w-[46%] sm:shrink-0 sm:py-0 sm:[clip-path:polygon(0_0,100%_0,calc(100%-46px)_100%,0_100%)] lg:w-[42%] lg:pl-20"
+            style={{
+              backgroundColor: '#0A0A0A',
+              backgroundImage:
+                'linear-gradient(115deg, rgba(0,217,255,0.14), rgba(0,217,255,0.04) 62%, rgba(0,217,255,0.01))',
+            }}
+          >
+            <Skeleton className="mb-2 h-2.5 w-20" />
+            <Skeleton className="h-9 w-32 sm:h-11 lg:h-14" />
+          </div>
+          <div
+            aria-hidden
+            className="flex min-w-0 flex-1 flex-col justify-center px-4 py-6 sm:py-0 sm:pl-14 lg:pr-20"
+          >
+            <Skeleton className="mb-2 h-2.5 w-28" />
+            <div className="flex items-center gap-3">
+              <Skeleton className="size-11 shrink-0 rounded-full lg:size-14" />
+              <Skeleton className="h-8 w-48 lg:h-11" />
+            </div>
+          </div>
         </div>
-        <div className="min-w-0 flex-1 self-center pt-1">
-          <Skeleton className="h-8 w-44 sm:h-9" />
-        </div>
-      </header>
+      </section>
       {/* Straight into the honours, which is what the real thing does. */}
-      <Skeleton className="mt-8 mb-3 h-6 w-40" />
+      <Skeleton className="mb-3 h-6 w-40" />
       <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
         {Array.from({ length: 4 }, (_, i) => (
           <Skeleton key={i} className="h-[5.5rem] rounded-xl" />

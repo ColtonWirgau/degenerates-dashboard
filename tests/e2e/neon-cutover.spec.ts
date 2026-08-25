@@ -161,10 +161,11 @@ test('picking a week swaps the stage without navigating', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'actions' })).toBeVisible()
 })
 
-test('the lay is a reveal off the rail, not a modal', async ({ page }) => {
+test('the lay opens from the hero, and is a reveal not a modal', async ({ page }) => {
   await openLeague(page)
 
-  // Week 0 has no parlay, so no LAY rung.
+  // THE LAY has no rung any more: the week hero's right half IS the lay,
+  // drawn, so pressing it is how you open the detail.
   await expect(page.getByRole('button', { name: 'parlay panel' })).toHaveCount(0)
 
   await page.getByRole('button', { name: /open the week list/i }).click()
@@ -173,7 +174,7 @@ test('the lay is a reveal off the rail, not a modal', async ({ page }) => {
     timeout: 15_000,
   })
 
-  await page.getByRole('button', { name: 'parlay panel' }).click()
+  await page.getByRole('button', { name: /Week 1 — open the lay/i }).click()
   // The card slides RIGHT for a left-rail panel — a reveal, not an
   // overlay dropped on top of the page.
   await expect(page.locator('.sheet-track.is-slid-right')).toBeVisible()
@@ -189,9 +190,11 @@ test('a finished season is closed, not still taking legs', async ({ page }) => {
   await page.getByRole('button', { name: /2025-2026/ }).click()
 
   // A finished season opens on how it went, not on a week.
-  await expect(page.getByRole('heading', { name: /The Recap/i, level: 1 })).toBeVisible({
-    timeout: 20_000,
-  })
+  // The recap's hero is the year and who won it — "The Recap" was a
+  // label for the view rather than anything about the season.
+  await expect(
+    page.getByRole('heading', { name: /2025 recap/i, level: 1 })
+  ).toBeVisible({ timeout: 20_000 })
   await openWeek18(page)
 
   // Its last week was closed long ago — the "not everyone's in yet" rule
@@ -281,9 +284,9 @@ test('switching seasons repaints immediately and needs no server action', async 
   // And what can't be known yet says so rather than showing last
   // season's numbers, until the real thing lands — which for a season
   // that's over is the recap.
-  await expect(page.getByRole('heading', { name: /The Recap/i, level: 1 })).toBeVisible({
-    timeout: 20_000,
-  })
+  await expect(
+    page.getByRole('heading', { name: /2025 recap/i, level: 1 })
+  ).toBeVisible({ timeout: 20_000 })
   await expect(page.locator('[aria-busy="true"]')).toHaveCount(0)
 
   expect(
