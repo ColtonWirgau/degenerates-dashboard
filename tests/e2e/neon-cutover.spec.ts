@@ -96,8 +96,12 @@ test('the league opens on the current week — week 0, the rules', async ({ page
     page.getByRole('heading', { name: /^Format$/i, level: 2 })
   ).toHaveCount(0)
 
-  // The draft reads as a fixture, not a list of pairs.
-  await expect(page.getByText('Don Christos')).toBeVisible()
+  // The draft reads as a fixture, not a list of pairs. By its control,
+  // not its text — the venue's name is also the heading of THE ROOM,
+  // which is mounted in its slot whether or not it's open.
+  await expect(
+    page.getByRole('button', { name: /Draft location — Don Christos/i })
+  ).toBeVisible()
   await expect(page.getByText('Snake + 3rd Rd Reversal')).toBeVisible()
 
   // …and the record is behind the SEASON door, because a buy-in belongs
@@ -335,4 +339,23 @@ test('the wordmark goes home — the current week, without navigating', async ({
   await expect(page.getByRole('heading', { name: 'Preseason', level: 1 })).toBeVisible({
     timeout: 15_000,
   })
+})
+
+test('the venue opens THE ROOM, not its line in the book', async ({ page }) => {
+  await openLeague(page)
+
+  // The name of the place is a door to the place — a map, the address,
+  // the phone — rather than to what the league decided about it.
+  await page.getByRole('button', { name: /Draft location/i }).click()
+  await expect(page.locator('.sheet-track.is-slid-left')).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: /Don Christos/i, level: 2 })
+  ).toBeVisible({ timeout: 10_000 })
+
+  // It is the PLACE, not the charter line — the two things you do with
+  // a place, and no label over the name saying "venue".
+  await expect(page.getByRole('link', { name: 'Google Maps' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Apple Maps' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Copy the address/i })).toBeVisible()
+  await expect(page.getByText('The room', { exact: true })).toHaveCount(0)
 })

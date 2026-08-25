@@ -17,7 +17,7 @@ import {
  * (Mobile gets ResponsiveSheets instead.)
  */
 const LEFT_PANELS = ['slate', 'parlay', 'board'] as const
-const RIGHT_PANELS = ['submit', 'compose', 'ask', 'profile', 'season'] as const
+const RIGHT_PANELS = ['submit', 'compose', 'ask', 'profile', 'season', 'venue'] as const
 
 const PANEL_LABEL: Record<Exclude<CanvasPanel, null>, string> = {
   season: 'Season',
@@ -28,6 +28,7 @@ const PANEL_LABEL: Record<Exclude<CanvasPanel, null>, string> = {
   compose: 'Add',
   ask: 'Ask',
   profile: 'Profile',
+  venue: 'The Room',
 }
 
 export function CanvasSheet({
@@ -39,6 +40,7 @@ export function CanvasSheet({
   composePanel,
   askPanel,
   profilePanel,
+  venuePanel,
   children,
 }: {
   seasonPanel: React.ReactNode
@@ -49,6 +51,7 @@ export function CanvasSheet({
   composePanel: React.ReactNode
   askPanel: React.ReactNode
   profilePanel: React.ReactNode
+  venuePanel: React.ReactNode
   children: React.ReactNode
 }) {
   const [panel, setPanel] = useState<CanvasPanel>(null)
@@ -68,7 +71,8 @@ export function CanvasSheet({
     p === 'compose' ||
     p === 'ask' ||
     p === 'profile' ||
-    p === 'season'
+    p === 'season' ||
+    p === 'venue'
   useEffect(() => {
     if (panel) {
       setLastSide(onRight(panel) ? 'left' : 'right')
@@ -101,6 +105,7 @@ export function CanvasSheet({
     ask: askPanel,
     profile: profilePanel,
     season: seasonPanel,
+    venue: venuePanel,
   } as const
 
   return (

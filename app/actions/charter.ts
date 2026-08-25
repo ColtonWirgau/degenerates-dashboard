@@ -14,7 +14,12 @@ import { getDataAdapter } from '@/lib/data/adapter'
 import { getCurrentUser } from '@/lib/data/auth-bridge'
 import { publish } from '@/lib/ably/server'
 import { channelName, event } from '@/lib/ably/channels'
-import type { CharterApprovalRule, CharterCategory } from '@/lib/data/mock-charter'
+import type {
+  CharterApprovalRule,
+  CharterCategory,
+  VenueDetails,
+} from '@/lib/data/mock-charter'
+import { geocode } from '@/lib/geocode'
 
 export async function proposeCharter(
   leagueId: string,
@@ -283,4 +288,59 @@ export async function deleteCharterGroup(
   }
   revalidatePath(`/leagues/${leagueId}`, 'layout')
   return { success: true, error: null, removed: mine.length }
+}
+
+/**
+ * Save the draft venue's contact details.
+ *
+ * Not `updateCharter`, for two reasons. It geocodes, which is a network
+ * call nobody editing a LABEL should pay for; and it MERGES metadata
+ * rather than replacing it, because the column is shared — the same
+ * shape carries a custom entry's group and the keeper roster, and a
+ * blind write would take those with it.
+ */
+export async function setDraftVenue(input: {
+  leagueId: string
+  season: string
+  entryId: string
+  address: string
+  phone: string
+  note: string
+}) {
+  const { error } = await requireCommish(input.leagueId)
+  if (error) return { success: false, error }
+
+  const adapter = await getDataAdapter()
+  const entries = await adapter.getCharter(input.leagueId, input.season)
+  const entry = entries.find((e) => e.id === input.entryId)
+  if (!entry) return { success: false, error: 'That entry no longer exists' }
+
+  const address = input.address.trim()
+  const phone = input.phone.trim()
+  const note = input.note.trim()
+
+  // Geocode only when the address actually CHANGED. Re-saving a phone
+  // number shouldn't send anyone's server a query, and the coordinates
+  // we already have are still the right ones.
+  const had = entry.metadata?.venue
+  let lat = had?.lat
+  let lng = had?.lng
+  if (address !== (had?.address ?? '').trim()) {
+    const point = address ? await geocode(address) : null
+    lat = point?.lat
+    lng = point?.lng
+  }
+
+  const venue: VenueDetails = {
+    ...(address ? { address } : {}),
+    ...(phone ? { phone } : {}),
+    ...(note ? { note } : {}),
+    ...(lat != null && lng != null ? { lat, lng } : {}),
+  }
+
+  await adapter.updateCharterEntry(input.entryId, {
+    metadata: { ...(entry.metadata ?? {}), venue },
+  })
+  revalidatePath(`/leagues/${input.leagueId}`, 'layout')
+  return { success: true, error: null, located: lat != null }
 }

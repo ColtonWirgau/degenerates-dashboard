@@ -29,6 +29,7 @@ import {
   ParlayPanel,
   type ParlayPanelWeek,
 } from '@/components/chrome/panels/parlay-panel'
+import { VenuePanel } from '@/components/chrome/panels/venue-panel'
 import { ProfilePanel } from '@/components/chrome/panels/profile-panel'
 import { groupCharter } from '@/lib/charter-groups'
 import { getCharterPollsCached } from '@/lib/data/charter-polls-cached'
@@ -274,6 +275,17 @@ export default async function LeagueShellLayout({
               {me && (
                 <ProfilePanel user={me} myRank={chrome.myRank} stats={p.userStats} />
               )}
+            </PanelReveal>
+          }
+          venuePanel={
+            <PanelReveal panel="venue">
+              <VenuePanel
+                leagueId={p.league.id}
+                season={p.season}
+                entry={p.charter.find((e) => e.key === 'draft-location') ?? null}
+                dateEntry={p.charter.find((e) => e.key === 'draft-date') ?? null}
+                canManage={canManage}
+              />
             </PanelReveal>
           }
         >

@@ -189,7 +189,12 @@ export function DraftHero({ entries, leagueName, memberCount }: DraftHeroProps) 
         <div className="relative z-10 flex min-w-0 flex-1 flex-col items-start justify-center px-4 py-5 text-left sm:items-end sm:py-0 sm:pl-14 sm:text-right lg:pr-20">
           <button
             type="button"
-            onClick={() => openEntry('draft-date')}
+            // WHEN and WHERE are one sheet. They're one event — you
+            // don't go to a different place to find out what time it
+            // starts — and two doors an inch apart opening two
+            // different panels was the hero's own two halves
+            // disagreeing about what they described.
+            onClick={() => openPanel('venue')}
             aria-label={`Draft date — ${w.raw ?? 'not set'}`}
             className={cn(
               'relative z-10 mb-1.5 max-w-full truncate text-[11px] font-bold tracking-[0.28em] uppercase transition-colors',
@@ -204,9 +209,15 @@ export function DraftHero({ entries, leagueName, memberCount }: DraftHeroProps) 
               ? [w.weekday, `${w.month} ${w.day}`, w.time].filter(Boolean).join(' · ')
               : (w.raw ?? 'Date TBD')}
           </button>
+          {/* The venue opens THE ROOM, not its line in the book. The
+              book answers "what did the league decide"; standing in a
+              driveway on draft night you want the other question, and
+              a charter row can't put the place on a map or dial it.
+              The commish edits the address from inside that panel, so
+              nothing is stranded by the swap. */}
           <button
             type="button"
-            onClick={() => openEntry('draft-location')}
+            onClick={() => openPanel('venue')}
             aria-label={`Draft location — ${where ?? 'not set'}`}
             className={cn(
               'font-display relative z-10 max-w-full truncate text-3xl leading-[0.9] tracking-tight uppercase transition-[filter] hover:brightness-125 sm:text-4xl lg:text-5xl',

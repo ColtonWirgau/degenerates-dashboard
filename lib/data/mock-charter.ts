@@ -94,7 +94,32 @@ export interface CharterEntry {
   metadata?: {
     keeperRoster?: KeeperRosterRow[];
     group?: string;
+    venue?: VenueDetails;
   };
+}
+
+/**
+ * Where the draft actually happens, as opposed to what the league
+ * DECIDED about where it happens.
+ *
+ * The entry's `value` is the decision — "Don Christos" — and that's what
+ * gets proposed, voted on and locked. An address and a phone number
+ * aren't decisions; they're facts about the place, and nobody votes on
+ * a postcode. So they ride along in metadata on the same row rather
+ * than earning a table: one thing to look up, one thing to revalidate,
+ * and the ratification machinery keeps working on the part that's
+ * actually ratified.
+ */
+export interface VenueDetails {
+  address?: string;
+  phone?: string;
+  /** Anything the address doesn't say — "back room, ask for Sal". */
+  note?: string;
+  /** Filled by a geocode when the address is saved; absent if the
+   *  lookup failed or was never run. The map is the only thing that
+   *  needs them — every maps link works off the address text. */
+  lat?: number;
+  lng?: number;
 }
 
 interface CharterTemplate {
