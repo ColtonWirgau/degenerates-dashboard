@@ -10,10 +10,15 @@
  * them, so a league that votes itself two slots gets two slots without
  * anybody touching this code.
  *
- * Your keeper is YOURS. A commissioner can withdraw one (somebody
- * declares an ineligible player and won't fix it) but cannot declare on
- * your behalf, because a keeper you didn't choose isn't a keeper, it's
- * a mistake with your name on it.
+ * Your keeper is yours to declare, and the commissioner's to fix. People
+ * text theirs in because they're at work; somebody spells a name wrong
+ * and only notices on draft night. Both of those end with whoever runs
+ * the league typing it, and the alternative to a control for that is a
+ * database client.
+ *
+ * The DEADLINE binds the person, not the commissioner — draft night is
+ * exactly when a wrong keeper gets noticed, so it can't be the moment
+ * the board goes read-only for everybody.
  */
 
 import { revalidatePath } from 'next/cache'
@@ -21,6 +26,12 @@ import { getDataAdapter } from '@/lib/data/adapter'
 import { getCurrentUser } from '@/lib/data/auth-bridge'
 import { getDevNow } from '@/lib/data/dev-now'
 import type { CharterEntry } from '@/lib/data/mock-charter'
+import {
+  playerById,
+  resolvePlayer,
+  searchNflPlayers,
+  type PlayerHit,
+} from '@/lib/nfl-players'
 
 export interface KeeperResult {
   success: boolean
@@ -84,23 +95,47 @@ export async function declareKeeper(input: {
   position: string
   roundCost: string
   yearOfKeep: string
+  /** The catalogue entry the picker chose. Absent when somebody typed a
+   *  name the catalogue doesn't have — that still counts, it just has no
+   *  face on it. */
+  sleeperId?: string | null
   /** The declaration being amended, when this is an edit. */
   replacingId?: string | null
+  /** Whose keeper this is. Absent means yours. A commissioner may name
+   *  someone else — people text their keeper in, and the alternative to
+   *  a control for that is a database client. */
+  userId?: string | null
 }): Promise<KeeperResult> {
   const g = await gate(input.leagueId, input.season)
   if (g.error || !g.me || !g.adapter) return { success: false, error: g.error }
+
+  const target = input.userId ?? g.me.id
+  const forSomeoneElse = target !== g.me.id
+  const canManage = g.role === 'owner' || g.role === 'admin'
+  if (forSomeoneElse && !canManage) {
+    return { success: false, error: 'Only owners and admins can declare for someone else.' }
+  }
+  if (forSomeoneElse) {
+    const members = await g.adapter.getLeagueMembers(input.leagueId)
+    if (!members.some((m) => m.user.id === target)) {
+      return { success: false, error: 'That user is not a member of this league.' }
+    }
+  }
 
   const playerName = input.playerName.trim()
   if (!playerName) return { success: false, error: 'Which player?' }
   if (playerName.length > 80) return { success: false, error: 'That name is too long' }
 
+  // The draft binds YOUR OWN hands. A commissioner still has to be able
+  // to correct the board on draft night, which is exactly when a wrong
+  // keeper gets noticed.
   const deadline = draftMoment(g.charter)
-  if (deadline && deadline <= (await getDevNow())) {
+  if (!canManage && deadline && deadline <= (await getDevNow())) {
     return { success: false, error: 'The draft has started — keepers are set.' }
   }
 
   const mine = (await g.adapter.getKeepers(input.leagueId, input.season)).filter(
-    (k) => k.userId === g.me!.id
+    (k) => k.userId === target
   )
   const limit = slotLimit(g.charter)
   const adding = !input.replacingId && !mine.some(
@@ -111,8 +146,10 @@ export async function declareKeeper(input: {
       success: false,
       error:
         limit === 1
-          ? 'You already have a keeper — change that one instead.'
-          : `Your league allows ${limit} keepers, and you have ${mine.length}.`,
+          ? forSomeoneElse
+            ? 'They already have a keeper — change that one instead.'
+            : 'You already have a keeper — change that one instead.'
+          : `Your league allows ${limit} keepers, and there are already ${mine.length}.`,
     }
   }
 
@@ -125,12 +162,21 @@ export async function declareKeeper(input: {
     return { success: false, error: 'Year has to be a number between 1 and 10' }
   }
 
+  // Prefer the catalogue: a resolved player carries a headshot, a real
+  // position and a team, and spells its own name. A free-typed one is
+  // still a keeper — a league that carries somebody Sleeper has never
+  // heard of shouldn't be stuck.
+  const hit: PlayerHit | null = input.sleeperId
+    ? await playerById(input.sleeperId)
+    : await resolvePlayer(playerName, input.position.trim().toUpperCase() || null)
+
   await g.adapter.upsertKeeper({
     leagueId: input.leagueId,
     season: input.season,
-    userId: g.me.id,
-    playerName,
-    position: input.position.trim().toUpperCase() || null,
+    userId: target,
+    playerName: hit?.fullName ?? playerName,
+    position: hit?.position ?? (input.position.trim().toUpperCase() || null),
+    sleeperId: hit?.sleeperId ?? null,
     roundCost: round,
     yearOfKeep: year,
     replacingId: input.replacingId ?? null,
@@ -169,4 +215,24 @@ export async function withdrawKeeper(input: {
   await g.adapter.deleteKeeper(input.keeperId)
   revalidatePath(`/leagues/${input.leagueId}`, 'layout')
   return { success: true, error: null }
+}
+
+
+/**
+ * Typeahead for the declare sheet.
+ *
+ * Members only — the catalogue is public data, but an endpoint that
+ * answers to anybody is one more thing to think about, and everybody who
+ * needs it is already in a league.
+ */
+export async function findPlayers(
+  leagueId: string,
+  query: string
+): Promise<PlayerHit[]> {
+  const me = await getCurrentUser()
+  if (!me) return []
+  const adapter = await getDataAdapter()
+  const role = await adapter.getUserRole(leagueId, me.id)
+  if (!role) return []
+  return searchNflPlayers(query)
 }

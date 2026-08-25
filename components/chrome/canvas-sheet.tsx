@@ -17,7 +17,7 @@ import {
  * (Mobile gets ResponsiveSheets instead.)
  */
 const LEFT_PANELS = ['slate', 'board'] as const
-const RIGHT_PANELS = ['submit', 'compose', 'ask', 'profile', 'season', 'venue', 'parlay'] as const
+const RIGHT_PANELS = ['submit', 'compose', 'ask', 'profile', 'season', 'venue', 'parlay', 'keeper'] as const
 
 const PANEL_LABEL: Record<Exclude<CanvasPanel, null>, string> = {
   season: 'Season',
@@ -29,6 +29,7 @@ const PANEL_LABEL: Record<Exclude<CanvasPanel, null>, string> = {
   ask: 'Ask',
   profile: 'Profile',
   venue: 'The Room',
+  keeper: 'The Keeper',
 }
 
 export function CanvasSheet({
@@ -41,6 +42,7 @@ export function CanvasSheet({
   askPanel,
   profilePanel,
   venuePanel,
+  keeperPanel,
   children,
 }: {
   seasonPanel: React.ReactNode
@@ -52,6 +54,7 @@ export function CanvasSheet({
   askPanel: React.ReactNode
   profilePanel: React.ReactNode
   venuePanel: React.ReactNode
+  keeperPanel: React.ReactNode
   children: React.ReactNode
 }) {
   const [panel, setPanel] = useState<CanvasPanel>(null)
@@ -73,6 +76,7 @@ export function CanvasSheet({
     p === 'profile' ||
     p === 'season' ||
     p === 'venue' ||
+    p === 'keeper' ||
     // The lay opens from the hero's RIGHT half, and the card always
     // slides away FROM the thing you pressed.
     p === 'parlay'
@@ -109,6 +113,7 @@ export function CanvasSheet({
     season: seasonPanel,
     venue: venuePanel,
     parlay: parlayPanel,
+    keeper: keeperPanel,
   } as const
 
   return (

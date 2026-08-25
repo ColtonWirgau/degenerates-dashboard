@@ -971,6 +971,7 @@ export const neonAdapter: DataAdapter = {
         .set({
           playerName: input.playerName,
           position: input.position ?? null,
+          sleeperId: input.sleeperId ?? null,
           roundCost: input.roundCost ?? null,
           yearOfKeep: input.yearOfKeep ?? 1,
         })
@@ -999,6 +1000,7 @@ export const neonAdapter: DataAdapter = {
     const values = {
       playerName: input.playerName,
       position: input.position ?? null,
+      sleeperId: input.sleeperId ?? null,
       roundCost: input.roundCost ?? null,
       yearOfKeep: input.yearOfKeep ?? 1,
     }
@@ -1472,6 +1474,7 @@ function keeperFromRow(row: typeof leagueKeepers.$inferSelect): LeagueKeeper {
     userId: row.userId,
     playerName: row.playerName,
     position: row.position,
+    sleeperId: row.sleeperId,
     roundCost: row.roundCost,
     yearOfKeep: row.yearOfKeep,
     declaredAt: row.declaredAt.toISOString(),

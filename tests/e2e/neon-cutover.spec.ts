@@ -371,50 +371,76 @@ test('the venue opens THE ROOM, not its line in the book', async ({ page }) => {
 })
 
 test('a keeper is declared, amended and withdrawn', async ({ page }) => {
-  // This runs against the real league, so it only ever touches the
-  // VIEWER'S OWN declarations, and puts them back. It asserts on its own
-  // row rather than on counts, which anybody else declaring would move.
-  const wipe = () =>
+  // This runs against the real league, so it SNAPSHOTS the viewer's own
+  // declarations, works on an empty slate, and puts the originals back —
+  // a plain delete would eat a real keeper.
+  const saved = await pool.query(
+    `select k.* from league_keepers k join users u on u.id = k.user_id
+      where u.email = $1`,
+    [VIEWER_EMAIL]
+  )
+  const clear = () =>
     pool.query(
       `delete from league_keepers k using users u
         where u.id = k.user_id and u.email = $1`,
       [VIEWER_EMAIL]
     )
-  await wipe()
+  const restore = async () => {
+    await clear()
+    for (const r of saved.rows) {
+      await pool.query(
+        `insert into league_keepers
+           (id, league_id, season, user_id, player_name, position, sleeper_id,
+            round_cost, year_of_keep, declared_at)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [r.id, r.league_id, r.season, r.user_id, r.player_name, r.position,
+         r.sleeper_id, r.round_cost, r.year_of_keep, r.declared_at]
+      )
+    }
+  }
+  await clear()
 
   try {
     await openLeague(page)
-    const board = page.locator('#keeper-board')
-    await board.scrollIntoViewIfNeeded()
 
     // The charter said "12 rosters · tap to view" and pointed at a table
-    // that had never been written once. This is that table.
-    await expect(board.getByText('Declared keepers')).toBeVisible()
+    // that had never been written once. This is that table — as twelve
+    // small cards, none of which is a form: declaring happens in the
+    // sheet off the pod, like every other verb in this app.
+    const board = page.locator('#keeper-board')
+    await board.scrollIntoViewIfNeeded()
+    await expect(board.getByText('Declare yours')).toBeVisible()
 
-    await page.getByRole('button', { name: /Declare your keeper/i }).click()
-    await page.getByPlaceholder('Player').fill('Bijan Robinson')
-    await page.getByPlaceholder('RB').fill('rb')
-    await page.getByPlaceholder('4').fill('3')
-    await page.getByRole('button', { name: 'Declare' }).click()
+    await page.getByRole('button', { name: 'actions' }).click()
+    await page.getByRole('button', { name: 'keeper', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Your keeper', level: 2 })).toBeVisible({
+      timeout: 10_000,
+    })
+
+    // PICKED from Sleeper's catalogue, not typed: the pick carries the
+    // headshot, the position and the team, so nobody spells a keeper
+    // wrong and nobody types "RB".
+    await page.getByPlaceholder('Search the NFL').fill('bijan')
+    const hit = page.getByRole('button', { name: /Bijan Robinson/i })
+    await expect(hit).toBeVisible({ timeout: 15_000 })
+    await hit.click()
+    await page.getByRole('button', { name: 'Declare', exact: true }).click()
     await expect(board.getByText('Bijan Robinson')).toBeVisible({ timeout: 20_000 })
-    // Position is normalised, and the cost reads as a round.
-    await expect(board.getByText('RB', { exact: true })).toBeVisible()
-    await expect(board.getByText('R3')).toBeVisible()
+    await expect(board.getByText('RB', { exact: true }).first()).toBeVisible()
 
-    // Amending EDITS the row. The name is part of the key, so saving a
+    // Amending EDITS the row — the name is part of the key, so saving a
     // different player as a new row would leave the old one standing.
-    await page.getByRole('button', { name: /Change your keeper/i }).click()
-    await page.getByPlaceholder('Player').fill('Puka Nacua')
-    await page.getByRole('button', { name: 'Save' }).click()
+    await page.getByRole('button', { name: 'Pick a different player' }).click()
+    await page.getByPlaceholder('Search the NFL').fill('puka')
+    await page.getByRole('button', { name: /Puka Nacua/i }).click()
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
     await expect(board.getByText('Puka Nacua')).toBeVisible({ timeout: 20_000 })
     await expect(board.getByText('Bijan Robinson')).toHaveCount(0)
 
-    await page.getByRole('button', { name: /Withdraw your keeper/i }).click()
-    await expect(page.getByRole('button', { name: /Declare your keeper/i })).toBeVisible({
-      timeout: 20_000,
-    })
+    await page.getByRole('button', { name: /Withdraw/i }).click()
+    await expect(board.getByText('Declare yours')).toBeVisible({ timeout: 20_000 })
   } finally {
-    await wipe()
+    await restore()
   }
 })
 

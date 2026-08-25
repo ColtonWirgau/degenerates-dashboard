@@ -144,7 +144,7 @@ test.describe('desktop', () => {
     await expect(page.getByRole('button', { name: 'close' })).toBeVisible()
   })
 
-  test('week 0’s pod splits into ADD and ASK', async ({ page, context }) => {
+  test('week 0’s pod splits into ADD, ASK and KEEPER', async ({ page, context }) => {
     await signIn(context)
     await page.goto('http://localhost:3001/')
     await page.waitForURL(/\/leagues\//, { timeout: 10_000 })
@@ -156,10 +156,12 @@ test.describe('desktop', () => {
     await expect(home).toBeVisible()
     await home.click()
 
-    // The charter's two verbs, at rest on three distinct heights — a
-    // stalled spring stacks them on the home slot.
+    // THREE verbs — the charter's two, and the one week 0 asks of every
+    // member — at rest on four distinct heights. A stalled spring stacks
+    // them on the home slot, which is what this is really checking.
     await expect(page.getByRole('button', { name: 'add', exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'ask', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'keeper', exact: true })).toBeVisible()
     await expect
       .poll(
         async () =>
@@ -173,7 +175,7 @@ test.describe('desktop', () => {
           ),
         { timeout: 4000 }
       )
-      .toBe(3)
+      .toBe(4)
 
     // ADD opens the compose panel on the right — the card slides LEFT.
     await page.getByRole('button', { name: 'add', exact: true }).click()
@@ -234,7 +236,17 @@ test.describe('desktop', () => {
     await expect(
       page.locator('.sheet-track').getByRole('button', { name: /add an option/i })
     ).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'actions' })).toHaveCount(0)
+
+    // He DOES get the pod, and exactly one verb in it. Week 0 used to
+    // arm only for commissioners, because both its verbs were creates —
+    // put something on the ballot, ask the league a question. Declaring
+    // your KEEPER isn't: it's the one thing week 0 asks of every member,
+    // and gating the pod on a role meant the only person who could reach
+    // it was the one who didn't need to.
+    await page.getByRole('button', { name: 'actions' }).click()
+    await expect(page.getByRole('button', { name: 'keeper', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'add', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'ask', exact: true })).toHaveCount(0)
 
     // …and neither is editing the draft's own details. The pencil is
     // the commish's; the server refuses anyone else regardless.
@@ -323,5 +335,163 @@ test.describe('mobile', () => {
     await expect(
       page.getByRole('dialog').getByTestId('rules-book')
     ).toBeVisible({ timeout: 5_000 })
+  })
+})
+
+test.describe('the commissioner’s hand', () => {
+  test.use({ viewport: { width: 1440, height: 1100 } })
+
+  // Both of these enter things for the PLAIN MEMBER against the real
+  // league. They SNAPSHOT whatever he already has, work on an empty
+  // slate, and put the originals back — a plain delete would eat real
+  // records the first time he had any.
+  let savedLegs: Record<string, unknown>[] = []
+  let savedKeepers: Record<string, unknown>[] = []
+
+  const clearTheirs = async () => {
+    await pool.query(
+      `delete from parlay_legs l using users u
+        where u.id = l.user_id and u.email = $1`,
+      [MEMBER_EMAIL]
+    )
+    await pool.query(
+      `delete from league_keepers k using users u
+        where u.id = k.user_id and u.email = $1`,
+      [MEMBER_EMAIL]
+    )
+  }
+
+  const snapshotTheirs = async () => {
+    savedLegs = (
+      await pool.query(
+        `select l.* from parlay_legs l join users u on u.id = l.user_id
+          where u.email = $1`,
+        [MEMBER_EMAIL]
+      )
+    ).rows
+    savedKeepers = (
+      await pool.query(
+        `select k.* from league_keepers k join users u on u.id = k.user_id
+          where u.email = $1`,
+        [MEMBER_EMAIL]
+      )
+    ).rows
+    await clearTheirs()
+  }
+
+  const restoreTheirs = async () => {
+    await clearTheirs()
+    for (const r of savedLegs) {
+      await pool.query(
+        `insert into parlay_legs
+           (id, parlay_id, user_id, leg_number, description, odds, result,
+            validation_status, validation_message, locked_at, graded_at,
+            graded_by, created_at)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+        [r.id, r.parlay_id, r.user_id, r.leg_number, r.description, r.odds,
+         r.result, r.validation_status, r.validation_message, r.locked_at,
+         r.graded_at, r.graded_by, r.created_at]
+      )
+    }
+    for (const r of savedKeepers) {
+      await pool.query(
+        `insert into league_keepers
+           (id, league_id, season, user_id, player_name, position,
+            round_cost, year_of_keep, declared_at)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [r.id, r.league_id, r.season, r.user_id, r.player_name, r.position,
+         r.round_cost, r.year_of_keep, r.declared_at]
+      )
+    }
+  }
+
+  test('a leg is entered, changed and removed for a member', async ({ page, context }) => {
+    await snapshotTheirs()
+    try {
+      await signIn(context)
+      await page.goto('http://localhost:3001/')
+      await page.waitForURL(/\/leagues\//, { timeout: 10_000 })
+      await page.getByRole('button', { name: /open the week list/i }).click()
+      await page.getByRole('button', { name: /Week 1\b/ }).first().click()
+      await expect(page.getByRole('heading', { name: 'Week 1', level: 1 })).toBeVisible({
+        timeout: 15_000,
+      })
+      await page.getByRole('button', { name: /Week 1 — open the lay/i }).click()
+      await expect(page.getByRole('heading', { name: 'The Lay', level: 2 })).toBeVisible({
+        timeout: 10_000,
+      })
+
+      await page.getByRole('button', { name: /Enter Joe's leg/i }).click()
+      await page.getByPlaceholder(/Chiefs -3\.5/).fill('Bengals ML')
+      await page.getByPlaceholder('-110').fill('+140')
+      await page.getByRole('button', { name: 'Save' }).click()
+      await expect(page.getByText('Bengals ML')).toBeVisible({ timeout: 20_000 })
+
+      // An edit is a REPLACEMENT, not a second leg: every leg is stamped
+      // locked the moment it lands and submitLeg refuses to overwrite a
+      // locked one, so the action deletes first — on the server, in one
+      // call, so a failed submit can't leave them with nothing.
+      await page.getByRole('button', { name: /Change Joe's leg/i }).click()
+      await page.getByPlaceholder(/Chiefs -3\.5/).fill('Bengals -3')
+      await page.getByRole('button', { name: 'Save' }).click()
+      await expect(page.getByText('Bengals -3')).toBeVisible({ timeout: 20_000 })
+      await expect(page.getByText('Bengals ML')).toHaveCount(0)
+
+      await page.getByRole('button', { name: /Remove Joe's leg/i }).click()
+      await expect(page.getByRole('button', { name: /Enter Joe's leg/i })).toBeVisible({
+        timeout: 20_000,
+      })
+    } finally {
+      await restoreTheirs()
+    }
+  })
+
+  test('a keeper is entered, changed and withdrawn for a member', async ({
+    page,
+    context,
+  }) => {
+    await snapshotTheirs()
+    try {
+      await signIn(context)
+      await page.goto('http://localhost:3001/')
+      await page.waitForURL(/\/leagues\//, { timeout: 10_000 })
+      await expect(
+        page.getByRole('heading', { name: 'Preseason', level: 1 })
+      ).toBeVisible({ timeout: 15_000 })
+
+      // The board is a RECORD — twelve small cards, none of them a form.
+      // Declaring happens in the sheet, like every other verb.
+      const board = page.locator('#keeper-board')
+      await board.scrollIntoViewIfNeeded()
+      await expect(board.getByText('9/12 in')).toBeVisible()
+
+      await page.getByRole('button', { name: 'actions' }).click()
+      await page.getByRole('button', { name: 'keeper', exact: true }).click()
+      await expect(page.getByRole('heading', { name: 'Your keeper', level: 2 })).toBeVisible({
+        timeout: 10_000,
+      })
+
+      // A commissioner picks whose. Everyone else has one answer, and a
+      // picker offering one option is a control with nothing to choose.
+      await page.getByRole('button', { name: /Set Joe Crabb's keeper/i }).click()
+      await expect(page.getByRole('heading', { name: /Joe's keeper/i })).toBeVisible()
+
+      // The player is PICKED, not typed — a free-text keeper has no
+      // headshot, no position, and "Bijan" is a different player from
+      // "Bijan Robinson" as far as the app is concerned.
+      await page.getByPlaceholder('Search the NFL').fill('jahmyr')
+      const hit = page.getByRole('button', { name: /Jahmyr Gibbs/i })
+      await expect(hit).toBeVisible({ timeout: 15_000 })
+      await hit.click()
+      await page.getByRole('button', { name: 'Declare', exact: true }).click()
+      await expect(board.getByText('Jahmyr Gibbs')).toBeVisible({ timeout: 20_000 })
+      // The catalogue filled the position in; nobody typed "RB".
+      await expect(board.getByText('10/12 in')).toBeVisible()
+
+      await page.getByRole('button', { name: /Withdraw/i }).click()
+      await expect(board.getByText('Jahmyr Gibbs')).toHaveCount(0, { timeout: 20_000 })
+    } finally {
+      await restoreTheirs()
+    }
   })
 })

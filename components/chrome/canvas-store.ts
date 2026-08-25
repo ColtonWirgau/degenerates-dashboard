@@ -28,6 +28,7 @@ export type CanvasPanel =
   | 'ask'
   | 'profile'
   | 'venue'
+  | 'keeper'
   | null
 
 type PanelListener = (panel: CanvasPanel) => void

@@ -582,6 +582,47 @@ export const pollOptionReactions = pgTable(
  * The unique index is on the LOWERCASED name, so nobody declares
  * "Bijan Robinson" twice in different capitals.
  */
+/**
+ * THE NFL PLAYER CATALOG — names, positions, teams, and the id that
+ * points at a face.
+ *
+ * Synced from Sleeper's public catalog, the same source Dynastly uses,
+ * because a keeper typed as free text is a keeper nobody can look up: no
+ * headshot, no position, and "Bijan" and "Bijan Robinson" are two
+ * different players as far as the app is concerned.
+ *
+ * Only ACTIVE players with a real position are kept. The full catalog is
+ * ~11k rows including practice-squad and retired entries, and a search
+ * box that suggests a running back who left the league in 2019 is worse
+ * than one that suggests nothing.
+ *
+ * `searchName` is the normalised form the lookup matches on —
+ * lowercased, punctuation stripped, generational suffixes removed, so
+ * "Marvin Harrison Jr." finds the same row as "marvin harrison".
+ */
+export const nflPlayers = pgTable(
+  'nfl_players',
+  {
+    /** Sleeper's own id. It's the primary key because it's also what
+     *  builds the headshot URL. */
+    sleeperId: text('sleeper_id').primaryKey(),
+    fullName: text('full_name').notNull(),
+    searchName: text('search_name').notNull(),
+    position: text('position').notNull(),
+    team: text('team'),
+    /** Jersey number, when Sleeper has one. */
+    number: integer('number'),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .notNull()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => ({
+    bySearch: index('nfl_players_search_idx').on(t.searchName),
+    byPosition: index('nfl_players_position_idx').on(t.position),
+  })
+)
+
 export const leagueKeepers = pgTable(
   'league_keepers',
   {
@@ -595,6 +636,10 @@ export const leagueKeepers = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
 
     playerName: text('player_name').notNull(),
+    /** The catalogue entry this keeper is, when the name resolved to
+     *  one. Null for anybody typed free-hand — a keeper still counts
+     *  without a headshot. */
+    sleeperId: text('sleeper_id'),
     // Free text, not an enum. A league that lets somebody keep a kicker
     // shouldn't need a migration to say so.
     position: text('position'),

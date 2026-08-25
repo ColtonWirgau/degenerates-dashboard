@@ -179,6 +179,9 @@ export interface LeagueKeeper {
   userId: string;
   playerName: string;
   position: string | null;
+  /** Sleeper's id for the player — what builds the headshot. Null for a
+   *  name the catalogue couldn't resolve. */
+  sleeperId: string | null;
   roundCost: number | null;
   yearOfKeep: number;
   declaredAt: string;
@@ -190,6 +193,7 @@ export interface UpsertKeeperInput {
   userId: string;
   playerName: string;
   position?: string | null;
+  sleeperId?: string | null;
   roundCost?: number | null;
   yearOfKeep?: number;
   /** Set when amending an existing declaration rather than adding one —

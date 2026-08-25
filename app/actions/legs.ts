@@ -361,3 +361,75 @@ export async function openWeekForSubmission(
   const parlay = await adapter.ensureWeekParlay(leagueId, nflWeekId)
   return { parlayId: parlay?.id ?? null, error: null }
 }
+
+/**
+ * Put a leg in for somebody else, or change the one they have.
+ *
+ * The commissioner's hand. Somebody texts their pick because they're
+ * driving; somebody fat-fingers the odds and can't fix it before
+ * kickoff. Both of those end with a person who runs the league typing it
+ * for them, and the alternative to a control for it is a database
+ * client.
+ *
+ * DELETE-THEN-SUBMIT, in one action rather than two round trips. Every
+ * leg is stamped locked the moment it lands, and `submitLeg` refuses to
+ * overwrite a locked one — which is why editing is delete-first
+ * everywhere in this app. Doing both halves here means a failed submit
+ * can't leave somebody with no leg at all.
+ */
+export async function setLegForMember(
+  weekId: string,
+  leagueId: string,
+  userId: string,
+  leg: { description: string; odds: string }
+): Promise<SubmitLegResult> {
+  const me = await getCurrentUser()
+  if (!me) return { success: false, error: 'Unauthorized' }
+
+  const adapter = await getDataAdapter()
+  const role = await adapter.getUserRole(leagueId, me.id)
+  if (role !== 'owner' && role !== 'admin') {
+    return { success: false, error: 'Only owners and admins can enter for someone else.' }
+  }
+
+  const members = await adapter.getLeagueMembers(leagueId)
+  if (!members.some((m) => m.user.id === userId)) {
+    return { success: false, error: 'That user is not a member of this league.' }
+  }
+
+  const description = leg.description.trim()
+  if (!description) return { success: false, error: 'What did they take?' }
+
+  const { oddsNum, error: oddsError } = validateOdds(leg.odds)
+  if (oddsError) return { success: false, error: oddsError }
+
+  const parlay = await adapter.getParlay(weekId)
+  if (parlay && parlay.state !== 'open') {
+    return { success: false, error: 'The week is locked — no more edits.' }
+  }
+
+  const existing = parlay?.legs.find((l) => l.user.id === userId)
+  if (existing) await adapter.deleteLeg(existing.id)
+
+  const saved = await adapter.submitLeg({
+    parlayId: weekId,
+    userId,
+    description,
+    odds: oddsNum,
+    // The conflict check is the AI pass on `submitLeg`, and it's a
+    // read of what everyone ELSE took. A commissioner typing somebody's
+    // text message is transcribing, not deciding, so it isn't run here
+    // — a warning nobody asked for, addressed to somebody who isn't in
+    // the room, is noise.
+    validationStatus: 'approved',
+    validationMessage: 'Entered by a commissioner',
+  })
+
+  revalidatePath(`/leagues/${leagueId}`, 'layout')
+  void publish(channelName.parlayLegs(leagueId, weekId), event.legSubmitted, {
+    legId: saved.id,
+    userId,
+    lockedAt: saved.lockedAt,
+  })
+  return { success: true, error: null }
+}

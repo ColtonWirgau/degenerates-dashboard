@@ -4,6 +4,7 @@ import { getLeagueWeeksCached } from '@/lib/data/league-weeks-cached'
 import { getCurrentUser } from '@/lib/data/auth-bridge'
 import { getDevNow } from '@/lib/data/dev-now'
 import { getDevToolbarData } from '@/lib/data/dev-toolbar-data'
+import { getDataAdapter } from '@/lib/data/adapter'
 import {
   LeagueChromeProvider,
   type ChromeWeek,
@@ -30,6 +31,7 @@ import {
   type ParlayPanelWeek,
 } from '@/components/chrome/panels/parlay-panel'
 import { VenuePanel } from '@/components/chrome/panels/venue-panel'
+import { KeeperPanel } from '@/components/chrome/panels/keeper-panel'
 import { ProfilePanel } from '@/components/chrome/panels/profile-panel'
 import { groupCharter } from '@/lib/charter-groups'
 import { getCharterPollsCached } from '@/lib/data/charter-polls-cached'
@@ -189,6 +191,16 @@ export default async function LeagueShellLayout({
 
   // Per-week payloads for the two right/left panels that answer for
   // "the week you're looking at": your own leg, and the whole lay.
+  // KEEPERS — the panel lives in the shell, so its data does too.
+  const adapter = await getDataAdapter()
+  const keepers = await adapter.getKeepers(id, p.season)
+  const draftWhen = p.charter.find((e) => e.key === 'draft-date')?.metadata?.when
+  const draftAt = draftWhen?.date
+    ? new Date(`${draftWhen.date}T${draftWhen.time || '23:59'}`)
+    : null
+  const draftPassed =
+    draftAt != null && !Number.isNaN(draftAt.getTime()) ? draftAt <= now : false
+
   const legsByWeek: Record<string, SubmitRevealLeg> = {}
   const layByWeek: Record<string, ParlayPanelWeek> = {}
   for (const w of chromeWeeks) {
@@ -276,6 +288,32 @@ export default async function LeagueShellLayout({
               {me && (
                 <ProfilePanel user={me} myRank={chrome.myRank} stats={p.userStats} />
               )}
+            </PanelReveal>
+          }
+          keeperPanel={
+            <PanelReveal panel="keeper">
+              <KeeperPanel
+                leagueId={p.league.id}
+                season={p.season}
+                people={p.members.map((m) => ({
+                  userId: m.user_id,
+                  fullName: m.full_name,
+                  email: m.email,
+                  avatarUrl: m.avatar_url,
+                }))}
+                keepers={keepers.map((k) => ({
+                  id: k.id,
+                  userId: k.userId,
+                  playerName: k.playerName,
+                  position: k.position,
+                  sleeperId: k.sleeperId,
+                  roundCost: k.roundCost,
+                  yearOfKeep: k.yearOfKeep,
+                }))}
+                currentUserId={p.me.id}
+                canManage={canManage}
+                draftPassed={draftPassed}
+              />
             </PanelReveal>
           }
           venuePanel={

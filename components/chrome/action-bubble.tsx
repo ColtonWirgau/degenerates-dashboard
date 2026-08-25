@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Lock,
   LockOpen,
+  UserRoundCheck,
   MessageCircleQuestion,
   Pencil,
   Plus,
@@ -116,8 +117,14 @@ export function ActionBubble() {
   // than a week, so it gets none — offering to put a leg into a year that
   // finished in February is worse than offering nothing.
   const hasSlate = !onRecap && (actions?.hasSlate ?? week?.hasSlate ?? false)
-  const preseason =
-    !onRecap && !hasSlate && week?.kind === 'preseason' && (chrome?.canManage ?? false)
+  // WEEK 0 ARMS FOR EVERYONE now, not just the commissioners.
+  //
+  // It was gated on canManage because both its verbs were creates — put
+  // something on the ballot, ask the league a question. Declaring your
+  // KEEPER isn't: it's the one thing week 0 asks of every member, and
+  // gating the pod on a role meant the only person who could reach it
+  // from here was the one person who didn't need to.
+  const preseason = !onRecap && !hasSlate && week?.kind === 'preseason'
   const armed = hasSlate || preseason
   useEffect(() => {
     setActionBite(armed)
@@ -151,7 +158,13 @@ export function ActionBubble() {
   // A reveal can open from elsewhere (the dock, a deep link); split so
   // its ✕ has a bubble to live on.
   useEffect(() => {
-    if (panel === 'submit' || panel === 'compose' || panel === 'ask') setSplit(true)
+    if (
+      panel === 'submit' ||
+      panel === 'compose' ||
+      panel === 'ask' ||
+      panel === 'keeper'
+    )
+      setSplit(true)
   }, [panel])
 
   // A disc mounts BECAUSE of a frame, so it misses that frame's ref
@@ -210,7 +223,7 @@ export function ActionBubble() {
   return (
     <>
       {/* ─── THE PRESEASON PAIR ─────────────────────────────────────── */}
-      {preseason && lockVisible && (
+      {preseason && chrome?.canManage && lockVisible && (
         <Bubble
           ref={lockBtn}
           faceRef={lockFace}
@@ -222,7 +235,7 @@ export function ActionBubble() {
           <MessageCircleQuestion size={21} strokeWidth={2.25} />
         </Bubble>
       )}
-      {preseason && legVisible && (
+      {preseason && chrome?.canManage && legVisible && (
         <Bubble
           ref={legBtn}
           faceRef={legFace}
@@ -232,6 +245,23 @@ export function ActionBubble() {
           onClick={() => openPanel('compose')}
         >
           <ScrollText size={20} strokeWidth={2.25} />
+        </Bubble>
+      )}
+
+      {/* THE KEEPER — week 0's one verb for everybody. It sat on the
+          board as an inline form, which made a RECORD double as a
+          draft; every other verb in this app opens off this pod into a
+          sheet, and now so does this one. */}
+      {preseason && askVisible && (
+        <Bubble
+          ref={askBtn}
+          faceRef={askFace}
+          label="KEEPER"
+          labelVisible={split}
+          open={panel === 'keeper'}
+          onClick={() => openPanel('keeper')}
+        >
+          <UserRoundCheck size={20} strokeWidth={2.25} />
         </Bubble>
       )}
 

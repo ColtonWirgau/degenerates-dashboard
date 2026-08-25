@@ -11,7 +11,6 @@ import { SaveLastLeague } from '@/components/save-last-league'
 import { WeekStage } from '@/components/week-stage'
 import { DraftHero } from '@/components/charter/draft-hero'
 import { groupFor } from '@/lib/charter-groups'
-import { getDevNow } from '@/lib/data/dev-now'
 import { OffseasonPollsHub } from '@/components/offseason-polls-hub'
 
 /**
@@ -114,19 +113,9 @@ type Payload = NonNullable<
 async function PreseasonStage({ payload: p }: { payload: Payload }) {
   const adapter = await getDataAdapter()
 
-  // WHO'S KEEPING WHOM, and whether it's too late to say. The draft's
-  // own moment is the gate — the charter's declaration-deadline row is
-  // prose ("24h before draft") and parsing a rule out of it to enforce
-  // would be guessing at what the league meant.
+  // WHO'S KEEPING WHOM. The board is a record; the deadline only matters
+  // where declaring happens, which is the keeper sheet off the pod.
   const keepers = await adapter.getKeepers(p.league.id, p.season)
-  const draftWhen = p.charter.find((e) => e.key === 'draft-date')?.metadata?.when
-  const draftAt = draftWhen?.date
-    ? new Date(`${draftWhen.date}T${draftWhen.time || '23:59'}`)
-    : null
-  const draftPassed =
-    draftAt != null && !Number.isNaN(draftAt.getTime())
-      ? draftAt <= (await getDevNow())
-      : false
   const dataSource = process.env.NEXT_PUBLIC_DATA_SOURCE ?? 'mock'
   const preseasonWeek = (
     await getLeagueWeeksCached(p.league.id, p.season)
@@ -171,16 +160,15 @@ async function PreseasonStage({ payload: p }: { payload: Payload }) {
         currentUserId={p.me.id}
         membersCount={p.members.length}
         canManage={p.currentUserRole === 'owner' || p.currentUserRole === 'admin'}
-        season={p.season}
         keepers={keepers.map((k) => ({
           id: k.id,
           userId: k.userId,
           playerName: k.playerName,
           position: k.position,
+          sleeperId: k.sleeperId,
           roundCost: k.roundCost,
           yearOfKeep: k.yearOfKeep,
         }))}
-        draftPassed={draftPassed}
         members={p.members.map((m) => ({
           id: m.user_id,
           fullName: m.full_name,

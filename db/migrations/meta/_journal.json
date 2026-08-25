@@ -57,6 +57,13 @@
       "when": 1787683669923,
       "tag": "0007_league_keepers",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787686038349,
+      "tag": "0008_nfl_players",
+      "breakpoints": true
     }
   ]
 }
