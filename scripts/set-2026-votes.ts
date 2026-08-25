@@ -42,8 +42,8 @@ const PUNISHMENTS: Array<{ label: string; hint: string }> = [
     hint: 'Four laps of a track, a glass of milk chugged between each one.',
   },
   {
-    label: '5K beer run',
-    hint: "We sit at a bar with the loser's card. They get dropped 5k away and run to us — we drink on their tab for as long as it takes.",
+    label: '5K bar hop',
+    hint: "We're at a bar 5k away, drinking as much as we can on their tab until they can run there to pay it.",
   },
   {
     label: 'Out-of-season trick-or-treating',
