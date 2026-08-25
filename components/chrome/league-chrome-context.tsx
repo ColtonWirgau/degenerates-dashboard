@@ -14,7 +14,7 @@ import {
  * The app is week-shaped, so the chrome is too: it holds the season's
  * WEEKS, and every bubble reads the one you're looking at. A week decides
  * what the chrome even offers — the preseason week has no slate, so no
- * submit; a week with no polls shows no POLLS bubble.
+ * submit and no lay, and the rail closes up to a single rung.
  *
  * Provided by the league layout, consumed by PanelBubbles / ActionBubble /
  * MobileDock / Masthead — same pattern as RoarTracker's BubbleProvider.
@@ -41,8 +41,9 @@ export type ChromeWeek = {
   /** The week's window has passed. Preseason has no lock to be past, so
    *  without this a finished season's week 0 reads "Open" forever. */
   closed: boolean
+  /** Open votes in this week. The preseason dock's disc wears it;
+   *  nothing else does, now that the POLLS rung is gone. */
   openPollCount: number
-  pollCount: number
 }
 
 export interface PodiumMember {

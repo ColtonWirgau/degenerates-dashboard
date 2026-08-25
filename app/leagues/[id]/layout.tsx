@@ -1,7 +1,6 @@
 import { getLeagueOverviewCached } from '@/lib/data/league-overview-cached'
 import { getLeagueWeeksCached } from '@/lib/data/league-weeks-cached'
 import { getCurrentUser } from '@/lib/data/auth-bridge'
-import { getDataAdapter } from '@/lib/data/adapter'
 import { getDevNow } from '@/lib/data/dev-now'
 import { getDevToolbarData, getDevPhaseData } from '@/lib/data/dev-toolbar-data'
 import {
@@ -21,10 +20,6 @@ import {
 import { PanelReveal } from '@/components/chrome/panel-reveal'
 import { SlatePanel } from '@/components/chrome/panels/slate-panel'
 import { BoardPanel } from '@/components/chrome/panels/board-panel'
-import {
-  PollsPanel,
-  type PollsPanelPoll,
-} from '@/components/chrome/panels/polls-panel'
 import {
   SubmitReveal,
   type SubmitRevealLeg,
@@ -104,7 +99,6 @@ export default async function LeagueShellLayout({
       submitted: wd?.userLeg != null,
       lockAt: wd?.week.deadline || null,
       openPollCount: w.openPollCount,
-      pollCount: w.pollCount,
     }
   })
 
@@ -156,30 +150,11 @@ export default async function LeagueShellLayout({
     }
   })
 
-  // Every poll in the season, tagged with its week — the panel picks out
-  // the viewed week's without another round trip when you change weeks.
-  const adapter = await getDataAdapter()
-  const dataSource = process.env.NEXT_PUBLIC_DATA_SOURCE ?? 'mock'
-  const seasonPolls =
-    dataSource === 'neon'
-      ? await adapter.getPolls(p.league.id, { statuses: ['open', 'closed'] })
-      : p.polls
-  const weekIds = new Set(weeks.map((w) => w.nflWeekId))
-  const preseasonId = weeks.find((w) => w.kind === 'preseason')?.nflWeekId ?? null
-  const pollRows: PollsPanelPoll[] = seasonPolls
-    // A poll with no week is league business by default → the preseason.
-    .map((poll) => ({ poll, weekId: poll.nflWeekId ?? preseasonId }))
-    .filter((r): r is { poll: (typeof seasonPolls)[number]; weekId: string } =>
-      r.weekId != null && weekIds.has(r.weekId)
-    )
-    .map(({ poll, weekId }) => ({
-      id: poll.id,
-      nflWeekId: weekId,
-      title: poll.title,
-      status: poll.status,
-      totalVotes: poll.responses.length,
-      viewerVoted: poll.responses.some((r) => r.userId === p.me.id),
-    }))
+  // The shell used to fetch every poll in the season here, to feed a
+  // POLLS rung that listed the viewed week's. That rung is gone — the
+  // preseason page shows the votes itself, under ON THE BALLOT — so the
+  // query goes with it rather than loading a season of polls per
+  // navigation for nobody to read.
 
   // Per-week payloads for the two right/left panels that answer for
   // "the week you're looking at": your own leg, and the whole lay.
@@ -236,11 +211,6 @@ export default async function LeagueShellLayout({
                 weeks={chromeWeeks}
                 laysByWeek={layByWeek}
               />
-            </PanelReveal>
-          }
-          pollsPanel={
-            <PanelReveal panel="polls">
-              <PollsPanel polls={pollRows} />
             </PanelReveal>
           }
           submitPanel={

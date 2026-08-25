@@ -2,10 +2,18 @@
  * One tiny store for the canvas reveals (ported from RoarTracker's shell).
  *
  * The page card pulls back toward whichever top corner is AWAY from the
- * bubble you pressed: the rail's four panels — weeks, the lay, the board,
- * the polls — print under its left edge, and the two that are about you —
+ * bubble you pressed: the rail's three panels — weeks, the lay, the
+ * board — print under its left edge, and the two that are about you —
  * your leg, your profile — under its right. One channel, so opening any
  * of them closes the last.
+ *
+ * There is no POLLS panel. Every poll this app can make is a preseason
+ * charter poll (app/actions/charter.ts is the only createPoll caller),
+ * and the preseason page already lays them all out under ON THE BALLOT —
+ * bigger, grouped, and showing what each one is FOR. A rung duplicating
+ * that list could only ever be the same questions said worse, and it
+ * drifted out of agreement with the ballot the moment a charter entry
+ * was settled without its poll being closed.
  *
  * The league sheet is the exception: its trigger is the masthead, which
  * belongs to no edge, so it stays a portaled sheet on its own channel.
@@ -15,7 +23,6 @@ export type CanvasPanel =
   | 'slate'
   | 'parlay'
   | 'board'
-  | 'polls'
   | 'submit'
   | 'profile'
   | null

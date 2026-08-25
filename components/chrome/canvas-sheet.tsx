@@ -16,7 +16,7 @@ import {
  * thing you pressed. Only the card moves; the masthead holds still.
  * (Mobile gets ResponsiveSheets instead.)
  */
-const LEFT_PANELS = ['slate', 'parlay', 'board', 'polls'] as const
+const LEFT_PANELS = ['slate', 'parlay', 'board'] as const
 const RIGHT_PANELS = ['submit', 'profile', 'season'] as const
 
 const PANEL_LABEL: Record<Exclude<CanvasPanel, null>, string> = {
@@ -24,7 +24,6 @@ const PANEL_LABEL: Record<Exclude<CanvasPanel, null>, string> = {
   slate: 'Weeks',
   parlay: 'The Lay',
   board: 'Board',
-  polls: 'Polls',
   submit: 'The Leg',
   profile: 'Profile',
 }
@@ -34,7 +33,6 @@ export function CanvasSheet({
   slatePanel,
   parlayPanel,
   boardPanel,
-  pollsPanel,
   submitPanel,
   profilePanel,
   children,
@@ -43,7 +41,6 @@ export function CanvasSheet({
   slatePanel: React.ReactNode
   parlayPanel: React.ReactNode
   boardPanel: React.ReactNode
-  pollsPanel: React.ReactNode
   submitPanel: React.ReactNode
   profilePanel: React.ReactNode
   children: React.ReactNode
@@ -87,7 +84,6 @@ export function CanvasSheet({
     slate: slatePanel,
     parlay: parlayPanel,
     board: boardPanel,
-    polls: pollsPanel,
   } as const
   const rightContent = {
     submit: submitPanel,

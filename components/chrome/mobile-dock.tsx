@@ -53,7 +53,6 @@ export function MobileDock() {
   if (!chrome) return null
 
   const hasSlate = week?.hasSlate ?? false
-  const hasPolls = (week?.pollCount ?? 0) > 0
   const openPolls = week?.openPollCount ?? 0
   const weekFace = week
     ? week.kind === 'preseason'
@@ -91,19 +90,6 @@ export function MobileDock() {
     ),
     below: 'Board',
   }
-  const pollsCell: Face = {
-    key: `polls-${waiting ? 'switching' : openPolls}`,
-    label: 'Polls',
-    onClick: () => openPanel('polls'),
-    content: waiting ? (
-      <Waiting />
-    ) : openPolls > 0 ? (
-      <span className="font-display text-neon-blue text-[0.82rem]">{openPolls}</span>
-    ) : (
-      <ListTodo size={16} strokeWidth={2.25} />
-    ),
-    below: 'Polls',
-  }
   const layCell: Face = {
     key: `lay-${waiting ? 'switching' : (week?.submissionCount ?? 0)}`,
     label: 'The lay',
@@ -127,7 +113,7 @@ export function MobileDock() {
     hasParlay ? layCell : null,
     'park',
     boardCell,
-    hasPolls && hasSlate ? pollsCell : null,
+    null,
   ]
 
   const disc = hasSlate
@@ -147,10 +133,14 @@ export function MobileDock() {
           icon: <Plus size={22} strokeWidth={2.5} />,
         }
     : {
+        // The preseason week's verb is voting, and the votes are ON the
+        // page rather than behind a panel — so the disc takes you to
+        // them. Worth a slot because the charter under the ballot runs
+        // long on a phone, and this is the way back up.
         at: 0.5,
-        faceKey: `polls-${openPolls}`,
-        label: 'Polls',
-        onClick: () => openPanel('polls'),
+        faceKey: `ballot-${openPolls}`,
+        label: openPolls > 0 ? 'Go to the ballot' : 'Go to the charter',
+        onClick: toBallot,
         icon:
           openPolls > 0 ? (
             <span className="font-display text-[1rem] leading-none">{openPolls}</span>
@@ -261,4 +251,14 @@ function Waiting() {
       className="h-1.5 w-1.5 animate-pulse rounded-full bg-current opacity-40"
     />
   )
+}
+
+/** Scroll the preseason's votes into view — or, once they're all
+ *  settled and the ballot isn't rendered, the business that replaced
+ *  them. */
+function toBallot() {
+  const target =
+    document.getElementById('preseason-ballot') ??
+    document.getElementById('preseason-business')
+  target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }

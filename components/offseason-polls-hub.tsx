@@ -669,10 +669,16 @@ function SeasonSetup({
     // the week page already says so overhead. A second "Season Setup"
     // title under "Week 0 · Preseason" would just be the same sentence
     // twice.
-    <section className="mt-8">
+    <section id="preseason-business" className="mt-8">
       {ballot.length > 0 && (
         <>
-          <div className="mb-3 flex items-end justify-between gap-3 border-b border-white/[0.07] pb-2.5">
+          {/* The dock's disc aims here — on a phone the charter below
+              runs long, and "take me back to the votes" is the one verb
+              the preseason week has. */}
+          <div
+            id="preseason-ballot"
+            className="mb-3 flex items-end justify-between gap-3 border-b border-white/[0.07] pb-2.5"
+          >
             <h2 className="font-display text-xl leading-none tracking-tight uppercase">
               <span className="text-neon-pink">On the</span>{' '}
               <span className="text-foreground/80">Ballot</span>

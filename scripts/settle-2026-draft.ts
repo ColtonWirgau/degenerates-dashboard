@@ -32,7 +32,14 @@ const DECISIONS = [
 
 // The vote already happened. Leaving it open would ask the league to
 // decide something it has decided.
-const CLOSE_POLLS = ['draft-date'] as const
+//
+// draft-format is here for the same reason arrived at from the other
+// direction: its charter entry has been locked at "Snake + 3rd Rd
+// Reversal" all along, but the poll was never closed — and because that
+// entry carries no poll_id, the ballot (which reads charter entries)
+// couldn't see it while the polls panel (which reads polls) still
+// offered the vote. It was the last thing making the two disagree.
+const CLOSE_POLLS = ['draft-date', 'draft-format'] as const
 
 async function main() {
   const dry = process.argv.includes('--dry-run')

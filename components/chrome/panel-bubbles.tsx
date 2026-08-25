@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Clock, ListTodo, Skull, Trophy } from 'lucide-react'
+import { Clock, Skull, Trophy } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   useLeagueChrome,
@@ -26,7 +26,6 @@ import { railC, setRailCount } from '@/components/chrome/bubble-layout'
  *   PARLAY  how the lay is doing — a count while it's filling, then a
  *           trophy or a skull once it's settled
  *   BOARD   the season's podium, three faces in gold, silver and bronze
- *   POLLS   this week's open votes
  *
  * The week list is NOT here any more. It had a bubble wearing the week's
  * number while the page's own title was that same number, six inches
@@ -34,13 +33,16 @@ import { railC, setRailCount } from '@/components/chrome/bubble-layout'
  * what opens the list now. The rail starts lower down to leave that
  * corner alone (see RAIL_TOP).
  *
- * The first and last come and go with the week (the preseason has no
- * parlay; most weeks have no polls) and the rail closes up behind them,
- * so it's never a ladder with a rung missing. Open, a bubble becomes its
- * own ✕. They render inside .page-sheet, so they ride every slide the
- * card makes.
+ * There was a third, POLLS, and it's gone: the preseason page lists
+ * every vote under ON THE BALLOT already, and a rung saying the same
+ * thing smaller could only agree with it by accident.
+ *
+ * The first comes and goes with the week (the preseason has no parlay)
+ * and the rail closes up behind it, so it's never a ladder with a rung
+ * missing. Open, a bubble becomes its own ✕. They render inside
+ * .page-sheet, so they ride every slide the card makes.
  */
-type Rung = 'parlay' | 'board' | 'polls'
+type Rung = 'parlay' | 'board'
 
 export function PanelBubbles() {
   const chrome = useLeagueChrome()
@@ -49,14 +51,12 @@ export function PanelBubbles() {
   useEffect(() => subscribePanel(setPanel), [])
 
   const hasParlay = week?.parlayId != null
-  const hasPolls = (week?.pollCount ?? 0) > 0
 
   // Rail order is fixed; presence is not. The clip follows exactly —
   // resolveBites carves this many holes, top-down.
   const rungs: Rung[] = []
   if (hasParlay) rungs.push('parlay')
   rungs.push('board')
-  if (hasPolls) rungs.push('polls')
 
   const count = rungs.length
   useEffect(() => {
@@ -146,8 +146,6 @@ function arcText(panel: Rung): string {
       return 'THE LAY'
     case 'board':
       return 'BOARD'
-    case 'polls':
-      return 'POLLS'
   }
 }
 
@@ -161,8 +159,6 @@ function faceKey(
       return `${week?.parlayState ?? ''}:${week?.submissionCount ?? 0}`
     case 'board':
       return podium.map((m) => m.userId).join(',') || '–'
-    case 'polls':
-      return week?.openPollCount ?? 0
   }
 }
 
@@ -205,14 +201,6 @@ function Face({
         <Podium members={podium} />
       ) : (
         <Trophy size={20} strokeWidth={2.25} />
-      )
-    case 'polls':
-      return (week?.openPollCount ?? 0) > 0 ? (
-        <span className="font-display text-[1.05rem] leading-none">
-          {week!.openPollCount}
-        </span>
-      ) : (
-        <ListTodo size={20} strokeWidth={2.25} />
       )
   }
 }

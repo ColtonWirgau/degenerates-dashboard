@@ -16,7 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton'
  * you're using would be absurd — and PROFILE is you, which doesn't change
  * with the year. Everything else is that season's weeks, legs, standings
  * and votes, and holds last year's numbers until the refresh lands. */
-const SEASON_BOUND = new Set<CanvasPanel>(['slate', 'parlay', 'board', 'polls', 'submit'])
+const SEASON_BOUND = new Set<CanvasPanel>(['slate', 'parlay', 'board', 'submit'])
 
 /**
  * Dual-posture wrapper for a canvas panel (the RoarTracker pattern, on
