@@ -10,6 +10,7 @@ import {
   type ChromeWeek,
   type LeagueChrome,
 } from '@/components/chrome/league-chrome-context'
+import { PullToRefresh } from '@/components/chrome/pull-to-refresh'
 import { Masthead } from '@/components/chrome/masthead'
 import { CanvasSheet } from '@/components/chrome/canvas-sheet'
 import { PageSheet } from '@/components/chrome/page-sheet'
@@ -224,112 +225,119 @@ export default async function LeagueShellLayout({
   return (
     <LeagueChromeProvider value={chrome}>
       <div className="flex min-h-[100dvh] flex-col lg:h-svh lg:overflow-hidden">
-        <Masthead />
-        <CanvasSheet
-          seasonPanel={
-            <PanelReveal panel="season">
-              <SeasonPanel
-                availableSeasons={p.availableSeasons}
-                members={seasonMembers}
-                currentUserId={p.me.id}
-                currentUserRole={p.currentUserRole ?? 'member'}
-                charter={p.charter}
-                charterPolls={charterPolls}
-                pollMembers={pollMembers}
-              />
-            </PanelReveal>
-          }
-          slatePanel={
-            <PanelReveal panel="slate">
-              <SlatePanel laysByWeek={layByWeek} />
-            </PanelReveal>
-          }
-          parlayPanel={
-            <PanelReveal panel="parlay">
-              <ParlayPanel weeks={layByWeek} />
-            </PanelReveal>
-          }
-          boardPanel={
-            <PanelReveal panel="board">
-              <BoardPanel
-                entries={p.leaderboard}
-                currentUserId={p.me.id}
-                weeks={chromeWeeks}
-                laysByWeek={layByWeek}
-              />
-            </PanelReveal>
-          }
-          submitPanel={
-            <PanelReveal panel="submit">
-              <SubmitReveal leagueId={p.league.id} legsByWeek={legsByWeek} />
-            </PanelReveal>
-          }
-          composePanel={
-            <PanelReveal panel="compose">
-              {canManage && (
-                <ComposePanel
+        {/* Everything the pull moves goes INSIDE: the masthead and the
+            card follow the finger. The dock stays put — it's fixed, and a
+            bar that slid off the bottom edge would be unreachable
+            mid-gesture — and the sheets are portaled to the body, so they
+            were never in this tree to begin with. */}
+        <PullToRefresh>
+          <Masthead />
+          <CanvasSheet
+            seasonPanel={
+              <PanelReveal panel="season">
+                <SeasonPanel
+                  availableSeasons={p.availableSeasons}
+                  members={seasonMembers}
+                  currentUserId={p.me.id}
+                  currentUserRole={p.currentUserRole ?? 'member'}
+                  charter={p.charter}
+                  charterPolls={charterPolls}
+                  pollMembers={pollMembers}
+                />
+              </PanelReveal>
+            }
+            slatePanel={
+              <PanelReveal panel="slate">
+                <SlatePanel laysByWeek={layByWeek} />
+              </PanelReveal>
+            }
+            parlayPanel={
+              <PanelReveal panel="parlay">
+                <ParlayPanel weeks={layByWeek} />
+              </PanelReveal>
+            }
+            boardPanel={
+              <PanelReveal panel="board">
+                <BoardPanel
+                  entries={p.leaderboard}
+                  currentUserId={p.me.id}
+                  weeks={chromeWeeks}
+                  laysByWeek={layByWeek}
+                />
+              </PanelReveal>
+            }
+            submitPanel={
+              <PanelReveal panel="submit">
+                <SubmitReveal leagueId={p.league.id} legsByWeek={legsByWeek} />
+              </PanelReveal>
+            }
+            composePanel={
+              <PanelReveal panel="compose">
+                {canManage && (
+                  <ComposePanel
+                    leagueId={p.league.id}
+                    season={p.season}
+                    nflWeekId={preseasonWeekId}
+                    topics={charterTopics}
+                  />
+                )}
+              </PanelReveal>
+            }
+            askPanel={
+              <PanelReveal panel="ask">
+                {canManage && (
+                  <AskPanel leagueId={p.league.id} fallbackWeekId={preseasonWeekId} />
+                )}
+              </PanelReveal>
+            }
+            profilePanel={
+              <PanelReveal panel="profile">
+                {me && (
+                  <ProfilePanel user={me} myRank={chrome.myRank} stats={p.userStats} />
+                )}
+              </PanelReveal>
+            }
+            keeperPanel={
+              <PanelReveal panel="keeper">
+                <KeeperPanel
                   leagueId={p.league.id}
                   season={p.season}
-                  nflWeekId={preseasonWeekId}
-                  topics={charterTopics}
+                  people={p.members.map((m) => ({
+                    userId: m.user_id,
+                    fullName: m.full_name,
+                    email: m.email,
+                    avatarUrl: m.avatar_url,
+                  }))}
+                  keepers={keepers.map((k) => ({
+                    id: k.id,
+                    userId: k.userId,
+                    playerName: k.playerName,
+                    position: k.position,
+                    sleeperId: k.sleeperId,
+                    roundCost: k.roundCost,
+                    yearOfKeep: k.yearOfKeep,
+                  }))}
+                  currentUserId={p.me.id}
+                  canManage={canManage}
+                  draftPassed={draftPassed}
                 />
-              )}
-            </PanelReveal>
-          }
-          askPanel={
-            <PanelReveal panel="ask">
-              {canManage && (
-                <AskPanel leagueId={p.league.id} fallbackWeekId={preseasonWeekId} />
-              )}
-            </PanelReveal>
-          }
-          profilePanel={
-            <PanelReveal panel="profile">
-              {me && (
-                <ProfilePanel user={me} myRank={chrome.myRank} stats={p.userStats} />
-              )}
-            </PanelReveal>
-          }
-          keeperPanel={
-            <PanelReveal panel="keeper">
-              <KeeperPanel
-                leagueId={p.league.id}
-                season={p.season}
-                people={p.members.map((m) => ({
-                  userId: m.user_id,
-                  fullName: m.full_name,
-                  email: m.email,
-                  avatarUrl: m.avatar_url,
-                }))}
-                keepers={keepers.map((k) => ({
-                  id: k.id,
-                  userId: k.userId,
-                  playerName: k.playerName,
-                  position: k.position,
-                  sleeperId: k.sleeperId,
-                  roundCost: k.roundCost,
-                  yearOfKeep: k.yearOfKeep,
-                }))}
-                currentUserId={p.me.id}
-                canManage={canManage}
-                draftPassed={draftPassed}
-              />
-            </PanelReveal>
-          }
-          venuePanel={
-            <PanelReveal panel="venue">
-              <VenuePanel
-                leagueId={p.league.id}
-                season={p.season}
-                entry={p.charter.find((e) => e.key === 'draft-location') ?? null}
-                dateEntry={p.charter.find((e) => e.key === 'draft-date') ?? null}
-                canManage={canManage}
-              />
-            </PanelReveal>
-          }
-        >
-          <PageSheet>{children}</PageSheet>
-        </CanvasSheet>
+              </PanelReveal>
+            }
+            venuePanel={
+              <PanelReveal panel="venue">
+                <VenuePanel
+                  leagueId={p.league.id}
+                  season={p.season}
+                  entry={p.charter.find((e) => e.key === 'draft-location') ?? null}
+                  dateEntry={p.charter.find((e) => e.key === 'draft-date') ?? null}
+                  canManage={canManage}
+                />
+              </PanelReveal>
+            }
+          >
+            <PageSheet>{children}</PageSheet>
+          </CanvasSheet>
+        </PullToRefresh>
         <MobileDock />
 
         {/* The invite flow — the last thing that still wants a portaled

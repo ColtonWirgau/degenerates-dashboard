@@ -1,7 +1,7 @@
 // The canvas shell: desktop edge-bubble reveals + the mobile dock.
 // Uses the same DB-injected Auth.js session as neon-cutover.spec.ts.
 
-import { test, expect, type BrowserContext } from '@playwright/test'
+import { test, expect, type BrowserContext, type Page } from '@playwright/test'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
 import { sessions, users } from '../../db/schema'
@@ -543,5 +543,126 @@ test.describe('the commissioner’s hand', () => {
     } finally {
       await restoreTheirs()
     }
+  })
+})
+
+/**
+ * PULL TO REFRESH — and the pull IS the line. Dragging the page down
+ * walks an odds ladder from a long shot toward the house's own −110,
+ * which locks at the arm point and books on release.
+ *
+ * Driven with synthetic touches because Playwright's touchscreen only
+ * taps, and this gesture is a held drag.
+ */
+async function touch(page: Page, kind: string, x: number, y: number) {
+  await page.evaluate(
+    ([k, cx, cy]) => {
+      const target =
+        document.elementFromPoint(cx as number, cy as number) ?? document.body
+      const t = new Touch({
+        identifier: 1,
+        target,
+        clientX: cx as number,
+        clientY: cy as number,
+      })
+      target.dispatchEvent(
+        new TouchEvent(k as string, {
+          touches: k === 'touchend' ? [] : [t],
+          targetTouches: k === 'touchend' ? [] : [t],
+          changedTouches: [t],
+          bubbles: true,
+          cancelable: true,
+        })
+      )
+    },
+    [kind, x, y] as const
+  )
+}
+
+/** The odds board above the page's top edge, or null when it's tucked. */
+async function oddsBoard(page: Page) {
+  return page.evaluate(() => {
+    const el = document.querySelector('[aria-hidden="true"].fixed.inset-x-0.top-0')
+    if (!el) return null
+    return {
+      price: el.querySelector('span.font-display')?.textContent?.trim() ?? null,
+      caption: el.querySelector('p')?.textContent?.trim() ?? null,
+    }
+  })
+}
+
+test.describe('the pull', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
+
+  test('the line walks, locks on the vig, and books', async ({ page, context }) => {
+    await signIn(context)
+    await page.goto('http://localhost:3001/')
+    await page.waitForURL(/\/leagues\//, { timeout: 10_000 })
+    await expect(
+      page.getByRole('heading', { name: 'Preseason', level: 1 })
+    ).toBeVisible({ timeout: 15_000 })
+
+    await touch(page, 'touchstart', 195, 300)
+    for (const dy of [20, 60, 100]) await touch(page, 'touchmove', 195, 300 + dy)
+    await page.waitForTimeout(120)
+    const shopping = await oddsBoard(page)
+    expect(shopping?.caption).toBe('Shopping the line')
+    // A long price, not the locked one — the line hasn't come in yet.
+    expect(shopping?.price).toMatch(/^\+/)
+
+    for (const dy of [160, 220, 280]) await touch(page, 'touchmove', 195, 300 + dy)
+    await page.waitForTimeout(150)
+    expect(await oddsBoard(page)).toMatchObject({
+      caption: 'Release to lock',
+      price: '−110',
+    })
+
+    await touch(page, 'touchend', 195, 580)
+    await page.waitForTimeout(180)
+    expect((await oddsBoard(page))?.caption).toBe('Booked')
+  })
+
+  test('a sideways swipe never tugs the page', async ({ page, context }) => {
+    await signIn(context)
+    await page.goto('http://localhost:3001/')
+    await page.waitForURL(/\/leagues\//, { timeout: 10_000 })
+    await expect(
+      page.getByRole('heading', { name: 'Preseason', level: 1 })
+    ).toBeVisible({ timeout: 15_000 })
+
+    // The roster strip, the keeper picker and the slate's rows are all
+    // horizontal scrollers. The axis is committed to once, on the first
+    // 6px, so a swipe with real vertical drift stays a swipe.
+    await touch(page, 'touchstart', 195, 400)
+    await touch(page, 'touchmove', 155, 408)
+    await touch(page, 'touchmove', 90, 420)
+    await touch(page, 'touchmove', 40, 440)
+    await page.waitForTimeout(120)
+    expect(await oddsBoard(page)).toBeNull()
+    await touch(page, 'touchend', 40, 440)
+  })
+
+  test('a pull that starts on the dock belongs to the dock', async ({
+    page,
+    context,
+  }) => {
+    await signIn(context)
+    await page.goto('http://localhost:3001/')
+    await page.waitForURL(/\/leagues\//, { timeout: 10_000 })
+    await expect(
+      page.getByRole('heading', { name: 'Preseason', level: 1 })
+    ).toBeVisible({ timeout: 15_000 })
+
+    const dockY = await page.evaluate(() => {
+      const r = document
+        .querySelector('nav[aria-label="Main"]')!
+        .getBoundingClientRect()
+      return Math.round(r.top + r.height / 2)
+    })
+    await touch(page, 'touchstart', 195, dockY)
+    for (const dy of [40, 120, 240]) await touch(page, 'touchmove', 195, dockY + dy)
+    await page.waitForTimeout(120)
+    expect(await oddsBoard(page)).toBeNull()
+    await touch(page, 'touchend', 195, dockY + 240)
   })
 })

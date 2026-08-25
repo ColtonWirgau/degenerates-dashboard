@@ -97,6 +97,14 @@
 
   html {
     background-color: #0A0A0A;
+    /* The app owns the overscroll at the top of the page: <PullToRefresh>
+       opens the odds board there. Without this, Chrome on Android fires
+       its OWN pull-to-refresh from the same gesture and you get two
+       indicators arguing — its spinner over our board, and a reload that
+       throws away the shell instead of refreshing the route. `contain`
+       stops the gesture escaping to the browser while leaving normal
+       scrolling (and the horizontal back-swipe) alone. */
+    overscroll-behavior-y: contain;
   }
 
   body {
@@ -452,6 +460,27 @@
   animation: splash-warm 720ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
 }
 
+/* The pull-to-refresh price being stamped: it lands hard once, the way
+   a book prints a locked number, rather than easing anywhere. */
+@keyframes ptr-stamp {
+  0% {
+    transform: scale(1.14);
+    filter: brightness(1.9);
+  }
+  45% {
+    transform: scale(0.97);
+    filter: brightness(1.05);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+.ptr-stamp {
+  display: inline-block;
+  animation: ptr-stamp 300ms cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sheet-track .page-sheet {
     transition: none;
@@ -459,7 +488,8 @@
   .face-pop,
   .dock-up,
   .hint-bob,
-  .splash-lockup {
+  .splash-lockup,
+  .ptr-stamp {
     animation: none;
   }
 }

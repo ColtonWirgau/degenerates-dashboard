@@ -450,40 +450,81 @@ test('a keeper is declared, amended and withdrawn', async ({ page }) => {
   }
 })
 
+/**
+ * CHANGE IT is a DELETE-then-recompose: pressing it drops the leg and
+ * hands the composer its text back. So this test spends part of its life
+ * with the viewer's real leg deleted, against the real league — and it
+ * used to rely on reaching its own last line to put it back. It didn't,
+ * twice: a timeout anywhere in the middle left the leg permanently gone,
+ * with no snapshot to restore it from and no record of what it said.
+ *
+ * The row is taken out of the database and put back in a `finally`, the
+ * way every other destructive test here already does it.
+ */
 test('your leg can be changed from the panel that shows it', async ({ page }) => {
-  await openLeague(page)
-  await page.getByRole('button', { name: /open the week list/i }).click()
-  await page.getByRole('button', { name: /Week 1\b/ }).first().click()
-  await expect(page.getByRole('heading', { name: 'Week 1', level: 1 })).toBeVisible({
-    timeout: 15_000,
-  })
+  const savedLegs = (
+    await pool.query(
+      `select l.* from parlay_legs l join users u on u.id = l.user_id
+        where u.email = $1`,
+      [VIEWER_EMAIL]
+    )
+  ).rows
 
-  await page.getByRole('button', { name: 'actions' }).click()
-  await page.getByRole('button', { name: 'your leg' }).click()
-  await expect(page.getByText('Locked in')).toBeVisible({ timeout: 15_000 })
+  const restoreMine = async () => {
+    await pool.query(
+      `delete from parlay_legs l using users u
+        where u.id = l.user_id and u.email = $1`,
+      [VIEWER_EMAIL]
+    )
+    for (const r of savedLegs) {
+      await pool.query(
+        `insert into parlay_legs
+           (id, parlay_id, user_id, leg_number, description, odds, result,
+            validation_status, validation_message, locked_at, graded_at,
+            graded_by, created_at)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+        [r.id, r.parlay_id, r.user_id, r.leg_number, r.description, r.odds,
+         r.result, r.validation_status, r.validation_message, r.locked_at,
+         r.graded_at, r.graded_by, r.created_at]
+      )
+    }
+  }
 
-  // Whatever is in there — this runs against the real league, so it puts
-  // back exactly what it found.
-  const box = page.getByPlaceholder(/Chiefs -3\.5/i)
-  const odds = page.getByPlaceholder(/-110, \+150/)
+  try {
+    await openLeague(page)
+    await page.getByRole('button', { name: /open the week list/i }).click()
+    await page.getByRole('button', { name: /Week 1\b/ }).first().click()
+    await expect(page.getByRole('heading', { name: 'Week 1', level: 1 })).toBeVisible({
+      timeout: 15_000,
+    })
 
-  // The panel used to say "open the week and delete your leg first —
-  // then resubmit", which described a route that no longer exists: the
-  // week page lost its delete when the lay became a panel. The only
-  // instruction it gave was one you couldn't follow.
-  await page.getByRole('button', { name: /Change it/i }).click()
-  await expect(box).toBeVisible({ timeout: 20_000 })
+    await page.getByRole('button', { name: 'actions' }).click()
+    await page.getByRole('button', { name: 'your leg' }).click()
+    await expect(page.getByText('Locked in')).toBeVisible({ timeout: 15_000 })
 
-  // And it hands the composer back what you had in it. Reading that off
-  // the leg would fail — by the time the form renders, the leg has been
-  // deleted and there is nothing left to read — so the text is captured
-  // when you press, not looked up after.
-  const wasDescription = await box.inputValue()
-  const wasOdds = await odds.inputValue()
-  expect(wasDescription.length).toBeGreaterThan(0)
-  expect(wasOdds.length).toBeGreaterThan(0)
+    const box = page.getByPlaceholder(/Chiefs -3\.5/i)
+    const odds = page.getByPlaceholder(/-110, \+150/)
 
-  await page.getByRole('button', { name: /Update|Lock It In/i }).click()
-  await expect(page.getByText('Locked in')).toBeVisible({ timeout: 20_000 })
-  await expect(page.getByText(wasDescription).first()).toBeVisible()
+    // The panel used to say "open the week and delete your leg first —
+    // then resubmit", which described a route that no longer exists: the
+    // week page lost its delete when the lay became a panel. The only
+    // instruction it gave was one you couldn't follow.
+    await page.getByRole('button', { name: /Change it/i }).click()
+    await expect(box).toBeVisible({ timeout: 20_000 })
+
+    // And it hands the composer back what you had in it. Reading that off
+    // the leg would fail — by the time the form renders, the leg has been
+    // deleted and there is nothing left to read — so the text is captured
+    // when you press, not looked up after.
+    const wasDescription = await box.inputValue()
+    const wasOdds = await odds.inputValue()
+    expect(wasDescription.length).toBeGreaterThan(0)
+    expect(wasOdds.length).toBeGreaterThan(0)
+
+    await page.getByRole('button', { name: /Update|Lock It In/i }).click()
+    await expect(page.getByText('Locked in')).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText(wasDescription).first()).toBeVisible()
+  } finally {
+    await restoreMine()
+  }
 })
