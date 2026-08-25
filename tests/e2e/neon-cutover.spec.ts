@@ -112,7 +112,10 @@ test('the ballot is voted on in place, not behind a sheet', async ({ page }) => 
   // were already reading, showing you the same question again; then it
   // was a fold. Both stood between the page's one job and doing it.
   const stage = page.locator('.sheet-track')
-  await expect(stage.getByText('Cast your vote', { exact: false })).toBeVisible()
+  // Both questions say it, in the same words — the ranked one used to
+  // say "Rank your top 3", which described the control rather than the
+  // job. The chips number themselves as you tap.
+  await expect(stage.getByText('Cast Your Vote')).toHaveCount(2)
   await expect(stage.getByText('Yes', { exact: true })).toBeVisible()
   await expect(page.getByRole('dialog')).toHaveCount(0)
 
@@ -124,6 +127,11 @@ test('the ballot is voted on in place, not behind a sheet', async ({ page }) => 
   // source='manual' with a live poll attached, and requiring
   // 'derived-from-poll' meant its vote rendered nowhere at all.
   await expect(page.getByText(/be the first to pitch a value/i)).toHaveCount(0)
+
+  // The ranked question's chips stand on their own: no line telling you
+  // to tap them in order.
+  await expect(stage.getByText('Choose your top 3 punishments')).toBeVisible()
+  await expect(page.getByText(/most preferred first/i)).toHaveCount(0)
 })
 
 test('picking a week swaps the stage without navigating', async ({ page }) => {

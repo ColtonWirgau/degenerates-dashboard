@@ -159,8 +159,12 @@ export function RankedChoiceVote({
 
   return (
     <div className="space-y-2">
+      {/* Same words as every other kind of poll. "Rank your top 3" was
+          saying what the CONTROL does; the question above already says
+          what's being decided, and the chips number themselves as you
+          tap. */}
       <p className="text-[10px] font-bold tracking-[0.28em] uppercase text-muted-foreground">
-        Rank your top {maxRanks}
+        Cast Your Vote
       </p>
       <RankedOptions
         poll={poll}
@@ -782,11 +786,11 @@ export function RankedOptions({
 
   return (
     <div className="space-y-2">
-      {/* Instruction or "Your ranking" preview */}
-      <p className="text-[10px] tracking-widest uppercase text-muted-foreground/70 leading-tight">
-        {orderedSummary.length === 0 ? (
-          <>Tap your top {maxRanks} in order — most preferred first.</>
-        ) : (
+      {/* Nothing until you've picked something. The instruction that
+          used to sit here explained a control that explains itself —
+          tap a chip and it gets a 1. */}
+      <p className="text-[10px] tracking-widest uppercase text-muted-foreground/70 leading-tight empty:hidden">
+        {orderedSummary.length === 0 ? null : (
           <span className="inline-flex flex-wrap gap-x-2 gap-y-0.5">
             <span className="text-muted-foreground">Your ranking ·</span>
             {orderedSummary.map((o, i) => (
