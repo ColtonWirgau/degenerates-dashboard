@@ -1,8 +1,15 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { Clock, Skull, Trophy } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { closePanel, setViewedWeek } from '@/components/chrome/canvas-store'
+import {
+  closePanel,
+  setStageView,
+  setViewedWeek,
+  subscribeStageView,
+  type StageView,
+} from '@/components/chrome/canvas-store'
 import {
   useLeagueChrome,
   useViewedWeek,
@@ -32,7 +39,16 @@ export function SlatePanel({
 }) {
   const chrome = useLeagueChrome()
   const viewed = useViewedWeek()
+  const [view, setView] = useState<StageView>('week')
+  useEffect(() => subscribeStageView(setView), [])
   if (!chrome) return null
+
+  // A season is finished once every week in it has closed. That's the
+  // condition for the recap existing at all — an in-progress season has
+  // nothing to recap yet, and offering one would be offering a verdict
+  // on a game still being played.
+  const finished =
+    chrome.weeks.length > 0 && chrome.weeks.every((w) => w.closed)
 
   // In season order, earliest first — week 0 at the top, because the
   // season is a story and you read it forwards.
@@ -47,6 +63,42 @@ export function SlatePanel({
         <span className="text-foreground/80">Weeks</span>
       </h2>
       <div className="scrollbar-hide min-h-0 flex-1 space-y-2 overflow-y-auto pb-2">
+        {finished && (
+          <button
+            type="button"
+            onClick={() => {
+              setStageView('recap')
+              closePanel()
+            }}
+            aria-current={view === 'recap' ? 'true' : undefined}
+            className={cn(
+              'flex w-full items-stretch overflow-hidden rounded-xl border text-left transition-colors',
+              view === 'recap'
+                ? 'border-neon-blue/45 bg-neon-blue/[0.09]'
+                : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.06]'
+            )}
+          >
+            <div
+              aria-hidden
+              className="relative flex w-[3.25rem] shrink-0 items-center justify-center self-stretch"
+              style={{
+                clipPath: 'polygon(0 0, 100% 0, calc(100% - 9px) 100%, 0 100%)',
+                background:
+                  'linear-gradient(150deg, rgba(0,217,255,0.18), rgba(0,217,255,0.03))',
+              }}
+            >
+              <Trophy className="text-neon-blue h-4 w-4" strokeWidth={2.25} />
+            </div>
+            <div className="min-w-0 flex-1 py-2 pr-3 pl-2.5">
+              <p className="font-display text-foreground/85 text-sm leading-none tracking-tight uppercase">
+                The Recap
+              </p>
+              <p className="text-muted-foreground mt-1 text-[10px] tracking-wider uppercase">
+                How the whole year went
+              </p>
+            </div>
+          </button>
+        )}
         {ordered.map((w) => (
           <WeekCard
             key={w.id}

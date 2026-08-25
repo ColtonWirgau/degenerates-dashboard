@@ -63,6 +63,12 @@ async function openLeague(page: Page) {
   })
 }
 
+/** Leave the recap for the season's last week, via the week list. */
+async function openWeek18(page: Page) {
+  await page.getByRole('button', { name: /open the week list/i }).click()
+  await page.getByRole('button', { name: 'Week 18' }).click()
+}
+
 test('the league opens on the current week — week 0, the house rules', async ({ page }) => {
   await openLeague(page)
   // Week 0's identity is now the corner door — the "0" slab that opens
@@ -135,6 +141,12 @@ test('a finished season is closed, not still taking legs', async ({ page }) => {
   await page.getByRole('button', { name: 'Season and league' }).first().click()
   await page.getByRole('button', { name: /2025-2026/ }).click()
 
+  // A finished season opens on how it went, not on a week.
+  await expect(page.getByRole('heading', { name: /The Recap/i, level: 1 })).toBeVisible({
+    timeout: 20_000,
+  })
+  await openWeek18(page)
+
   // Its last week was closed long ago — the "not everyone's in yet" rule
   // must not reopen it.
   await expect(page.getByRole('heading', { name: 'Week 18', level: 1 })).toBeVisible({
@@ -188,14 +200,16 @@ test('switching seasons repaints immediately and needs no server action', async 
   // server has never heard of — which is exactly how this used to fail,
   // with an UnrecognizedActionError instead of a season change.
   //
-  // The guard is on the SEASON travelling to the server, not on actions
-  // in general: other things on this page hydrate through actions of
-  // their own on mount, and when those land is nobody's business here.
-  const seasonSentToServer: string[] = []
+  // The guard is narrow on purpose. Plenty of legitimate actions take a
+  // season as an argument — the recap READS one — so "a season went to
+  // the server" proves nothing. What must never come back is an action
+  // whose whole payload is a season: that was setViewSeason's signature,
+  // and it's the thing whose stale id used to blow the page up.
+  const seasonSetOnServer: string[] = []
   page.on('request', (r) => {
     if (r.method() !== 'POST' || !r.headers()['next-action']) return
-    const body = String(r.postData() ?? '')
-    if (/\d{4}-\d{4}/.test(body)) seasonSentToServer.push(body.slice(0, 120))
+    const body = String(r.postData() ?? '').trim()
+    if (/^\["\d{4}-\d{4}"\]$/.test(body)) seasonSetOnServer.push(body)
   })
 
   await page.getByRole('button', { name: 'Season and league' }).first().click()
@@ -218,14 +232,15 @@ test('switching seasons repaints immediately and needs no server action', async 
   )
 
   // And what can't be known yet says so rather than showing last
-  // season's numbers, until the real week lands.
-  await expect(page.getByRole('heading', { name: 'Week 18', level: 1 })).toBeVisible({
+  // season's numbers, until the real thing lands — which for a season
+  // that's over is the recap.
+  await expect(page.getByRole('heading', { name: /The Recap/i, level: 1 })).toBeVisible({
     timeout: 20_000,
   })
   await expect(page.locator('[aria-busy="true"]')).toHaveCount(0)
 
   expect(
-    seasonSentToServer,
-    `the season went to a server action: ${seasonSentToServer.join(', ')}`
+    seasonSetOnServer,
+    `the season was set through a server action: ${seasonSetOnServer.join(', ')}`
   ).toEqual([])
 })

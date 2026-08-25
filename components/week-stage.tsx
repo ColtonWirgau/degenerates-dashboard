@@ -3,10 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getWeekStage, type WeekStagePayload } from '@/app/actions/week-stage'
 import { useLeagueChrome, useViewedWeek } from '@/components/chrome/league-chrome-context'
-import { setWeekActions, subscribeWeekDirty } from '@/components/chrome/canvas-store'
+import {
+  setWeekActions,
+  subscribeWeekDirty,
+  subscribeStageView,
+  type StageView,
+} from '@/components/chrome/canvas-store'
 import { WeekHeader, WeekTiming } from '@/components/week-header'
 import { WeekSlate } from '@/components/week-slate'
 import { WeekPolls } from '@/components/week-polls'
+import { SeasonRecap } from '@/components/season-recap'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { PollMember } from '@/components/polls/types'
 
@@ -40,6 +46,8 @@ export function WeekStage({
 }) {
   const chrome = useLeagueChrome()
   const viewed = useViewedWeek()
+  const [view, setView] = useState<StageView>('week')
+  useEffect(() => subscribeStageView(setView), [])
 
   // Every week we've loaded, kept for the rest of the session — flipping
   // back and forth between weeks should be instant after the first look.
@@ -132,6 +140,11 @@ export function WeekStage({
   // whose current week is week 0 would flash the old league's charter on
   // its way out.
   if (chrome?.switching) return <StageSkeleton />
+
+  // A season that's over opens on how it went, not on a week.
+  if (view === 'recap' && chrome) {
+    return <SeasonRecap leagueId={leagueId} season={chrome.season} />
+  }
 
   if (isPreseason) return <>{preseason}</>
 

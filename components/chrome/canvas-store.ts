@@ -78,6 +78,31 @@ export function subscribeSwitchingSeason(
   return () => switchingListeners.delete(listener)
 }
 
+/* ---------- What the stage is showing ---------- */
+
+/* A finished season is a different object from one in progress: nothing
+ * can change, no deadline matters, and "week 14 of 18" has stopped being
+ * the useful frame. So the stage has two modes — the week you picked, or
+ * the season read back as a whole — and landing on a season that's over
+ * opens on the recap rather than making you click through eighteen weeks
+ * to find out how it went. Picking any week from the list switches back. */
+export type StageView = 'week' | 'recap'
+
+let stageView: StageView = 'week'
+const stageViewListeners = new Set<(v: StageView) => void>()
+
+export function setStageView(v: StageView) {
+  if (stageView === v) return
+  stageView = v
+  stageViewListeners.forEach((l) => l(stageView))
+}
+
+export function subscribeStageView(listener: (v: StageView) => void): () => void {
+  stageViewListeners.add(listener)
+  listener(stageView)
+  return () => stageViewListeners.delete(listener)
+}
+
 /* ---------- The viewed week ---------- */
 
 /* WHICH WEEK THE CARD IS SHOWING. The app is one page: picking a week
@@ -88,6 +113,10 @@ let viewedWeekId: string | null = null
 const viewedWeekListeners = new Set<(id: string | null) => void>()
 
 export function setViewedWeek(id: string | null) {
+  // Choosing a week IS leaving the recap. Making that a second, separate
+  // gesture would mean picking week 4 and watching the season summary
+  // stay on screen.
+  if (id !== null) setStageView('week')
   if (viewedWeekId === id) return
   viewedWeekId = id
   viewedWeekListeners.forEach((l) => l(viewedWeekId))
