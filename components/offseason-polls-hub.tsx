@@ -629,12 +629,97 @@ function SeasonSetup({
     }
   })()
 
+  // WHAT'S ACTUALLY ON THE BALLOT. Week 0's job is settling the things
+  // the league hasn't settled — everything else on this page is a record
+  // of decisions already made, which is reference, not work. So the open
+  // questions come out of their categories and lead.
+  const ballot = useMemo(() => {
+    const open: Array<{
+      entry: CharterEntry
+      poll: LeaguePoll | null
+      group: string
+      custom: boolean
+    }> = []
+    for (const e of charter) {
+      if (e.status === 'locked') continue
+      const poll = e.pollId ? (pollsById.get(e.pollId) ?? null) : null
+      // A question is live if it has an open vote, or if it's been
+      // proposed and is waiting on approvals.
+      const live = (poll && poll.status === 'open') || e.status === 'pending'
+      if (!live) continue
+      const custom = e.category === 'custom'
+      open.push({
+        entry: e,
+        poll,
+        group: custom ? (e.metadata?.group ?? 'Custom') : groupFor(e),
+        custom,
+      })
+    }
+    return open
+  }, [charter, pollsById])
+
+  const needsMe = ballot.filter(
+    ({ poll }) =>
+      poll != null &&
+      !hasAnyAnswer(viewerVoteFor(poll, sessionPollVotes, currentUserId))
+  ).length
+
   return (
     // No heading of its own: this IS the preseason week's content, and
     // the week page already says so overhead. A second "Season Setup"
     // title under "Week 0 · Preseason" would just be the same sentence
     // twice.
     <section className="mt-8">
+      {ballot.length > 0 && (
+        <>
+          <div className="mb-3 flex items-end justify-between gap-3 border-b border-white/[0.07] pb-2.5">
+            <h2 className="font-display text-xl leading-none tracking-tight uppercase">
+              <span className="text-neon-pink">On the</span>{' '}
+              <span className="text-foreground/80">Ballot</span>
+            </h2>
+            <p className="text-muted-foreground text-[10px] font-bold tracking-[0.2em] uppercase tabular-nums">
+              {needsMe > 0 ? `${needsMe} need you` : 'All in'}
+            </p>
+          </div>
+
+          <div className="mb-8 grid grid-cols-1 gap-2 xl:grid-cols-2">
+            {ballot.map(({ entry, poll, group, custom }) => (
+              <BallotCard
+                key={entry.id}
+                entry={entry}
+                poll={poll}
+                group={group}
+                membersById={membersById}
+                membersCount={membersCount}
+                myVote={viewerVoteFor(poll, sessionPollVotes, currentUserId)}
+                onOpen={() =>
+                  setOpenGroup(
+                    custom
+                      ? { kind: 'custom', name: group, entryId: entry.id }
+                      : {
+                          kind: 'builtin',
+                          group: group as EntryGroup,
+                          entryId: entry.id,
+                        }
+                  )
+                }
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* EVERYTHING ALREADY SETTLED — the league's own record. Worth
+          having, not worth leading with. */}
+      <div className="mb-3 flex items-end justify-between gap-3 border-b border-white/[0.07] pb-2.5">
+        <h2 className="font-display text-xl leading-none tracking-tight uppercase">
+          <span className="text-neon-blue">The</span>{' '}
+          <span className="text-foreground/80">Charter</span>
+        </h2>
+        <p className="text-muted-foreground text-[10px] font-bold tracking-[0.2em] uppercase tabular-nums">
+          {charter.filter((e) => e.status === 'locked').length}/{charter.length} settled
+        </p>
+      </div>
 
       {/* One panel per category — a prominent clickable header bar
           (opens the group's sheet summary) over a quiet list of charter
@@ -854,20 +939,41 @@ function GroupHeaderRow({
   total: number
   onOpen: () => void
 }) {
+  const done = total > 0 && lockedCount === total
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="group flex w-full items-center gap-3 border-b border-white/10 bg-white/[0.05] px-3.5 py-3 text-left hover:bg-white/[0.08] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+      className="group flex w-full items-stretch border-b border-white/10 text-left transition-colors hover:bg-white/[0.04] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
     >
-      <Icon className="h-4 w-4 shrink-0 text-foreground/80" />
-      <span className="min-w-0 flex-1 truncate text-[13px] font-black tracking-[0.28em] uppercase text-foreground">
-        {name}
+      {/* The slab, at its smallest — here it carries how much of this
+          topic is actually settled. */}
+      <span
+        aria-hidden
+        className="relative flex w-[3.25rem] shrink-0 items-center justify-center self-stretch py-2"
+        style={{
+          clipPath: 'polygon(0 0, 100% 0, calc(100% - 9px) 100%, 0 100%)',
+          background: done
+            ? 'linear-gradient(150deg, rgba(0,217,255,0.16), rgba(0,217,255,0.03))'
+            : 'linear-gradient(150deg, rgba(255,255,255,0.07), rgba(255,255,255,0.015))',
+        }}
+      >
+        <span
+          className={`font-display -mr-1 text-base leading-none tabular-nums ${
+            done ? 'text-neon-blue/85' : 'text-foreground/50'
+          }`}
+        >
+          {lockedCount}/{total}
+        </span>
       </span>
-      <span className="shrink-0 text-[10px] font-bold tabular-nums tracking-[0.2em] uppercase text-muted-foreground">
-        {lockedCount}/{total}
+
+      <span className="flex min-w-0 flex-1 items-center gap-2.5 py-2.5 pr-3 pl-3">
+        <Icon className="text-foreground/70 h-4 w-4 shrink-0" />
+        <span className="font-display text-foreground/85 min-w-0 flex-1 truncate text-lg leading-none tracking-tight uppercase">
+          {name}
+        </span>
+        <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
       </span>
-      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
     </button>
   )
 }
@@ -887,9 +993,10 @@ function CharterRow({
   const isPending = entry.status === 'pending' && !!entry.pending
   const isVoting = !isLocked && !!poll && poll.status === 'open'
 
-  // Voting rows carry the viewer's own state: hollow pulsing circle +
-  // "needs your vote" until they vote; filled circle + their pick after.
-  // The overall leading option stays hidden until the vote solidifies.
+  // A live vote used to shout here — pulsing dot, "NEEDS YOUR VOTE".
+  // It has its own card on the ballot above now, and the same question
+  // demanding attention twice on one screen is one demand too many. Down
+  // here it's just another line in the record, marked open.
   if (isVoting && poll) {
     const voted = hasAnyAnswer(myVote ?? null)
     const pick = voted && myVote ? myPickSummary(poll, myVote) : null
@@ -898,35 +1005,24 @@ function CharterRow({
         <button
           type="button"
           onClick={onOpen}
-          className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left hover:bg-neon-pink/[0.05] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-pink/40"
+          className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-white/[0.03] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
         >
-          {voted ? (
-            <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-neon-pink ring-1 ring-neon-pink/40">
-              <Check className="h-2 w-2 text-black" strokeWidth={4} />
-            </span>
-          ) : (
-            <span className="inline-flex h-3.5 w-3.5 shrink-0 rounded-full ring-1 ring-inset ring-neon-pink bg-neon-pink/10 animate-pulse" />
-          )}
-          <span className="shrink-0 text-[12px] font-medium tracking-wide text-muted-foreground">
+          <span className="ring-neon-pink/50 bg-neon-pink/15 inline-flex h-3.5 w-3.5 shrink-0 rounded-full ring-1 ring-inset" />
+          <span className="text-muted-foreground shrink-0 text-[12px] font-medium tracking-wide">
             {entry.label}
           </span>
-          <span className="flex-1 min-w-0 truncate text-right text-[12px]">
-            {voted ? (
-              <span className="inline-flex max-w-full items-center gap-1.5">
-                <span className="shrink-0 font-bold tracking-widest uppercase text-[10px] text-neon-pink">
-                  Voting now
-                </span>
-                <span className="min-w-0 truncate text-[11px] text-muted-foreground">
-                  · You: {pick ?? 'voted'}
-                </span>
+          <span className="min-w-0 flex-1 truncate text-right text-[12px]">
+            {voted && pick ? (
+              <span className="text-muted-foreground truncate text-[11px]">
+                You: {pick}
               </span>
             ) : (
-              <span className="font-bold tracking-widest uppercase text-[10px] text-neon-pink animate-pulse">
-                Needs your vote
+              <span className="text-muted-foreground/60 text-[11px] italic">
+                On the ballot
               </span>
             )}
           </span>
-          <ChevronRight className="h-3 w-3 shrink-0 text-neon-pink/0 group-hover:text-neon-pink/70 transition-colors" />
+          <ChevronRight className="text-muted-foreground/0 group-hover:text-muted-foreground/70 h-3 w-3 shrink-0 transition-colors" />
         </button>
       </li>
     )
@@ -2791,3 +2887,121 @@ function RankedOptions({
   )
 }
 
+
+/**
+ * ONE QUESTION, one card — the preseason's actual unit of work.
+ *
+ * The charter panels below are a filing system: everything grouped by
+ * what kind of rule it is, which is the right shape for looking a
+ * decision up and the wrong shape for making one. A question you owe an
+ * answer to shouldn't have to be found inside DRAFT (7/9). So the open
+ * ones come out and get said plainly, with the one thing you want to
+ * know about each: whether it still needs you.
+ */
+function BallotCard({
+  entry,
+  poll,
+  group,
+  membersById,
+  membersCount,
+  myVote,
+  onOpen,
+}: {
+  entry: CharterEntry
+  poll: LeaguePoll | null
+  group: string
+  membersById: Map<string, PollMember>
+  membersCount: number
+  myVote: SessionVote | null
+  onOpen: () => void
+}) {
+  const voted = hasAnyAnswer(myVote)
+  const pick = voted && poll && myVote ? myPickSummary(poll, myVote) : null
+  // Who's answered — session votes aren't in poll.responses yet, so the
+  // viewer is added on top when they've just voted.
+  const voterIds = new Set(poll?.responses.map((r) => r.userId) ?? [])
+  const inCount = voterIds.size
+  const awaiting = Math.max(0, membersCount - inCount)
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={cn(
+        'group flex items-stretch overflow-hidden rounded-xl border text-left transition-colors',
+        voted
+          ? 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05]'
+          : 'border-neon-pink/35 bg-neon-pink/[0.06] hover:bg-neon-pink/[0.1]'
+      )}
+    >
+      {/* The same slab the rest of the app puts an identity on — here it
+          carries whether this one is waiting on YOU. */}
+      <div
+        aria-hidden
+        className="relative flex w-[3.5rem] shrink-0 items-center justify-center self-stretch"
+        style={{
+          clipPath: 'polygon(0 0, 100% 0, calc(100% - 9px) 100%, 0 100%)',
+          background: voted
+            ? 'linear-gradient(150deg, rgba(0,217,255,0.14), rgba(0,217,255,0.03))'
+            : 'linear-gradient(150deg, rgba(255,105,180,0.22), rgba(255,105,180,0.04))',
+        }}
+      >
+        {voted ? (
+          <Check className="text-neon-blue h-5 w-5" strokeWidth={2.5} />
+        ) : (
+          <Hourglass className="text-neon-pink h-5 w-5" strokeWidth={2.25} />
+        )}
+      </div>
+
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5 py-2.5 pr-3 pl-3">
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground/70 truncate text-[10px] font-bold tracking-[0.2em] uppercase">
+            {group}
+          </span>
+          <span
+            className={cn(
+              'ml-auto shrink-0 text-[10px] font-bold tracking-[0.2em] uppercase',
+              voted ? 'text-muted-foreground/60' : 'text-neon-pink'
+            )}
+          >
+            {voted ? 'Voted' : poll ? 'Needs you' : 'Proposed'}
+          </span>
+        </div>
+
+        <p className="text-foreground/90 text-sm leading-snug font-semibold">
+          {entry.label}
+        </p>
+
+        <div className="mt-auto flex items-center gap-2">
+          {inCount > 0 && (
+            <div className="flex -space-x-1.5">
+              {[...voterIds].slice(0, 6).map((id) => {
+                const m = membersById.get(id)
+                return (
+                  <Avatar key={id} className="h-5 w-5 ring-2 ring-black/40">
+                    <AvatarImage src={m?.avatarUrl ?? undefined} alt="" />
+                    <AvatarFallback className="bg-primary/70 text-primary-foreground text-[7px] font-bold">
+                      {getInitials(m?.fullName ?? null, m?.email ?? '')}
+                    </AvatarFallback>
+                  </Avatar>
+                )
+              })}
+            </div>
+          )}
+          <span className="text-muted-foreground/60 text-[10px] tabular-nums">
+            {poll
+              ? awaiting > 0
+                ? `${inCount}/${membersCount} in`
+                : 'Everyone in'
+              : 'Awaiting the commish'}
+          </span>
+          {pick && (
+            <span className="text-neon-blue ml-auto min-w-0 truncate text-[11px] font-semibold">
+              {pick}
+            </span>
+          )}
+        </div>
+      </div>
+    </button>
+  )
+}
