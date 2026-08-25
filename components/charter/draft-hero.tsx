@@ -11,11 +11,14 @@
  *
  * So the header IS the fixture, built the way a matchup is: a two-tone
  * band split on a diagonal, the two halves set big in the display face,
- * a disc on the seam holding the word that joins them, and a stub strip
- * underneath carrying the small print. The halves are the week and the
- * room, and the word between them is AT — the date rides with the room,
- * because when and where are one thought and the seam is not the place
- * to split it.
+ * and a stub strip underneath carrying the small print. The halves are
+ * the week and the room; the date rides with the room, because when and
+ * where are one thought and the seam is not the place to split it.
+ *
+ * A matchup needs a VS because the two sides are opposed and the word is
+ * the whole relationship. PRESEASON and DON CHRISTOS aren't opposed —
+ * the slant already says they're one band — so the disc that sat on the
+ * seam was a joint being pointed at.
  *
  * The venue side is the venue: the footage is Don Christos, playing
  * behind its own name. It spent a version behind the WHOLE card, where
@@ -158,16 +161,6 @@ export function DraftHero({ entries, leagueName, memberCount }: DraftHeroProps) 
           </button>
         </div>
 
-        {/* THE SEAM. A disc on the join, holding the word that makes the
-            two halves one sentence: Aug 31 AT Don Christos. */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute top-1/2 left-[58%] z-30 flex size-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-[#0A0A0A] sm:left-[54%] lg:size-12"
-        >
-          <span className="font-display text-muted-foreground text-sm tracking-widest">
-            AT
-          </span>
-        </span>
       </div>
 
       {/* THE STUB. Everything a ticket prints in small type along the
