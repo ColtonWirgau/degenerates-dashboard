@@ -151,15 +151,16 @@ export function DraftCard({
         </div>
       </div>
 
-      {/* THE RULES — reference material, so they're set like reference
-          material, and they take the card's right half rather than a
-          band under everything. */}
+      {/* THE RULES — reference material, set like reference material,
+          and taking a real share of the card rather than a narrow strip
+          pinned to its right edge. Two columns once there's room, which
+          is what closes the gap the fixture used to stare across. */}
       {keepers.length > 0 && (
-        <div className="px-3 py-2.5 lg:w-[21rem] lg:shrink-0 lg:py-3">
+        <div className="px-3 py-2.5 lg:w-[52%] lg:shrink-0 lg:py-3 xl:w-[56%]">
           <p className="text-muted-foreground/60 mb-2 text-[9px] font-bold tracking-[0.3em] uppercase">
             Keepers
           </p>
-          <div className="grid grid-cols-1 gap-x-5 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-1">
+          <div className="grid grid-cols-1 gap-x-8 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
             {keepers.map((e) => (
               <button
                 key={e.key}

@@ -78,17 +78,19 @@ test('the league opens on the current week — week 0, the rules', async ({ page
   ).toBeVisible()
 
   // The page is down to the two live things: the dated event, and what
-  // the league still has to decide. The settled record — Stakes,
-  // Playoffs, Trading and the rest — is a RECORD rather than work, so it
-  // reads from the RULES panel now and isn't printed down the page.
-  await expect(page.getByRole('heading', { name: /^Vote$/i, level: 2 })).toBeVisible({
-    timeout: 10_000,
-  })
-  // The draft has no heading over it — the card introduces itself, and
-  // the word sits ON it beside KEEPERS.
+  // the league still has to decide. The settled record — Stakes, Format,
+  // Trading and the rest — is a RECORD rather than work, so it reads
+  // from the RULES panel and isn't printed down the page.
+  //
+  // And NEITHER of the two has a heading any more. The draft card introduces
+  // itself — a slab with the date on it, the place, the format — and a
+  // pink card saying NEEDS YOU over CAST YOUR VOTE doesn't need telling
+  // you it's a vote. What's on the page IS the page.
   await expect(
     page.getByRole('heading', { name: /^Draft$/i, level: 2 })
   ).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: /^Vote$/i, level: 2 })).toHaveCount(0)
+  await expect(page.locator('#preseason-ballot')).toBeVisible({ timeout: 10_000 })
   await expect(page.getByRole('heading', { name: /^Stakes$/i, level: 2 })).toHaveCount(0)
   await expect(
     page.getByRole('heading', { name: /^Format$/i, level: 2 })
@@ -107,9 +109,7 @@ test('the league opens on the current week — week 0, the rules', async ({ page
 
 test('the ballot is voted on in place, not behind a sheet', async ({ page }) => {
   await openLeague(page)
-  await expect(page.getByRole('heading', { name: /^Vote$/i, level: 2 })).toBeVisible({
-    timeout: 10_000,
-  })
+  await expect(page.locator('#preseason-ballot')).toBeVisible({ timeout: 10_000 })
 
   // The options are THERE — no press to reveal them, no dialog, and no
   // way to put them away. A press used to raise a sheet over the page you

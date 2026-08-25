@@ -245,12 +245,6 @@ function SeasonSetup({
     return open
   }, [charter, pollsById])
 
-  // How many of them are still waiting on YOU — the heading's right-hand
-  // fact, and the only arithmetic on this page.
-  const needsMe = ballot.filter(
-    ({ poll }) => !hasAnyAnswer(viewerVoteFor(poll, sessionPollVotes, currentUserId))
-  ).length
-
   return (
     // No heading of its own: this IS the preseason week's content, and
     // the week page already says so overhead. A second "Season Setup"
@@ -273,14 +267,13 @@ function SeasonSetup({
               above saying DRAFT was labelling something that had already
               introduced itself. The word moved onto the card, next to
               KEEPERS, where it names the half it belongs to. */}
-          {/* Capped, and flush left with everything else on the page. A
-              date, a place, a format and five keeper rules is a small
-              object; at the card's full width its two halves ended up a
-              thousand pixels apart with nothing between them. Centred, it
-              floated free of the column every other thing on this page
-              starts in — so it's capped and left, and the VOTE cards
-              below start on the same line. */}
-          <div className="mt-6 mb-10 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02] lg:max-w-4xl">
+          {/* THE SAME COLUMN AS EVERYTHING ELSE. It was capped at 4xl,
+              which put its right edge 168px inside the right-hand VOTE
+              card — an edge that lined up with nothing, on a page where
+              every other edge lines up. The void it was capped to escape
+              was never the width; it was the keepers hugging the far
+              right of a half-empty row. That's fixed inside the card. */}
+          <div className="mt-6 mb-10 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
             <DraftCard
               entries={draftEntries.map((e) => ({
                 key: e.key,
@@ -303,22 +296,14 @@ function SeasonSetup({
 
       {ballot.length > 0 && (
         <>
-          {/* The dock's disc aims here — on a phone the charter below
-              runs long, and "take me back to the votes" is the one verb
-              the preseason week has. */}
-          {/* Pink whatever its state — this is the one asking you for
-              something. */}
-          <div id="preseason-ballot">
-            <SectionHeading
-              name="Vote"
-              tone="ask"
-              aside={
-                needsMe > 0
-                  ? `${needsMe} need${needsMe === 1 ? 's' : ''} you`
-                  : 'All in'
-              }
-            />
-          </div>
+          {/* NO HEADING. A pink-bordered card that says NEEDS YOU, names
+              its topic, and opens with CAST YOUR VOTE is not a thing you
+              need told is a vote — and the row's right-hand end said "2
+              need you" while both cards underneath said NEEDS YOU on
+              their own faces. Same count, three times, on one screen.
+
+              The dock's disc still aims here: on a phone this is the one
+              verb the preseason has. */}
 
           {/* TWO COLUMNS. They were full width because a vote is a
               column of options with a bar each — true, but at 1770px
@@ -326,7 +311,10 @@ function SeasonSetup({
               Half the card is still far more room than a question needs
               and the page stops reading as a stack of mostly-empty
               rows. */}
-          <div className="mb-8 grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
+          <div
+            id="preseason-ballot"
+            className="mb-8 grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start"
+          >
             {ballot.map(({ entry, poll, group }) => (
               <BallotCard
                 key={entry.id}
@@ -406,56 +394,6 @@ function myPickSummary(poll: LeaguePoll, vote: SessionVote): string | null {
   return null
 }
 
-/**
- * A section's name, and the one fact that belongs beside it.
- *
- * Set exactly like the slate's heading on every other week: a hairline
- * under the whole row, the title at one end, something true at the
- * other, and the rule tying them together and holding the content off.
- * These were bare <h2>s floating over their sections while BETTING SLATE
- * got a ruled row with a count and a control cluster — the same page
- * furniture at two different weights, so the preseason read as a rougher
- * draft of the app.
- *
- * Tone survives from the version before: blue once everything in the
- * section is settled, quiet while anything still isn't, pink for the one
- * that's asking you for something.
- */
-function SectionHeading({
-  name,
-  settled,
-  tone,
-  aside,
-}: {
-  name: string
-  settled?: boolean
-  /** Overrides `settled` — VOTE is pink whatever state it's in. */
-  tone?: 'ask'
-  /** The right-hand end of the rule. */
-  aside?: React.ReactNode
-}) {
-  return (
-    <div className="mb-3 flex items-end justify-between gap-3 border-b border-white/[0.07] pb-2.5">
-      <h2
-        className={cn(
-          'font-display text-xl leading-none tracking-tight uppercase',
-          tone === 'ask'
-            ? 'text-neon-pink'
-            : settled
-              ? 'text-neon-blue'
-              : 'text-foreground/60'
-        )}
-      >
-        {name}
-      </h2>
-      {aside && (
-        <span className="text-muted-foreground/60 shrink-0 text-[10px] font-bold tracking-[0.2em] uppercase">
-          {aside}
-        </span>
-      )}
-    </div>
-  )
-}
 /**
  * ONE QUESTION, one card — the preseason's actual unit of work.
  *
