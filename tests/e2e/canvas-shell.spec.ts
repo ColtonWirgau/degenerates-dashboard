@@ -132,8 +132,8 @@ test.describe('desktop', () => {
 
     // The charter's two verbs, at rest on three distinct heights — a
     // stalled spring stacks them on the home slot.
-    await expect(page.getByRole('button', { name: 'add' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'ask' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'add', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'ask', exact: true })).toBeVisible()
     await expect
       .poll(
         async () =>
@@ -150,7 +150,7 @@ test.describe('desktop', () => {
       .toBe(3)
 
     // ADD opens the compose panel on the right — the card slides LEFT.
-    await page.getByRole('button', { name: 'add' }).click()
+    await page.getByRole('button', { name: 'add', exact: true }).click()
     await expect(page.locator('.sheet-track.is-slid-left')).toHaveCount(1)
     await expect(page.getByText(/what are we deciding/i)).toBeVisible()
     await expect(page.getByPlaceholder(/side bet ledger/i)).toBeVisible()

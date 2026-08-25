@@ -400,10 +400,44 @@ function SeasonSetup({
     | null
   >(null)
 
-  // Which ballot card is open. One at a time: a vote is a column of
-  // options and two of them expanded at once is a page you scroll rather
-  // than read.
-  const [openBallotId, setOpenBallotId] = useState<string | null>(null)
+  /**
+   * WHICH BALLOT CARDS ARE OPEN — and by default, the ones that want
+   * something from you.
+   *
+   * They all started closed, which meant the page's whole job ("two
+   * questions need answering") was two rows you had to press before it
+   * would tell you what they were. Nothing is saved by that: the section
+   * is short, and a question you have to open to read is a question you
+   * put off. So an unanswered one is open with its options showing, and
+   * one you've already answered is folded down to its row — where it
+   * still says what you picked.
+   *
+   * The set is snapshotted ONCE, from what was answered when the page
+   * loaded, so casting a vote doesn't slam the card shut under your hand
+   * and reflow the grid mid-click. It folds on the next load, by which
+   * time it's a record rather than a question.
+   */
+  const [foldedAtLoad] = useState<Set<string>>(() => {
+    const done = new Set<string>()
+    for (const e of charter) {
+      if (!e.pollId) continue
+      const poll = polls.find((p) => p.id === e.pollId) ?? null
+      if (hasAnyAnswer(viewerVoteFor(poll, sessionPollVotes, currentUserId))) {
+        done.add(e.id)
+      }
+    }
+    return done
+  })
+  const [ballotToggles, setBallotToggles] = useState<Map<string, boolean>>(
+    () => new Map()
+  )
+  const ballotOpen = (id: string) => ballotToggles.get(id) ?? !foldedAtLoad.has(id)
+  const toggleBallot = (id: string) =>
+    setBallotToggles((prev) => {
+      const next = new Map(prev)
+      next.set(id, !ballotOpen(id))
+      return next
+    })
 
   // THE RULES PANEL ASKING FOR AN EDITOR. It prints the book but can't
   // change it — the poll, the approvals, the rename and the delete all
@@ -537,10 +571,8 @@ function SeasonSetup({
                 membersById={membersById}
                 membersCount={membersCount}
                 myVote={viewerVoteFor(poll, sessionPollVotes, currentUserId)}
-                expanded={openBallotId === entry.id}
-                onToggle={() =>
-                  setOpenBallotId(openBallotId === entry.id ? null : entry.id)
-                }
+                expanded={ballotOpen(entry.id)}
+                onToggle={() => toggleBallot(entry.id)}
                 canManage={canManage}
                 onOpen={() =>
                   setOpenGroup(
@@ -1753,6 +1785,16 @@ function BallotCard({
           >
             {voted ? 'Voted' : poll ? 'Needs you' : 'Proposed'}
           </span>
+          {/* The header is a FOLD now, not a door — most cards arrive
+              open, so the affordance has to say "you can put this away"
+              rather than "there's more in here". */}
+          <ChevronRight
+            aria-hidden
+            className={cn(
+              'text-muted-foreground/50 h-3.5 w-3.5 shrink-0 transition-transform',
+              expanded && 'rotate-90'
+            )}
+          />
         </div>
 
         <p className="text-foreground/90 text-sm leading-snug font-semibold">
