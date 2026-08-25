@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { signIn } from '@/auth'
-import { getLeagues } from '@/app/actions/leagues'
+import { anyLeagueExists, getLeagues } from '@/app/actions/leagues'
+import { WrongAccount } from '@/components/wrong-account'
 import { getCurrentUser } from '@/lib/data/auth-bridge'
 import { MagicLinkForm } from '@/components/magic-link-form'
 import { cn } from '@/lib/utils'
@@ -26,6 +27,15 @@ export default async function Home({
     const { leagues } = await getLeagues()
     if (leagues.length > 0) {
       redirect(`/leagues/${leagues[0].id}`)
+    }
+    // NO MEMBERSHIP is two different situations, and they were being
+    // treated as one. If a league already exists this isn't the founder,
+    // it's somebody on the wrong email — and sending them to the wizard
+    // put them on the only signed-in screen in the app with no header,
+    // which meant no menu and no way to sign out. The way back was
+    // clearing cookies.
+    if (await anyLeagueExists()) {
+      return <WrongAccount email={me.email} />
     }
     redirect('/leagues/new')
   }

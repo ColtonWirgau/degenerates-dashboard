@@ -6,7 +6,7 @@ import { getDataAdapter } from '@/lib/data/adapter'
 import { getCurrentUser } from '@/lib/data/auth-bridge'
 import { db } from '@/db/client'
 import { leagues, leagueMembers, leagueInvitations } from '@/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { randomBytes } from 'crypto'
 import { sendLeagueInviteEmail } from '@/lib/email'
 
@@ -376,4 +376,25 @@ export async function regenerateInviteCode(leagueId: string) {
     }
   }
   return { inviteCode: null, error: 'Could not allocate a new code; try again' }
+}
+
+/**
+ * Is there a league at all yet?
+ *
+ * The app is single-tenant: one league IS the app, and the creation
+ * wizard is for the very first run against an empty database. A signed-in
+ * person with no membership is therefore two completely different
+ * situations — the founder, or somebody on the wrong email — and only
+ * this tells them apart.
+ *
+ * Deliberately a COUNT and nothing else: it answers a yes/no question for
+ * somebody who is, by definition, not a member of anything, so it must
+ * not hand back a name, an id or an invite code.
+ */
+export async function anyLeagueExists(): Promise<boolean> {
+  const me = await getCurrentUser()
+  // Signed out, this question isn't anybody's business.
+  if (!me) return false
+  const [row] = await db.select({ n: sql<number>`count(*)::int` }).from(leagues)
+  return (row?.n ?? 0) > 0
 }

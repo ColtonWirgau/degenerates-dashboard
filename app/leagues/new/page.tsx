@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createLeague } from '@/app/actions/leagues'
+import { logout } from '@/app/actions/auth'
 import { Input } from '@/components/ui/input'
 import {
   AlertCircle,
@@ -24,6 +25,7 @@ import {
   RefreshCw,
   Trophy,
   Cog,
+  LogOut,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -139,13 +141,30 @@ export default function NewLeaguePage() {
   return (
     <div className="min-h-[100dvh] ambient-glow">
       <main className="container mx-auto px-4 pt-8 pb-56 max-w-2xl">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-[0.25em] uppercase text-muted-foreground hover:text-neon-blue transition-colors"
-        >
-          <ArrowLeft className="h-3 w-3" />
-          Back
-        </Link>
+        {/* BACK, and OUT. This was the only signed-in screen in the app
+            with no header on it, so it had no menu and therefore no way
+            to sign out — and it's exactly where somebody who used the
+            wrong Google account landed. "Back" went to `/`, which
+            redirected them straight here again. The way out was clearing
+            cookies. */}
+        <div className="flex items-center justify-between gap-3">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-[0.25em] uppercase text-muted-foreground hover:text-neon-blue transition-colors"
+          >
+            <ArrowLeft className="h-3 w-3" />
+            Back
+          </Link>
+          <form action={logout}>
+            <button
+              type="submit"
+              className="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-[0.25em] uppercase text-muted-foreground hover:text-destructive transition-colors"
+            >
+              <LogOut className="h-3 w-3" />
+              Sign out
+            </button>
+          </form>
+        </div>
 
         {/* Hero */}
         <header className="mt-6 flex items-center gap-3">

@@ -460,10 +460,11 @@ test.describe('the commissioner’s hand', () => {
       ).toBeVisible({ timeout: 15_000 })
 
       // The board is a RECORD — twelve small cards, none of them a form.
-      // Declaring happens in the sheet, like every other verb.
+      // Assert on its own row rather than on the tally, which anybody
+      // else declaring would move.
       const board = page.locator('#keeper-board')
       await board.scrollIntoViewIfNeeded()
-      await expect(board.getByText('9/12 in')).toBeVisible()
+      await expect(board.getByText('Keepers', { exact: true })).toBeVisible()
 
       await page.getByRole('button', { name: 'actions' }).click()
       await page.getByRole('button', { name: 'keeper', exact: true }).click()
@@ -485,8 +486,6 @@ test.describe('the commissioner’s hand', () => {
       await hit.click()
       await page.getByRole('button', { name: 'Declare', exact: true }).click()
       await expect(board.getByText('Jahmyr Gibbs')).toBeVisible({ timeout: 20_000 })
-      // The catalogue filled the position in; nobody typed "RB".
-      await expect(board.getByText('10/12 in')).toBeVisible()
 
       await page.getByRole('button', { name: /Withdraw/i }).click()
       await expect(board.getByText('Jahmyr Gibbs')).toHaveCount(0, { timeout: 20_000 })

@@ -16,7 +16,6 @@ import {
   type SessionVote,
 } from '@/components/polls/types'
 import { usePollVoting } from '@/components/polls/use-poll-voting'
-import { KeepersCard } from '@/components/charter/keepers-card'
 import { KeeperBoard, type KeeperBoardRow } from '@/components/charter/keeper-board'
 import { EntryAction } from '@/components/charter/entry-action'
 import type {
@@ -270,24 +269,17 @@ function SeasonSetup({
           inside a list of groups, and a section that isn't in a list
           doesn't need one — the heading names it and the count moves to
           the far end like every other section's does. */}
-      {/* THE KEEPER RULES. The rest of the draft — when, where, what
-          format — is the page's hero now; what's left is the small print
-          you look up mid-argument, so it's set as reference material and
-          nothing more. */}
-      <KeepersCard
-        entries={draftEntries.map((e) => ({
+      {/* KEEPERS — the rules and who's actually keeping whom, as one
+          section. They were two, under the same heading, with a box
+          round the top half. */}
+      <KeeperBoard
+        rules={draftEntries.map((e) => ({
           id: e.id,
           key: e.key,
           label: e.label,
           value: e.value,
           status: e.status,
         }))}
-      />
-
-      {/* AND WHO'S ACTUALLY KEEPING WHOM. The rules above are voted on;
-          these are the records they govern, and until now the charter
-          claimed to hold them and held nothing. */}
-      <KeeperBoard
         people={people.map((m) => ({
           userId: m.id,
           fullName: m.fullName,

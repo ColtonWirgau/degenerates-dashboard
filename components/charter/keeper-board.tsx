@@ -21,9 +21,17 @@
  * action pod, which is where this app puts every other verb — a card
  * that quietly doubles as an editor is a card you can't trust to be a
  * record.
+ *
+ * ONE SECTION, rules and all. The five keeper RULES were a bordered card
+ * of their own, directly above this, under an identical KEEPERS heading —
+ * so the page said the word twice and drew a box around half the subject.
+ * They're one thing read two ways: what the league decided, and what
+ * people did about it. The rules sit up top as a strip of reference
+ * pairs, unboxed, because that's what reference material is; the cards
+ * are underneath because that's the part that changes.
  */
 
-import { openPanel } from '@/components/chrome/canvas-store'
+import { openCharterGroup, openPanel } from '@/components/chrome/canvas-store'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { PlayerFace } from '@/components/charter/player-face'
 import { cn } from '@/lib/utils'
@@ -33,6 +41,14 @@ export interface KeeperBoardPerson {
   fullName: string | null
   email: string
   avatarUrl: string | null
+}
+
+export interface KeeperRule {
+  id: string
+  key: string
+  label: string
+  value: string | null
+  status: 'draft' | 'pending' | 'locked'
 }
 
 export interface KeeperBoardRow {
@@ -45,17 +61,32 @@ export interface KeeperBoardRow {
   yearOfKeep: number
 }
 
+/** The five, in reading order — the order you'd hit them in an argument. */
+const RULE_KEYS = [
+  'keeper-slots',
+  'keeper-cost',
+  'keeper-restrictions',
+  'keeper-traded-pick',
+  'keeper-deadline',
+] as const
+
 export function KeeperBoard({
+  rules,
   people,
   keepers,
   currentUserId,
   canManage,
 }: {
+  /** The charter's keeper lines. Pressing one opens the book at it. */
+  rules: KeeperRule[]
   people: KeeperBoardPerson[]
   keepers: KeeperBoardRow[]
   currentUserId: string
   canManage: boolean
 }) {
+  const ruleRows = RULE_KEYS.map((k) => rules.find((r) => r.key === k)).filter(
+    (r): r is KeeperRule => r != null
+  )
   const byUser = new Map<string, KeeperBoardRow[]>()
   for (const k of keepers) {
     byUser.set(k.userId, [...(byUser.get(k.userId) ?? []), k])
@@ -81,6 +112,40 @@ export function KeeperBoard({
           {byUser.size}/{people.length} in
         </p>
       </div>
+
+      {/* THE RULES — reference material, so it's set as reference
+          material: label, dotted leader, value. Nobody reads this for
+          pleasure; they look one line up mid-argument. */}
+      {ruleRows.length > 0 && (
+        <div className="mb-3 grid grid-cols-1 gap-x-10 gap-y-1 border-b border-white/[0.07] pb-3 sm:grid-cols-2 xl:grid-cols-3">
+          {ruleRows.map((e) => (
+            <button
+              key={e.key}
+              type="button"
+              onClick={() => openCharterGroup('Draft', e.id)}
+              className="group flex items-baseline gap-2 text-left"
+            >
+              <span className="text-muted-foreground/70 group-hover:text-foreground/70 shrink-0 text-[11px] transition-colors">
+                {e.label}
+              </span>
+              <span
+                aria-hidden
+                className="min-w-3 flex-1 translate-y-[-2px] border-b border-dotted border-white/10"
+              />
+              <span
+                className={cn(
+                  'shrink-0 text-right text-[11px] font-semibold',
+                  e.status === 'locked'
+                    ? 'text-foreground/85'
+                    : 'text-muted-foreground/50 italic'
+                )}
+              >
+                {e.status === 'locked' ? e.value : 'Awaiting'}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
         {ordered.map((p) => {
