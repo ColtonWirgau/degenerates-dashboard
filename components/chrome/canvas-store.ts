@@ -23,7 +23,6 @@ export type CanvasPanel =
   | 'slate'
   | 'parlay'
   | 'board'
-  | 'rules'
   | 'submit'
   | 'compose'
   | 'ask'

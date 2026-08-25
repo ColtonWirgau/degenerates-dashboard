@@ -7,9 +7,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   closePanel,
   openLeagueSheet,
+  openPanel,
   setStageView,
   setSwitchingSeason,
   setViewedWeek,
+  subscribeCharterGroup,
+  type CharterGroupRequest,
 } from '@/components/chrome/canvas-store'
 import { useLeagueChrome } from '@/components/chrome/league-chrome-context'
 import { LeagueAvatar } from '@/components/league-avatar'
@@ -18,6 +21,15 @@ import { removeMember, updateMemberRole } from '@/app/actions/leagues'
 import { SlateSettings } from '@/components/league-pages'
 import { DevPhaseSwitcher } from '@/components/user-menu'
 import type { DevPhaseData } from '@/lib/data/dev-toolbar-data'
+import {
+  CharterItemPage,
+  RulesBook,
+} from '@/components/chrome/panels/rules-panel'
+import { usePollVoting } from '@/components/polls/use-poll-voting'
+import { approveCharter } from '@/app/actions/charter'
+import type { PollMember } from '@/components/polls/types'
+import type { CharterEntry } from '@/lib/data/mock-charter'
+import type { LeaguePoll } from '@/lib/data/mock-polls'
 import { cn } from '@/lib/utils'
 
 export interface SeasonPanelMember {
@@ -57,6 +69,9 @@ export function SeasonPanel({
   currentUserId,
   currentUserRole,
   devPhase,
+  charter,
+  charterPolls,
+  pollMembers,
 }: {
   availableSeasons: string[]
   members: SeasonPanelMember[]
@@ -64,11 +79,34 @@ export function SeasonPanel({
   currentUserRole: 'owner' | 'admin' | 'member'
   /** Neon-mode dev control — season-phase time travel. Null outside dev. */
   devPhase?: DevPhaseData | null
+  /** THE SELECTED SEASON'S BOOK. It had its own rung for a while, which
+   *  was one too many: a buy-in and a punishment belong to a YEAR, and
+   *  this is the panel that answers which year. Flipping the season
+   *  re-reads it with everything else here. */
+  charter: CharterEntry[]
+  charterPolls: LeaguePoll[]
+  pollMembers: PollMember[]
 }) {
   const chrome = useLeagueChrome()
   const router = useRouter()
   const [pending, start] = useTransition()
   const [openId, setOpenId] = useState<string | null>(null)
+  // Which line of the book is open. Set, the panel IS that line — a
+  // pager, not a section that grows an editor in the middle of itself.
+  const [entryId, setEntryId] = useState<string | null>(null)
+  const voting = usePollVoting(chrome?.leagueId ?? '', currentUserId)
+  const [approvals, setApprovals] = useState<Map<string, boolean>>(() => new Map())
+
+  // Anything else asking to see one line — the preseason hero's facts
+  // are the only ones — opens this panel on it.
+  useEffect(
+    () =>
+      subscribeCharterGroup((r: CharterGroupRequest) => {
+        setEntryId(r.entryId ?? null)
+        openPanel('season')
+      }),
+    []
+  )
 
   // Belt and braces. The provider clears the switch when the new season's
   // data actually arrives; this catches the case where the refresh comes
@@ -80,6 +118,36 @@ export function SeasonPanel({
 
   if (!chrome) return null
   const canManage = currentUserRole === 'owner' || currentUserRole === 'admin'
+
+  const openEntry = entryId ? (charter.find((e) => e.id === entryId) ?? null) : null
+  if (openEntry) {
+    const poll = openEntry.pollId
+      ? (charterPolls.find((p) => p.id === openEntry.pollId) ?? null)
+      : null
+    return (
+      <CharterItemPage
+        entry={openEntry}
+        poll={poll}
+        topicName="Season"
+        onBack={() => setEntryId(null)}
+        leagueId={chrome.leagueId}
+        membersById={new Map(pollMembers.map((m) => [m.id, m]))}
+        membersCount={pollMembers.length}
+        currentUserId={currentUserId}
+        canManage={canManage}
+        voting={voting}
+        viewerApproved={approvals.get(openEntry.id) ?? null}
+        onApprove={() => {
+          setApprovals((prev) => new Map(prev).set(openEntry.id, true))
+          void approveCharter(chrome.leagueId, openEntry.id, true)
+        }}
+        onChanged={() => {
+          setEntryId(null)
+          router.refresh()
+        }}
+      />
+    )
+  }
 
   const pick = (season: string) => {
     if (season === chrome.season) {
@@ -231,6 +299,20 @@ export function SeasonPanel({
             onGone={() => setOpenId(null)}
           />
         )}
+      </div>
+
+      {/* WHAT THE LEAGUE DECIDED THAT YEAR. */}
+      <div className="mt-5 border-t border-white/10 pt-4">
+        <RulesBook
+          leagueId={chrome.leagueId}
+          season={chrome.season}
+          charter={charter}
+          polls={charterPolls}
+          currentUserId={currentUserId}
+          canManage={canManage}
+          voting={voting}
+          onOpenEntry={setEntryId}
+        />
       </div>
 
       {/* How the league runs — right here, not behind a gear. */}

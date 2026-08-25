@@ -79,12 +79,6 @@ export type LeagueChrome = {
   /** Owner or admin — the two roles that may write the charter. The pod's
    *  verbs are all creates, so it doesn't show for anyone else. */
   canManage: boolean
-  /** How many items the charter holds at all. Zero means the RULES rung
-   *  would open an empty panel, so it isn't carved. */
-  charterCount: number
-  /** How many of those the league still owes an answer on — the number
-   *  the RULES rung wears. */
-  charterOpen: number
   /** A season change is in flight: `season` is already the new year, but
    *  every other field on here still describes the old one. Anything
    *  showing a NUMBER should show a skeleton instead until this clears. */

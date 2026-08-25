@@ -30,8 +30,7 @@ import {
   type ParlayPanelWeek,
 } from '@/components/chrome/panels/parlay-panel'
 import { ProfilePanel } from '@/components/chrome/panels/profile-panel'
-import { RulesPanel } from '@/components/chrome/panels/rules-panel'
-import { groupCharter, unsettledCount } from '@/lib/charter-groups'
+import { groupCharter } from '@/lib/charter-groups'
 import { getCharterPollsCached } from '@/lib/data/charter-polls-cached'
 import { ComposePanel } from '@/components/chrome/panels/compose-panel'
 import { AskPanel } from '@/components/chrome/panels/ask-panel'
@@ -144,8 +143,6 @@ export default async function LeagueShellLayout({
       avatarUrl: p.me.avatarUrl,
     },
     canManage,
-    charterCount: p.charter.length,
-    charterOpen: unsettledCount(p.charter),
   }
 
   // The topics the ADD form can file into — the ones that already exist,
@@ -155,7 +152,7 @@ export default async function LeagueShellLayout({
   const preseasonWeekId =
     chromeWeeks.find((w) => w.kind === 'preseason')?.id ?? ''
 
-  // The book's own votes, so paging into an item in the RULES panel can
+  // The book's own votes, so paging into a line in the SEASON panel can
   // show the question rather than send you somewhere else to answer it.
   // Shared with the preseason page through React cache().
   const charterPolls = await getCharterPollsCached(p.league.id, preseasonWeekId)
@@ -224,6 +221,9 @@ export default async function LeagueShellLayout({
                 currentUserId={p.me.id}
                 currentUserRole={p.currentUserRole ?? 'member'}
                 devPhase={devPhase}
+                charter={p.charter}
+                charterPolls={charterPolls}
+                pollMembers={pollMembers}
               />
             </PanelReveal>
           }
@@ -244,19 +244,6 @@ export default async function LeagueShellLayout({
                 currentUserId={p.me.id}
                 weeks={chromeWeeks}
                 laysByWeek={layByWeek}
-              />
-            </PanelReveal>
-          }
-          rulesPanel={
-            <PanelReveal panel="rules">
-              <RulesPanel
-                leagueId={p.league.id}
-                season={p.season}
-                charter={p.charter}
-                polls={charterPolls}
-                members={pollMembers}
-                currentUserId={p.me.id}
-                canManage={canManage}
               />
             </PanelReveal>
           }

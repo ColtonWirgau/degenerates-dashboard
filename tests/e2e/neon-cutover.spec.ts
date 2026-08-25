@@ -100,10 +100,11 @@ test('the league opens on the current week — week 0, the rules', async ({ page
   await expect(page.getByText('Don Christos')).toBeVisible()
   await expect(page.getByText('Snake + 3rd Rd Reversal')).toBeVisible()
 
-  // …and the record is one rung away, open at every page.
-  await page.getByRole('button', { name: 'rules panel' }).click()
+  // …and the record is behind the SEASON door, because a buy-in belongs
+  // to a year.
+  await page.getByRole('button', { name: 'Season and league' }).first().click()
   await expect(
-    page.getByTestId('rules-panel').getByText('$50 · 12 teams · $600 pot')
+    page.getByTestId('rules-book').getByText('$50 · 12 teams · $600 pot')
   ).toBeVisible()
 })
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Clock, Lock, Skull, Trophy } from 'lucide-react'
+import { Clock, Skull, Trophy } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   useLeagueChrome,
@@ -27,8 +27,6 @@ import { railC, setRailCount } from '@/components/chrome/bubble-layout'
  *   PARLAY  how the lay is doing — a count while it's filling, then a
  *           trophy or a skull once it's settled
  *   BOARD   the season's podium, three faces in gold, silver and bronze
- *   RULES   the league's own book — how many items it still owes an
- *           answer on, or a padlock once they're all settled
  *
  * The week list is NOT here any more. It had a bubble wearing the week's
  * number while the page's own title was that same number, six inches
@@ -45,7 +43,7 @@ import { railC, setRailCount } from '@/components/chrome/bubble-layout'
  * missing. Open, a bubble becomes its own ✕. They render inside
  * .page-sheet, so they ride every slide the card makes.
  */
-type Rung = 'parlay' | 'board' | 'rules'
+type Rung = 'parlay' | 'board'
 
 export function PanelBubbles() {
   const chrome = useLeagueChrome()
@@ -67,11 +65,6 @@ export function PanelBubbles() {
   if (!onRecap) {
     if (hasParlay) rungs.push('parlay')
     rungs.push('board')
-    // The book is league business, not week business — the buy-in and the
-    // punishment are the same facts in week 12 as in week 0, and week 12
-    // had no way to look them up at all. So the rung is on every week,
-    // and the preseason page is where they're still editable.
-    if (chrome?.charterCount) rungs.push('rules')
   }
 
   const count = rungs.length
@@ -129,7 +122,7 @@ export function PanelBubbles() {
               style={{ left: 10, top: 15.5, width: 44, height: 44 }}
             >
               <span
-                key={`${p}-${open}-${faceKey(p, week, chrome.podium, chrome.charterOpen)}`}
+                key={`${p}-${open}-${faceKey(p, week, chrome.podium)}`}
                 className="face-pop flex items-center justify-center"
               >
                 {open ? (
@@ -145,12 +138,7 @@ export function PanelBubbles() {
                     className="h-2 w-2 animate-pulse rounded-full bg-current opacity-40"
                   />
                 ) : (
-                  <Face
-                    panel={p}
-                    week={week}
-                    podium={chrome.podium}
-                    charterOpen={chrome.charterOpen}
-                  />
+                  <Face panel={p} week={week} podium={chrome.podium} />
                 )}
               </span>
             </span>
@@ -167,24 +155,19 @@ function arcText(panel: Rung): string {
       return 'THE LAY'
     case 'board':
       return 'BOARD'
-    case 'rules':
-      return 'RULES'
   }
 }
 
 function faceKey(
   panel: Rung,
   week: ChromeWeek | null,
-  podium: PodiumMember[],
-  charterOpen: number
+  podium: PodiumMember[]
 ): string | number {
   switch (panel) {
     case 'parlay':
       return `${week?.parlayState ?? ''}:${week?.submissionCount ?? 0}`
     case 'board':
       return podium.map((m) => m.userId).join(',') || '–'
-    case 'rules':
-      return `rules:${charterOpen}`
   }
 }
 
@@ -192,25 +175,12 @@ function Face({
   panel,
   week,
   podium,
-  charterOpen,
 }: {
   panel: Rung
   week: ChromeWeek | null
   podium: PodiumMember[]
-  charterOpen: number
 }) {
   switch (panel) {
-    case 'rules':
-      // What the book still OWES, which is the only part of it that
-      // changes. Nothing outstanding and it's a closed book — a padlock,
-      // the same mark a settled charter row wears inside the panel.
-      return charterOpen > 0 ? (
-        <span className="font-display text-neon-pink text-[1.05rem] leading-none">
-          {charterOpen}
-        </span>
-      ) : (
-        <Lock size={19} strokeWidth={2.25} />
-      )
     case 'parlay': {
       // How the lay is DOING, not just how full it is. While it's still
       // taking legs the count is the state; once it's settled the count

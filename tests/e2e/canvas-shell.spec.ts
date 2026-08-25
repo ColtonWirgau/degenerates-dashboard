@@ -175,7 +175,7 @@ test.describe('desktop', () => {
     await expect(page.getByRole('button', { name: '+ New' })).toBeVisible()
   })
 
-  test('RULES opens the whole book, and one item pages in', async ({
+  test('the season panel carries the year, the roster and the book', async ({
     page,
     context,
   }) => {
@@ -183,38 +183,25 @@ test.describe('desktop', () => {
     await page.goto('http://localhost:3001/')
     await page.waitForURL(/\/leagues\//, { timeout: 10_000 })
 
-    const rules = page.getByRole('button', { name: 'rules panel' })
-    await expect(rules).toBeVisible()
-    await rules.click()
-    await expect(page.locator('.sheet-track.is-slid-right')).toHaveCount(1)
+    // The book had its own rung for a while, which was one too many: a
+    // buy-in belongs to a YEAR, and this is the panel that answers which.
+    await expect(page.getByRole('button', { name: 'rules panel' })).toHaveCount(0)
 
-    // EVERY topic and EVERY line, at once — the topics were their own
-    // page for a while, which made a table of contents for a document
-    // short enough to just print.
-    const book = page.getByTestId('rules-panel')
+    await page.getByRole('button', { name: 'Season and league' }).first().click()
+    await expect(page.locator('.sheet-track.is-slid-left')).toHaveCount(1)
+
+    const book = page.getByTestId('rules-book')
     await expect(book.getByText('Stakes', { exact: true })).toBeVisible()
-    await expect(book.getByText('Trading', { exact: true })).toBeVisible()
-    await expect(book.getByText('Format', { exact: true })).toBeVisible()
     await expect(book.getByText('$50 · 12 teams · $600 pot')).toBeVisible()
     await expect(book.getByText('Week 10')).toBeVisible()
-
-    // DRAFT is not among them: it's the page's own headline section, and
-    // a second copy of the same nine facts beside it is how two surfaces
-    // start disagreeing.
+    // DRAFT is the preseason page's hero, not a topic in here.
     await expect(book.getByText('Draft', { exact: true })).toHaveCount(0)
-    await expect(book.getByText('Keeper Cost', { exact: true })).toHaveCount(0)
 
-    // One page in, to the item itself. This used to close the panel and
-    // raise the charter's sheet over the page — the same content, in a
-    // second kind of surface, somewhere else on screen.
+    // One page in, to the line itself — still inside the panel.
     await page.getByRole('button', { name: /^Buy-in —/ }).click()
     await expect(page.getByText('Ratified', { exact: false })).toBeVisible()
-    await expect(page.locator('.sheet-track.is-slid-right')).toHaveCount(1)
+    await expect(page.locator('.sheet-track.is-slid-left')).toHaveCount(1)
     await expect(page.getByRole('dialog')).toHaveCount(0)
-
-    // …and one step back is the whole book again.
-    await page.getByRole('button', { name: /^Rules$/ }).click()
-    await expect(page.getByText('Flag to commish team')).toBeVisible()
   })
 
   test('a plain member gets neither the pod nor the ballot’s controls', async ({
@@ -239,10 +226,9 @@ test.describe('desktop', () => {
       page.locator('.sheet-track').getByRole('button', { name: /add an option/i })
     ).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'actions' })).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'rules panel' })).toBeVisible()
   })
 
-  test('the draft fixture opens the book at that line', async ({ page, context }) => {
+  test('the hero’s facts open the book at their line', async ({ page, context }) => {
     await signIn(context)
     await page.goto('http://localhost:3001/')
     await page.waitForURL(/\/leagues\//, { timeout: 10_000 })
@@ -250,10 +236,11 @@ test.describe('desktop', () => {
       page.getByRole('heading', { name: 'Preseason', level: 1 })
     ).toBeVisible({ timeout: 15_000 })
 
-    // The hero's facts each point at their own line in the book. This
-    // used to raise the charter's sheet; now it pages the panel to it.
+    // Each fact points at its own line. It used to raise the charter's
+    // sheet; now it opens the SEASON panel on that item — a right-hand
+    // panel, so the card slides left.
     await page.getByRole('button', { name: /^Draft date/i }).click()
-    await expect(page.locator('.sheet-track.is-slid-right')).toHaveCount(1)
+    await expect(page.locator('.sheet-track.is-slid-left')).toHaveCount(1)
     await expect(page.getByRole('dialog')).toHaveCount(0)
     await expect(page.getByText('Mon, Aug 31 · 8:30pm')).toBeVisible()
   })
@@ -281,15 +268,22 @@ test.describe('mobile', () => {
     ).toBeVisible({ timeout: 5_000 })
   })
 
-  test('the book has a dock cell of its own', async ({ page, context }) => {
+  test('the season sheet carries the book on a phone too', async ({
+    page,
+    context,
+  }) => {
     await signIn(context)
     await page.goto('http://localhost:3001/')
     await page.waitForURL(/\/leagues\//, { timeout: 10_000 })
 
+    // No rules cell on the bar — the book went behind the season door,
+    // which on a phone is the masthead's lockup.
     const dock = page.getByRole('navigation', { name: 'Main' })
-    await dock.getByRole('button', { name: 'House rules' }).click()
+    await expect(dock.getByRole('button', { name: 'House rules' })).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Season and league' }).first().click()
     await expect(
-      page.getByRole('dialog').getByText('Rules', { exact: false }).first()
+      page.getByRole('dialog').getByTestId('rules-book')
     ).toBeVisible({ timeout: 5_000 })
   })
 })

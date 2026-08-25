@@ -1,33 +1,38 @@
 'use client'
 
 /**
- * THE RULES — the league's own book, on the canvas.
+ * THE LEAGUE'S BOOK — every topic, every line, and what each was settled
+ * at.
  *
- * Everything the league has already decided used to be printed down the
- * preseason page: seven topics, thirty-odd rows, all of it a RECORD of
- * settled business sitting under the two things that are actually live
- * (the draft, and the votes). Reference material is exactly what a panel
- * is for, so it moved here and the page kept the work.
+ * It had its own rung on the rail for a while, which was one rung too
+ * many: the book belongs to a SEASON. Its buy-in, its punishment, its
+ * format are that year's, and the panel that answers "which year, and
+ * who was in it" is the season panel. So the book lives there now, under
+ * the roster, and flipping the year re-reads it along with everything
+ * else in that panel.
  *
- * TWO PAGES, and it never leaves the column. The book is open on the
- * first one — every topic, every line, and what each was settled at.
- * Topics were their own page for a while, which made five rows you had
- * to press to find out what was in them: a table of contents for a
- * document short enough to just print.
+ * Two exports, because the host does the paging:
  *
- * The second page is one item and whatever it wants from you. That used
- * to be handed off entirely — close the panel, raise the charter's sheet
- * over the page — so pressing something in a column made a modal appear
- * somewhere else showing the same thing. It renders EntryAction, the
- * same component the ballot puts under an open question: a locked rule
- * reads its value back, a live poll is votable right here, a proposal
- * can be approved, an unsettled line can be pitched at. Renaming and
- * removing sit at the foot, away from the thing you came to do.
+ *   RulesBook        the whole thing, open — topics as headings, lines
+ *                    under them. Topics were their own page once, which
+ *                    made five rows you had to press to find out what
+ *                    was in them: a table of contents for a document
+ *                    short enough to just print.
+ *   CharterItemPage  one line, and whatever it wants from you. Renders
+ *                    EntryAction, the same component the preseason
+ *                    ballot puts under an open question — so a locked
+ *                    rule reads its value back, a live poll is votable
+ *                    right here, a proposal can be approved. Renaming
+ *                    and removing sit at the foot, away from the thing
+ *                    you came to do.
  *
- * DRAFT isn't in here at all — see the filter below.
+ * DRAFT isn't in the book. It's the preseason page's hero — a band with
+ * the date, the room and the format across the top of the card — and a
+ * second copy of those in a column is how two surfaces start disagreeing
+ * about when the draft is.
  */
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ChevronLeft,
@@ -39,11 +44,6 @@ import {
   Vote,
   X,
 } from 'lucide-react'
-import {
-  openPanel,
-  subscribeCharterGroup,
-  type CharterGroupRequest,
-} from '@/components/chrome/canvas-store'
 import { EntryAction } from '@/components/charter/entry-action'
 import { usePollVoting } from '@/components/polls/use-poll-voting'
 import {
@@ -52,7 +52,6 @@ import {
   type PollMember,
 } from '@/components/polls/types'
 import {
-  approveCharter,
   deleteCharter,
   deleteCharterGroup,
   renameCharterGroup,
@@ -63,94 +62,46 @@ import type { CharterEntry } from '@/lib/data/mock-charter'
 import type { LeaguePoll } from '@/lib/data/mock-polls'
 import { cn } from '@/lib/utils'
 
-export function RulesPanel({
+export function RulesBook({
   leagueId,
   season,
   charter,
   polls,
-  members,
   currentUserId,
   canManage,
+  voting,
+  onOpenEntry,
 }: {
   leagueId: string
   /** Which season's book — topic rename/remove is scoped to it. */
   season: string
   charter: CharterEntry[]
-  /** The charter's votes, so an item can be answered from in here. */
+  /** The charter's votes, so a row can say whether it still wants you. */
   polls: LeaguePoll[]
-  members: PollMember[]
   currentUserId: string
   canManage: boolean
+  /** Owned by the host, because the item page shares it. */
+  voting: ReturnType<typeof usePollVoting>
+  onOpenEntry: (entryId: string) => void
 }) {
   const router = useRouter()
-  const [entryId, setEntryId] = useState<string | null>(null)
-
-  const voting = usePollVoting(leagueId, currentUserId)
-  const [approvals, setApprovals] = useState<Map<string, boolean>>(() => new Map())
-
-  const membersById = new Map(members.map((m) => [m.id, m]))
   const pollsById = new Map(polls.map((p) => [p.id, p]))
-  // DRAFT is not in here. It's the preseason page's headline section —
-  // its own card, the date big enough to read across a room — and a
-  // second copy of the same nine facts in a column beside it is the kind
-  // of duplication that ends with the two disagreeing.
+  // DRAFT is not in here — it's the preseason page's hero. See the note
+  // at the top of the file.
   const topics = groupCharter(charter).filter((t) => t.name !== 'Draft')
-
-  // ANOTHER SURFACE ASKING FOR AN ITEM — the draft fixture on the page,
-  // whose rows are the one place outside this panel that point at a
-  // charter entry. It opens the panel on that item.
-  useEffect(
-    () =>
-      subscribeCharterGroup((r: CharterGroupRequest) => {
-        setEntryId(r.entryId ?? null)
-        openPanel('rules')
-      }),
-    []
-  )
-
-  const entry = entryId ? (charter.find((e) => e.id === entryId) ?? null) : null
-
-  if (entry) {
-    const poll = entry.pollId ? (pollsById.get(entry.pollId) ?? null) : null
-    return (
-      <ItemPage
-        entry={entry}
-        poll={poll}
-        // Back always says the same word, because there's one page
-        // behind this one now.
-        topicName="Rules"
-        onBack={() => setEntryId(null)}
-        leagueId={leagueId}
-        membersById={membersById}
-        membersCount={members.length}
-        currentUserId={currentUserId}
-        canManage={canManage}
-        voting={voting}
-        viewerApproved={approvals.get(entry.id) ?? null}
-        onApprove={() => {
-          setApprovals((prev) => new Map(prev).set(entry.id, true))
-          void approveCharter(leagueId, entry.id, true)
-        }}
-        onChanged={() => {
-          setEntryId(null)
-          router.refresh()
-        }}
-      />
-    )
-  }
+  const setEntryId = onOpenEntry
 
   return (
-    <div data-testid="rules-panel" className="flex min-h-0 flex-1 flex-col">
-      <h2 className="font-display mb-3 shrink-0 text-2xl leading-none tracking-tight uppercase">
-        <span className="text-neon-blue">House</span>{' '}
-        <span className="text-foreground/80">Rules</span>
-      </h2>
+    <div data-testid="rules-book">
+      <p className="text-muted-foreground mb-2.5 text-[10px] font-bold tracking-[0.3em] uppercase">
+        House Rules
+      </p>
       {/* THE WHOLE BOOK, OPEN. Topics used to be five rows you pressed to
           find out what was in them — a table of contents for a document
           short enough to just print. Four topics and fifteen-odd items
           fit in a column with room to spare, so they're all here and the
           headings are headings rather than doors. */}
-      <div className="scrollbar-hide min-h-0 flex-1 space-y-4 overflow-y-auto pb-2">
+      <div className="space-y-4">
         {topics.map((t) => (
           <section key={t.name}>
             <div className="mb-1.5 flex items-baseline gap-2">
@@ -251,7 +202,7 @@ function EntryRow({
  * ONE ITEM — the same panel the ballot shows under a question, with the
  * commish's controls folded in at the foot.
  */
-function ItemPage({
+export function CharterItemPage({
   entry,
   poll,
   topicName,
