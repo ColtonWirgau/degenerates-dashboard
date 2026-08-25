@@ -77,17 +77,18 @@ test('the league opens on the current week — week 0, the house rules', async (
     page.getByRole('button', { name: /Preseason — open the week list/i })
   ).toBeVisible()
 
-  // Week 0's job is settling what isn't settled, so the open questions
-  // lead — out of their categories and onto their own cards.
+  // Three sections, in this order: the one dated event, then what still
+  // needs deciding, then the settled record.
   await expect(
-    page.getByRole('heading', { name: /On the Ballot/i, level: 2 })
+    page.getByRole('heading', { name: /^Draft$/i, level: 2 })
   ).toBeVisible({ timeout: 10_000 })
-
-  // And the record of what IS settled sits under it, read from real
-  // seeded rows.
+  await expect(page.getByRole('heading', { name: /^Vote$/i, level: 2 })).toBeVisible()
   await expect(
     page.getByRole('heading', { name: /House Rules/i, level: 2 })
   ).toBeVisible()
+
+  // The draft reads as a fixture, not a list of pairs.
+  await expect(page.getByText('Don Christos')).toBeVisible()
   await expect(page.getByText('$50 · 12 teams · $600 pot')).toBeVisible()
   await expect(page.getByText('Snake + 3rd Rd Reversal')).toBeVisible()
 })

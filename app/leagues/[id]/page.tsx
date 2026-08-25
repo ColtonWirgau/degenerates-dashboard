@@ -128,12 +128,11 @@ async function PreseasonStage({ payload: p }: { payload: Payload }) {
           one, and the preseason must not be a dead end. */}
       <header className="mb-4 flex items-stretch gap-4">
         <WeekCornerDoor weekNumber={0} />
-        <div className="min-w-0 flex-1 pt-1">
+        {/* No blurb. The sections below say what this week is for by
+            being what this week is for — a sentence explaining that is a
+            sentence you read once and skip forever after. */}
+        <div className="min-w-0 flex-1 self-center pt-1">
           <h1 className="text-3xl font-bold sm:text-4xl">Preseason</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            No slate to bet yet — this is the week the league writes its own
-            rules. Settle the house rules, take the votes, then football.
-          </p>
         </div>
       </header>
 

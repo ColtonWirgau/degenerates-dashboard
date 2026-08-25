@@ -578,6 +578,45 @@ function SeasonSetup({
     // title under "Week 0 · Preseason" would just be the same sentence
     // twice.
     <section id="preseason-business" className="mt-8">
+      {/* THE DRAFT — out of HOUSE RULES entirely.
+          It was a group among groups, which put the one dated event in
+          the league's year on the same footing as the trade-veto policy.
+          It's the thing everyone actually needs to know, so it gets a
+          heading of its own and sits above the rules. Its old header row
+          ("9/9 · DRAFT ·>") is gone: that bar existed to name a group
+          inside a list of groups, and a section that isn't in a list
+          doesn't need one — the heading names it and the count moves to
+          the far end like every other section's does. */}
+      {draftEntries.length > 0 && (
+        <>
+          <div className="mb-3 flex items-end justify-between gap-3 border-b border-white/[0.07] pb-2.5">
+            {/* One word, so it takes the section's colour whole rather
+                than splitting it — blue because this one is settled. */}
+            <h2 className="font-display text-neon-blue text-xl leading-none tracking-tight uppercase">
+              Draft
+            </h2>
+            <p className="text-muted-foreground text-[10px] font-bold tracking-[0.2em] uppercase tabular-nums">
+              {draftEntries.filter((e) => e.status === 'locked').length}/
+              {draftEntries.length} settled
+            </p>
+          </div>
+          <div className="mb-8 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
+            <DraftCard
+              entries={draftEntries.map((e) => ({
+                key: e.key,
+                label: e.label,
+                value: e.value,
+                status: e.status,
+              }))}
+              onOpenEntry={(key) => {
+                const entry = draftEntries.find((e) => e.key === key)
+                setOpenGroup({ kind: 'builtin', group: 'Draft', entryId: entry?.id })
+              }}
+            />
+          </div>
+        </>
+      )}
+
       {ballot.length > 0 && (
         <>
           {/* The dock's disc aims here — on a phone the charter below
@@ -587,9 +626,9 @@ function SeasonSetup({
             id="preseason-ballot"
             className="mb-3 flex items-end justify-between gap-3 border-b border-white/[0.07] pb-2.5"
           >
-            <h2 className="font-display text-xl leading-none tracking-tight uppercase">
-              <span className="text-neon-pink">On the</span>{' '}
-              <span className="text-foreground/80">Ballot</span>
+            {/* Pink, because this is the one asking you for something. */}
+            <h2 className="font-display text-neon-pink text-xl leading-none tracking-tight uppercase">
+              Vote
             </h2>
             <p className="text-muted-foreground text-[10px] font-bold tracking-[0.2em] uppercase tabular-nums">
               {needsMe > 0 ? `${needsMe} need you` : 'All in'}
@@ -619,44 +658,6 @@ function SeasonSetup({
                 }
               />
             ))}
-          </div>
-        </>
-      )}
-
-      {/* THE DRAFT — out of HOUSE RULES entirely.
-          It was a group among groups, which put the one dated event in
-          the league's year on the same footing as the trade-veto policy.
-          It's the thing everyone actually needs to know, so it gets a
-          heading of its own and sits above the rules. Its old header row
-          ("9/9 · DRAFT ·>") is gone: that bar existed to name a group
-          inside a list of groups, and a section that isn't in a list
-          doesn't need one — the heading names it and the count moves to
-          the far end like every other section's does. */}
-      {draftEntries.length > 0 && (
-        <>
-          <div className="mb-3 flex items-end justify-between gap-3 border-b border-white/[0.07] pb-2.5">
-            <h2 className="font-display text-xl leading-none tracking-tight uppercase">
-              <span className="text-neon-blue">The</span>{' '}
-              <span className="text-foreground/80">Draft</span>
-            </h2>
-            <p className="text-muted-foreground text-[10px] font-bold tracking-[0.2em] uppercase tabular-nums">
-              {draftEntries.filter((e) => e.status === 'locked').length}/
-              {draftEntries.length} settled
-            </p>
-          </div>
-          <div className="mb-8 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
-            <DraftCard
-              entries={draftEntries.map((e) => ({
-                key: e.key,
-                label: e.label,
-                value: e.value,
-                status: e.status,
-              }))}
-              onOpenEntry={(key) => {
-                const entry = draftEntries.find((e) => e.key === key)
-                setOpenGroup({ kind: 'builtin', group: 'Draft', entryId: entry?.id })
-              }}
-            />
           </div>
         </>
       )}
