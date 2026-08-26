@@ -138,6 +138,10 @@ export interface DataAdapter {
   createPoll(input: CreatePollInput): Promise<LeaguePoll>;
   /** Admin: move a pending option into the approved set. */
   promotePollOption(pollId: string, optionId: string): Promise<void>;
+  /** The charter entry this poll decides, if any. Closing a vote has to
+   *  write its outcome into the rule book, or the book goes on saying
+   *  "On the ballot" about a question the league has finished. */
+  getCharterEntryIdForPoll(pollId: string): Promise<string | null>;
   /** Admin: status transitions. */
   closePoll(pollId: string): Promise<void>;
   reopenPoll(pollId: string): Promise<void>;

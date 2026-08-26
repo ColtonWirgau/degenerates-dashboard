@@ -61,6 +61,7 @@ import { groupCharter } from '@/lib/charter-groups'
 import type { CharterEntry } from '@/lib/data/mock-charter'
 import type { LeaguePoll } from '@/lib/data/mock-polls'
 import { cn } from '@/lib/utils'
+import { decidedBy, outcomeLabel, tallyPoll } from '@/lib/poll-outcome'
 
 export function RulesBook({
   leagueId,
@@ -70,6 +71,7 @@ export function RulesBook({
   currentUserId,
   canManage,
   voting,
+  memberCount,
   onOpenEntry,
 }: {
   leagueId: string
@@ -80,6 +82,8 @@ export function RulesBook({
   polls: LeaguePoll[]
   currentUserId: string
   canManage: boolean
+  /** League size — what turns a tally into a decided vote. */
+  memberCount: number
   /** Owned by the host, because the item page shares it. */
   voting: ReturnType<typeof usePollVoting>
   onOpenEntry: (entryId: string) => void
@@ -125,6 +129,7 @@ export function RulesBook({
                   poll={e.pollId ? (pollsById.get(e.pollId) ?? null) : null}
                   voting={voting}
                   currentUserId={currentUserId}
+                  memberCount={memberCount}
                   onOpen={() => setEntryId(e.id)}
                 />
               ))}
@@ -163,15 +168,23 @@ function EntryRow({
   poll,
   voting,
   currentUserId,
+  memberCount,
   onOpen,
 }: {
   entry: CharterEntry
   poll: LeaguePoll | null
   voting: ReturnType<typeof usePollVoting>
   currentUserId: string
+  /** What makes "decided" arithmetic rather than a guess. */
+  memberCount: number
   onOpen: () => void
 }) {
-  const live = poll && poll.status === 'open'
+  // A vote whose arithmetic is over is a settled rule, whether or not
+  // anyone has pressed CLOSE yet — so the book prints the answer and
+  // stops calling it live. Seven of twelve against with three to vote
+  // is a result, not a question.
+  const settled = poll ? outcomeOf(poll, memberCount) : null
+  const live = poll && poll.status === 'open' && !settled
   const answered = live && hasAnyAnswer(viewerVoteFor(poll, voting.sessionVotes, currentUserId))
   return (
     <button
@@ -187,12 +200,12 @@ function EntryRow({
       <span
         className={cn(
           'min-w-0 max-w-[52%] shrink-0 text-right text-[11px] leading-tight font-semibold',
-          entry.status === 'locked'
+          entry.status === 'locked' || settled
             ? 'text-foreground/90'
             : 'text-muted-foreground/60 italic'
         )}
       >
-        {live ? (answered ? 'Voted' : 'Needs you') : valueOf(entry)}
+        {live ? (answered ? 'Voted' : 'Needs you') : (settled ?? valueOf(entry))}
       </span>
     </button>
   )
@@ -398,6 +411,15 @@ function StatusMark({ entry }: { entry: CharterEntry }) {
     return <Hourglass className="text-muted-foreground mt-[1px] h-3 w-3 shrink-0" />
   }
   return <Circle className="text-muted-foreground/50 mt-[1px] h-3 w-3 shrink-0" />
+}
+
+/** The answer a poll has already produced: its recorded outcome once
+ *  closed, or the one its arithmetic has locked in while still open. */
+function outcomeOf(poll: LeaguePoll, memberCount: number): string | null {
+  if (poll.status !== 'open') return outcomeLabel(poll)
+  if (poll.kind !== 'single') return null
+  const { counts } = tallyPoll(poll)
+  return decidedBy(counts, memberCount) ? outcomeLabel(poll) : null
 }
 
 function valueOf(entry: CharterEntry): string {

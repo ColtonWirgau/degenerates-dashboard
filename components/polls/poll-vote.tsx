@@ -30,37 +30,12 @@ import {
   type PollMember,
   type SessionVote,
 } from '@/components/polls/types'
+import { decidedBy } from '@/lib/poll-outcome'
 
 // Compact inline poll voter for use inside an EntryDock. Supports single-
 // choice polls fully; ranked polls land a "Open in voter" CTA pointing at
 // the bottom dock since ranked UI is heavier than this surface should
 // carry.
-/**
- * IS THE ANSWER ALREADY FIXED?
- *
- * A single-choice question stops being a question the moment the leader
- * is further ahead than every vote still outstanding could close. Seven
- * of twelve said no to the median game with three people left: the most
- * yes can reach is five. Nobody is waiting for anything, and a ballot
- * that keeps asking is just a chore with no outcome attached.
- *
- * Only for single-choice. Ranked is instant-runoff, where a trailing
- * option can still win on redistribution, so "decided" there would be a
- * guess dressed as arithmetic.
- */
-function decidedBy(
-  counts: Map<string, number>,
-  memberCount: number
-): { winnerId: string; margin: number } | null {
-  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1])
-  const [first, second] = sorted
-  if (!first || first[1] === 0) return null
-  const cast = [...counts.values()].reduce((a, b) => a + b, 0)
-  const outstanding = Math.max(0, memberCount - cast)
-  const chaser = (second?.[1] ?? 0) + outstanding
-  return first[1] > chaser ? { winnerId: first[0], margin: first[1] - chaser } : null
-}
-
 export function InlinePollVote({
   poll,
   currentUserId,

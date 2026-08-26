@@ -226,8 +226,13 @@ test.describe('desktop', () => {
       page.getByRole('heading', { name: 'Preseason', level: 1 })
     ).toBeVisible({ timeout: 15_000 })
 
-    // He votes like everyone else…
-    await expect(page.locator('.sheet-track').getByText('Cast Your Vote')).toHaveCount(2)
+    // He votes like everyone else… however many questions are open.
+    // This counted two, which was true only while both preseason votes
+    // were running; closing one made a passing test fail for a reason
+    // that has nothing to do with what it's checking.
+    await expect(
+      page.locator('.sheet-track').getByText('Cast Your Vote').first()
+    ).toBeVisible()
 
     // …but putting things ON the ballot is the commish's. Both of these
     // were open to anyone: the add-option control said "(commish

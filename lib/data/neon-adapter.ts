@@ -1194,6 +1194,34 @@ export const neonAdapter: DataAdapter = {
       .where(and(eq(pollOptions.pollId, pollId), eq(pollOptions.id, optionId)))
   },
 
+  async getCharterEntryIdForPoll(pollId) {
+    // TWO GUARDS, both learned the hard way on real rows.
+    //
+    // SEASON, because a poll can be referenced by an entry in more than
+    // one season — the draft-date question is pointed at by both 2025's
+    // row and 2026's. Settling by poll id alone would have written this
+    // year's answer onto last year's rule.
+    //
+    // NOT LOCKED, because a settled value is a commissioner's decision
+    // and outranks a vote. The 2026 draft date is locked at "Mon, Aug 31
+    // · 8:30pm" — set by hand, printed on the hero, and different from
+    // what its poll came out at. A close must never quietly move it.
+    const [row] = await db
+      .select({ id: charterEntries.id })
+      .from(charterEntries)
+      .innerJoin(polls, eq(polls.id, charterEntries.pollId))
+      .innerJoin(nflWeeks, eq(nflWeeks.id, polls.nflWeekId))
+      .where(
+        and(
+          eq(charterEntries.pollId, pollId),
+          eq(charterEntries.season, nflWeeks.season),
+          ne(charterEntries.status, 'locked')
+        )
+      )
+      .limit(1)
+    return row?.id ?? null
+  },
+
   async closePoll(pollId) {
     await db
       .update(polls)

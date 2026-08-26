@@ -15,6 +15,7 @@ import { getDataAdapter, type PollVote } from '@/lib/data/adapter'
 import { getCurrentUser } from '@/lib/data/auth-bridge'
 import { publish } from '@/lib/ably/server'
 import { channelName, event } from '@/lib/ably/channels'
+import { outcomeLabel } from '@/lib/poll-outcome'
 
 export async function submitPollVote(
   leagueId: string,
@@ -190,6 +191,20 @@ export async function closePoll(leagueId: string, pollId: string) {
     return { success: false, error: 'Only owners and admins can close polls' }
   }
   await adapter.closePoll(pollId)
+
+  // CLOSING A VOTE SETTLES THE RULE IT DECIDES. Without this, closing
+  // flipped the poll's own status and nothing else — so the rule book
+  // went on reading "On the ballot" about a question the league had
+  // finished arguing about, forever, with no way to move it on.
+  const entryId = await adapter.getCharterEntryIdForPoll(pollId)
+  if (entryId) {
+    const settled = await adapter.getPoll(pollId)
+    const label = settled ? outcomeLabel(settled) : null
+    // Null when nobody voted. A closed poll with no answers decides
+    // nothing, and writing a dash into the book would read as a verdict.
+    if (label) await adapter.updateCharterEntry(entryId, { value: label })
+  }
+
   revalidatePath(`/leagues/${leagueId}`, 'layout')
   void publish(channelName.polls(leagueId), event.pollStatusChanged, {
     pollId,

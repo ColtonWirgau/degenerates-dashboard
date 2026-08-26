@@ -809,6 +809,10 @@ export const mockAdapter: DataAdapter = {
   async promotePollOption() {
     /* no-op in mock */
   },
+  async getCharterEntryIdForPoll() {
+    return null
+  },
+
   async closePoll() {
     /* no-op in mock */
   },

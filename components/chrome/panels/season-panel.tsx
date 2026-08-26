@@ -358,6 +358,7 @@ export function SeasonPanel({
           polls={charterPolls}
           currentUserId={currentUserId}
           canManage={canManage}
+          memberCount={chrome.memberCount}
           voting={voting}
           onOpenEntry={setEntryId}
         />
