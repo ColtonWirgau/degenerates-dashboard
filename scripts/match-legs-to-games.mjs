@@ -45,6 +45,10 @@ const INCLUDE_RECORD_ONLY = process.argv.includes('--include-record-only')
  */
 const SEED_FROM = '2025-10-13T16:00:00Z'
 const SEED_TO = '2025-10-13T18:00:00Z'
+// The timestamp window above is how these were FOUND. parlay_legs.record_only
+// is how they're identified now — a column beats a proxy, and imports added
+// since (the three people 2024 skipped) carry the flag without sharing the
+// original insert's clock.
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 
@@ -138,6 +142,26 @@ const STAT_WORDS = new Set([
   'least', 'plus', 'alt', 'spread', 'moneyline', 'line', 'half', 'quarter',
 ])
 
+/**
+ * ANSWERED BY THE COMMISSIONER. Five legs no amount of parsing could
+ * place, because each fails for its own reason: Ertz has a null team in
+ * the catalog, "JJ" and "Rico" are first names nobody wrote down in
+ * full, there are two Loves on two teams, and defensive players aren't
+ * in the catalog at all (it's filtered to skill positions).
+ *
+ * Three of them also moved between seasons — Ertz on Washington, Dowdle
+ * on Carolina, Parsons on Green Bay — so even a perfect current roster
+ * would have placed them wrong. This is the only record of the answers;
+ * each was checked against the real 2025 schedule before being written.
+ */
+const ANSWERED = {
+  'Zach Ertz 1Q receiving yards 5+': ['WSH', 'DAL'],
+  'JJ 1 pick': ['MIN', 'BAL'],
+  'Rico ATD': ['CAR', 'NO'],
+  'Love 1+ INT': ['GB', 'DET'],
+  'Micah Parsons 1+ Sack': ['GB', 'CHI'],
+}
+
 const norm = (s) =>
   s
     .toLowerCase()
@@ -177,7 +201,7 @@ const players = (
 ).sort((a, b) => b.full_name.length - a.full_name.length)
 
 const legs = await rows(`
-  select l.id, l.description, l.odds, l.result, l.created_at,
+  select l.id, l.description, l.odds, l.result, l.created_at, l.record_only,
          w.season, w.week_number, w.id as week_id
     from parlay_legs l
     join parlays pa on pa.id = l.parlay_id
@@ -196,10 +220,31 @@ for (const g of await rows(
 const out = { team: [], player: [], ambiguous: [], none: [] }
 
 for (const leg of legs) {
-  const seeded = leg.created_at >= new Date(SEED_FROM) && leg.created_at < new Date(SEED_TO)
+  const seeded =
+    leg.record_only ||
+    (leg.created_at >= new Date(SEED_FROM) && leg.created_at < new Date(SEED_TO))
   if (seeded && !INCLUDE_RECORD_ONLY) continue
   const games = gamesByWeek.get(leg.week_id) ?? []
   const tag = { ...leg, seeded }
+
+  // 0. answered by hand — nothing here is derivable from the text.
+  const answer = ANSWERED[leg.description]
+  if (answer) {
+    const g = games.find(
+      (x) =>
+        (x.away_team === answer[0] && x.home_team === answer[1]) ||
+        (x.away_team === answer[1] && x.home_team === answer[0])
+    )
+    if (g) {
+      out.player.push({
+        ...tag,
+        gameId: g.id,
+        game: `${g.away_team} @ ${g.home_team}`,
+        via: 'answered by hand',
+      })
+      continue
+    }
+  }
 
   // 1. by team
   const byTeam = games.filter(
