@@ -35,6 +35,32 @@ import {
 // choice polls fully; ranked polls land a "Open in voter" CTA pointing at
 // the bottom dock since ranked UI is heavier than this surface should
 // carry.
+/**
+ * IS THE ANSWER ALREADY FIXED?
+ *
+ * A single-choice question stops being a question the moment the leader
+ * is further ahead than every vote still outstanding could close. Seven
+ * of twelve said no to the median game with three people left: the most
+ * yes can reach is five. Nobody is waiting for anything, and a ballot
+ * that keeps asking is just a chore with no outcome attached.
+ *
+ * Only for single-choice. Ranked is instant-runoff, where a trailing
+ * option can still win on redistribution, so "decided" there would be a
+ * guess dressed as arithmetic.
+ */
+function decidedBy(
+  counts: Map<string, number>,
+  memberCount: number
+): { winnerId: string; margin: number } | null {
+  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1])
+  const [first, second] = sorted
+  if (!first || first[1] === 0) return null
+  const cast = [...counts.values()].reduce((a, b) => a + b, 0)
+  const outstanding = Math.max(0, memberCount - cast)
+  const chaser = (second?.[1] ?? 0) + outstanding
+  return first[1] > chaser ? { winnerId: first[0], margin: first[1] - chaser } : null
+}
+
 export function InlinePollVote({
   poll,
   currentUserId,
@@ -96,6 +122,7 @@ export function InlinePollVote({
           sessionVote={sessionVote}
           onVote={onVote}
           membersById={membersById}
+          memberCount={membersById.size}
         />
       )}
 
@@ -184,8 +211,12 @@ export function SingleChoiceVote({
   sessionVote,
   onVote,
   membersById,
+  memberCount = 0,
 }: {
   poll: LeaguePoll
+  /** How many people could still vote — what makes "decided" arithmetic
+   *  rather than a guess. */
+  memberCount?: number
   options: PollOption[]
   currentUserId: string
   sessionVote: SessionVote | null
@@ -217,6 +248,7 @@ export function SingleChoiceVote({
     votersByOption.get(effectiveChoice)?.push({ userId: currentUserId })
   }
   const total = Array.from(counts.values()).reduce((a, b) => a + b, 0)
+  const decided = poll.status === 'open' ? decidedBy(counts, memberCount) : null
 
   if (options.length === 0) {
     return (
@@ -226,11 +258,23 @@ export function SingleChoiceVote({
     )
   }
 
+  const winner = decided ? options.find((o) => o.id === decided.winnerId) : null
+
   return (
     <div className="space-y-2">
-      <p className="text-[10px] font-bold tracking-[0.28em] uppercase text-muted-foreground">
-        Cast Your Vote
-      </p>
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-[10px] font-bold tracking-[0.28em] uppercase text-muted-foreground">
+          Cast Your Vote
+        </p>
+        {/* The arithmetic is over. Said out loud so the stragglers know
+            their vote can't change it and the commish knows there's
+            nothing left to wait for. */}
+        {winner && (
+          <p className="text-neon-blue text-[10px] font-bold tracking-[0.18em] uppercase">
+            Decided &middot; {winner.label}
+          </p>
+        )}
+      </div>
       <div className="space-y-1.5">
         {options.map((o) => {
           const n = counts.get(o.id) ?? 0
@@ -310,7 +354,7 @@ export function ClearVoteButton({ onClear }: { onClear: () => void }) {
     <button
       type="button"
       onClick={onClear}
-      className="inline-flex items-center gap-1 text-[10px] font-bold tracking-widest uppercase text-muted-foreground/70 hover:text-neon-pink transition-colors"
+      className="-my-2 inline-flex items-center gap-1 py-2 text-[10px] font-bold tracking-widest uppercase text-muted-foreground/70 hover:text-neon-pink transition-colors"
     >
       <X className="h-3 w-3" />
       Clear my vote
@@ -848,7 +892,7 @@ export function RankedOptions({
           <button
             type="button"
             onClick={() => setHintsOpen((v) => !v)}
-            className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-[0.2em] uppercase text-muted-foreground/70 transition-colors hover:text-foreground"
+            className="-my-2 inline-flex items-center gap-1.5 py-2 text-[10px] font-bold tracking-[0.2em] uppercase text-muted-foreground/70 transition-colors hover:text-foreground"
           >
             <Info className="h-3 w-3" />
             {hintsOpen ? 'Hide the fine print' : 'What these involve'}

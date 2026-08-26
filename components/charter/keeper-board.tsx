@@ -116,14 +116,19 @@ export function KeeperBoard({
       {/* THE RULES — reference material, so it's set as reference
           material: label, dotted leader, value. Nobody reads this for
           pleasure; they look one line up mid-argument. */}
+      {/* Each row is a door into the book, and each was SEVENTEEN PIXELS
+          tall — a full-width target you still had to aim at, on the one
+          surface that's phone-first. The line itself doesn't change; it
+          just gets room around it, and the row carries its own spacing
+          instead of the grid's so the two don't compound. */}
       {ruleRows.length > 0 && (
-        <div className="mb-3 grid grid-cols-1 gap-x-10 gap-y-1 border-b border-white/[0.07] pb-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="mb-3 grid grid-cols-1 gap-x-10 gap-y-0 border-b border-white/[0.07] pb-2 sm:grid-cols-2 sm:gap-y-0.5 xl:grid-cols-3">
           {ruleRows.map((e) => (
             <button
               key={e.key}
               type="button"
               onClick={() => openCharterGroup('Draft', e.id)}
-              className="group flex items-baseline gap-2 text-left"
+              className="group -mx-1 flex items-baseline gap-2 rounded-md px-1 py-2.5 text-left transition-colors active:bg-white/[0.04] sm:py-1"
             >
               <span className="text-muted-foreground/70 group-hover:text-foreground/70 shrink-0 text-[11px] transition-colors">
                 {e.label}

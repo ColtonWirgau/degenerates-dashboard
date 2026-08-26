@@ -134,6 +134,7 @@ export function OffseasonPollsHub({
 
   return (
     <SeasonSetup
+          leagueId={leagueId}
       people={members}
       keepers={keepers}
       charter={charter}
@@ -178,6 +179,7 @@ function SeasonSetup({
   membersById,
   membersCount,
   currentUserId,
+  leagueId,
   canManage,
   sessionPollVotes,
   onPollVote,
@@ -196,6 +198,7 @@ function SeasonSetup({
   membersCount: number
   currentUserId: string
   canManage: boolean
+  leagueId: string
   sessionPollVotes: Map<string, SessionVote>
   onPollVote: (pollId: string, vote: SessionVote) => void
   sessionOptionReactions: Map<string, 1 | -1 | null>
@@ -328,6 +331,7 @@ function SeasonSetup({
                     proposal waiting on approvals, and a line the commish
                     rules on. One vote UI, two places it can appear. */}
                 <EntryAction
+                  leagueId={leagueId}
                   entry={entry}
                   poll={poll}
                   membersById={membersById}

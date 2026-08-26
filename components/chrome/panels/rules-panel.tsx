@@ -239,6 +239,7 @@ export function CharterItemPage({
       </h2>
       <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto pb-2">
         <EntryAction
+                  leagueId={leagueId}
           entry={entry}
           poll={poll}
           membersById={membersById}

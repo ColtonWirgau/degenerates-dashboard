@@ -14,7 +14,7 @@
  * time a fifth state existed.
  */
 
-import { Check } from 'lucide-react'
+import { Check, Lock } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import {
@@ -24,6 +24,9 @@ import {
   type SessionVote,
 } from '@/components/polls/types'
 import { InlinePollVote, VoterStack } from '@/components/polls/poll-vote'
+import { closePoll } from '@/app/actions/polls'
+import { useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import type {
   LeaguePoll,
   PollOption,
@@ -61,6 +64,7 @@ export function EntryAction({
   sessionAddedOptions,
   onAddOption,
   canManage,
+  leagueId,
 }: {
   entry: CharterEntry
   poll: LeaguePoll | null
@@ -77,6 +81,7 @@ export function EntryAction({
   onAddOption: (pollId: string, label: string, policy: PollOptionPolicy, hint?: string) => void
   /** Owners and admins put things on the ballot; everyone else votes. */
   canManage: boolean
+  leagueId: string
 }) {
   const approvalLabel = APPROVAL_LABEL[entry.approvalRule]
 
@@ -243,6 +248,13 @@ export function EntryAction({
           }
           canManage={canManage}
         />
+        {/* CLOSING THE VOTE lived only on the week polls surface, so a
+            charter question — which is most of what this league actually
+            votes on — had no way to end. It just sat open after everyone
+            had answered. */}
+        {canManage && poll.status === 'open' && (
+          <ClosePollButton leagueId={leagueId} pollId={poll.id} />
+        )}
       </div>
     )
   }
@@ -354,3 +366,32 @@ function EligibleKeepersTable({
   )
 }
 
+
+
+/**
+ * ENDING A VOTE. The week-polls surface has had this since it was
+ * written; the charter ballot never did, so the questions this league
+ * actually argues about had no way to stop. Deliberately a button and
+ * not an automatic thing: a poll going quiet because everyone answered
+ * is arithmetic, but declaring it over is a decision.
+ */
+function ClosePollButton({ leagueId, pollId }: { leagueId: string; pollId: string }) {
+  const router = useRouter()
+  const [busy, go] = useTransition()
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={() =>
+        go(async () => {
+          await closePoll(leagueId, pollId)
+          router.refresh()
+        })
+      }
+      className="text-muted-foreground hover:text-neon-blue hover:border-neon-blue/30 inline-flex items-center gap-1.5 rounded-full border border-white/10 px-2.5 py-1.5 text-[10px] font-bold tracking-wider uppercase transition-colors disabled:opacity-50"
+    >
+      <Lock className="h-3 w-3" />
+      {busy ? 'Closing…' : 'Close the vote'}
+    </button>
+  )
+}

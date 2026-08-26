@@ -234,7 +234,7 @@ export function DraftHero({ entries, leagueName, memberCount }: DraftHeroProps) 
         <button
           type="button"
           onClick={() => openEntry('draft-format')}
-          className="text-muted-foreground hover:text-foreground min-w-0 truncate text-[10px] font-bold tracking-[0.22em] uppercase transition-colors"
+          className="text-muted-foreground hover:text-foreground -my-2 min-w-0 truncate py-2 text-[10px] font-bold tracking-[0.22em] uppercase transition-colors"
         >
           {format ?? 'Format not settled'}
         </button>
