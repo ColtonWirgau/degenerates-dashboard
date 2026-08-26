@@ -476,16 +476,19 @@ test('your leg can be changed from the panel that shows it', async ({ page }) =>
         where u.id = l.user_id and u.email = $1`,
       [VIEWER_EMAIL]
     )
+    // Every column the row actually has. Naming them by hand meant every
+    // column added to parlay_legs afterwards was silently dropped on
+    // restore — a suite run stripped `record_only` and `nfl_game_id` off
+    // sixteen of the viewer's legs and unlinked twenty-two more. A
+    // restore that knows less about the table than the table does is a
+    // data-loss bug aimed squarely at the rows you care most about.
     for (const r of savedLegs) {
+      const cols = Object.keys(r)
       await pool.query(
-        `insert into parlay_legs
-           (id, parlay_id, user_id, leg_number, description, odds, result,
-            validation_status, validation_message, locked_at, graded_at,
-            graded_by, created_at)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-        [r.id, r.parlay_id, r.user_id, r.leg_number, r.description, r.odds,
-         r.result, r.validation_status, r.validation_message, r.locked_at,
-         r.graded_at, r.graded_by, r.created_at]
+        `insert into parlay_legs (${cols.map((c) => `"${c}"`).join(',')})
+         values (${cols.map((_, i) => `$${i + 1}`).join(',')})
+         on conflict (id) do nothing`,
+        cols.map((c) => r[c])
       )
     }
   }

@@ -430,30 +430,34 @@ test.describe('the commissioner’s hand', () => {
     await clearTheirs()
   }
 
+  /**
+   * Put a row back EXACTLY as it was, whatever shape it is.
+   *
+   * These used to name their columns by hand, and every column added to
+   * parlay_legs after that was written got silently dropped on restore —
+   * so a suite run quietly stripped `record_only` and `nfl_game_id` off
+   * sixteen of the viewer's legs and unlinked twenty-two more. A restore
+   * that knows less about the table than the table does is a data-loss
+   * bug that only fires on the rows you care most about.
+   *
+   * Reading the keys off the snapshot means the list can never drift.
+   */
+  const reinsert = async (table: string, rows: Record<string, unknown>[]) => {
+    for (const r of rows) {
+      const cols = Object.keys(r)
+      await pool.query(
+        `insert into ${table} (${cols.map((c) => `"${c}"`).join(',')})
+         values (${cols.map((_, i) => `$${i + 1}`).join(',')})
+         on conflict (id) do nothing`,
+        cols.map((c) => r[c])
+      )
+    }
+  }
+
   const restoreTheirs = async () => {
     await clearTheirs()
-    for (const r of savedLegs) {
-      await pool.query(
-        `insert into parlay_legs
-           (id, parlay_id, user_id, leg_number, description, odds, result,
-            validation_status, validation_message, locked_at, graded_at,
-            graded_by, created_at)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-        [r.id, r.parlay_id, r.user_id, r.leg_number, r.description, r.odds,
-         r.result, r.validation_status, r.validation_message, r.locked_at,
-         r.graded_at, r.graded_by, r.created_at]
-      )
-    }
-    for (const r of savedKeepers) {
-      await pool.query(
-        `insert into league_keepers
-           (id, league_id, season, user_id, player_name, position,
-            round_cost, year_of_keep, declared_at)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-        [r.id, r.league_id, r.season, r.user_id, r.player_name, r.position,
-         r.round_cost, r.year_of_keep, r.declared_at]
-      )
-    }
+    await reinsert('parlay_legs', savedLegs)
+    await reinsert('league_keepers', savedKeepers)
   }
 
   test('a leg is entered, changed and removed for a member', async ({ page, context }) => {
