@@ -11,10 +11,11 @@
  * he shows 0-0 on a board where everyone else has fifteen or sixteen
  * legs.
  *
- * Only his ELEVEN REAL ones come back. The other four are from the
- * 2025-10-13 bulk seed (verbatim leg-library samples) and restoring
- * invented bets to make a column look even would be the same mistake
- * that put them there.
+ * All fifteen come back, but not as the same kind of row. Eleven were
+ * typed by him week by week and keep their wording. Four belong to the
+ * 2025-10-13 import, whose results are real (the league's note has him
+ * 2-2 through week 5) and whose text never existed — those land as
+ * record_only, reading "Unknown leg", exactly like the other 107.
  */
 import { Pool } from 'pg'
 import { config } from 'dotenv'
@@ -59,10 +60,8 @@ const candidates = SNAP.filter(
     !have.has(l.id) &&
     parlays.has(l.parlay_id) &&
     users[l.user_id] &&
-    !slots.has(`${l.parlay_id}|${l.user_id}`) &&
-    !seeded(l)
+    !slots.has(`${l.parlay_id}|${l.user_id}`)
 )
-const skippedSeeded = SNAP.filter((l) => !have.has(l.id) && parlays.has(l.parlay_id) && seeded(l))
 const skippedOtherLeague = SNAP.filter((l) => !have.has(l.id) && !parlays.has(l.parlay_id))
 
 console.log(`\nrestorable: ${candidates.length}`)
@@ -70,7 +69,9 @@ for (const l of candidates)
   console.log(
     `  ${(weekOf[l.parlay_id] ?? '?').padEnd(9)} ${users[l.user_id].padEnd(14)} | ${l.description} | ${l.odds} | ${l.result ?? 'ungraded'}`
   )
-console.log(`\nskipped, seeded (invented, not restoring): ${skippedSeeded.length}`)
+console.log(
+  `  ${candidates.filter(seeded).length} of these are record-only (real result, text never kept)`
+)
 console.log(`skipped, belongs to another league: ${skippedOtherLeague.length}`)
 // A restorable leg CAN appear in leg-library without being fake: that
 // file's own header says its samples were "drawn from the live data
@@ -96,15 +97,16 @@ for (const l of candidates) {
   await pool.query(
     `insert into parlay_legs
        (id, parlay_id, user_id, leg_number, description, odds, result,
-        validation_status, validation_message, locked_at, created_at, updated_at)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+        validation_status, validation_message, locked_at, created_at, updated_at,
+        record_only)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
      on conflict (id) do nothing`,
     [
       l.id,
       l.parlay_id,
       l.user_id,
       l.leg_number ?? 0,
-      l.description,
+      seeded(l) ? 'Unknown leg' : l.description,
       l.odds,
       l.result,
       l.validation_status === 'approved' ? 'approved' : null,
@@ -112,6 +114,7 @@ for (const l of candidates) {
       l.submitted_at ?? l.created_at,
       l.created_at,
       l.updated_at ?? l.created_at,
+      seeded(l),
     ]
   )
   n++

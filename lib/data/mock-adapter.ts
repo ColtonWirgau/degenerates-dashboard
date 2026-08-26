@@ -298,6 +298,8 @@ const synthesize = (scenario: Scenario): SynthesizedStore => {
               : null,
           lockedAt: deriveLockedAt(scenario, week, m.user.id, treatAsPast || gradedRatio > 0),
           createdAt: weeks[i]!.startDate ?? new Date().toISOString(),
+          recordOnly: false,
+          nflGameId: null,
           validationStatus: 'approved',
           validationMessage: 'Valid',
         };
@@ -323,6 +325,8 @@ const synthesize = (scenario: Scenario): SynthesizedStore => {
           result: override.result ?? null,
           lockedAt: override.lockedAt ?? null,
           createdAt: new Date().toISOString(),
+          recordOnly: false,
+          nflGameId: null,
           validationStatus: override.validationStatus ?? 'approved',
           validationMessage: override.validationMessage ?? 'Valid',
         });
@@ -378,6 +382,8 @@ const synthesize = (scenario: Scenario): SynthesizedStore => {
           result: sampleResult(`${overlayKey}-prev-result`),
           lockedAt: week.startDate,
           createdAt: week.startDate ?? new Date().toISOString(),
+          recordOnly: false,
+          nflGameId: null,
           validationStatus: 'approved',
           validationMessage: 'Valid',
         });
@@ -710,6 +716,8 @@ export const mockAdapter: DataAdapter = {
       result: null,
       lockedAt: new Date().toISOString(),
       createdAt: existing?.createdAt ?? new Date().toISOString(),
+      recordOnly: false,
+      nflGameId: null,
       validationStatus: input.validationStatus ?? 'approved',
       validationMessage: input.validationMessage ?? 'Valid',
     };

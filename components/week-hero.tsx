@@ -50,6 +50,9 @@ export interface WeekHeroLeg {
   /** Null while pending — or because they never put one in. */
   result: 'win' | 'loss' | 'push' | null
   description: string | null
+  /** Result real, wording never kept — a week the league scored in its
+   *  shared note before the app existed. */
+  recordOnly?: boolean
 }
 
 export function WeekHero({
@@ -72,7 +75,11 @@ export function WeekHero({
     weekId: l.userId,
     result: l.result,
     title: `${l.fullName ?? l.email}${
-      l.description ? ` — ${l.description}` : ' — no pick'
+      l.recordOnly
+        ? ' — leg not recorded'
+        : l.description
+          ? ` — ${l.description}`
+          : ' — no pick'
     }`,
     label: (
       <Avatar

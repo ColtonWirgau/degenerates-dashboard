@@ -212,6 +212,7 @@ export default async function LeagueShellLayout({
         id: wd.userLeg.id,
         description: wd.userLeg.description,
         odds: parseInt(wd.userLeg.odds, 10) || 0,
+        nflGameId: wd.userLeg.nflGameId ?? null,
         result: wd.userLeg.result,
       }
     }

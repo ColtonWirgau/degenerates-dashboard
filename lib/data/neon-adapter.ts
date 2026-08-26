@@ -105,6 +105,8 @@ function parlayLegFromRow(
     legNumber: leg.legNumber,
     description: leg.description,
     odds: leg.odds,
+    recordOnly: leg.recordOnly,
+    nflGameId: leg.nflGameId ?? null,
     result: leg.result,
     lockedAt: leg.lockedAt?.toISOString() ?? null,
     createdAt: leg.createdAt.toISOString(),
@@ -123,9 +125,18 @@ function decimalToAmerican(decimal: number): string {
     ? `+${Math.round((decimal - 1) * 100)}`
     : `${Math.round(-100 / (decimal - 1))}`
 }
+/**
+ * The parlay's price, from the legs that HAVE one.
+ *
+ * Record-only legs carry placeholder odds — the note kept the result,
+ * never the number — so multiplying them in produced a total that looked
+ * precise and meant nothing. A week made entirely of them has no price
+ * at all, which is the honest answer.
+ */
 function computeTotalOdds(legs: ParlayLeg[]): string | null {
-  if (legs.length === 0) return null
-  const product = legs.reduce((acc, l) => acc * americanToDecimal(l.odds), 1)
+  const priced = legs.filter((l) => !l.recordOnly)
+  if (priced.length === 0) return null
+  const product = priced.reduce((acc, l) => acc * americanToDecimal(l.odds), 1)
   return decimalToAmerican(product)
 }
 
@@ -647,6 +658,10 @@ export const neonAdapter: DataAdapter = {
       userId: input.userId,
       description: input.description,
       odds: input.odds,
+      nflGameId: input.nflGameId ?? null,
+      // A leg somebody typed is never record-only, even when it lands on
+      // top of an imported row: they've just told us what the bet was.
+      recordOnly: false,
       lockedAt: now,
       validationStatus: input.validationStatus ?? null,
       validationMessage: input.validationMessage ?? null,

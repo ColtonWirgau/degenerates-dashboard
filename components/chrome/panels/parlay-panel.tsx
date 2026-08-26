@@ -20,6 +20,10 @@ export interface ParlayPanelLeg {
   avatarUrl: string | null
   description: string
   odds: number
+  /** Result is real; description and odds are placeholders. See
+   *  parlay_legs.record_only — imported from the league's shared note,
+   *  which never kept the wording. */
+  recordOnly?: boolean
   result: 'win' | 'loss' | 'push' | null
 }
 
@@ -236,18 +240,23 @@ function LegRow({
         <span className="text-foreground/70 min-w-0 flex-1 truncate text-[11px] font-semibold">
           {firstNameOf(leg.fullName, leg.email)}
         </span>
-        <span
-          className={cn(
-            'shrink-0 text-[11px] font-bold tabular-nums',
-            leg.result === 'win'
-              ? 'text-neon-blue'
-              : leg.result === 'loss'
-                ? 'text-destructive'
-                : 'text-foreground/70'
-          )}
-        >
-          {leg.odds > 0 ? `+${leg.odds}` : leg.odds}
-        </span>
+        {/* No price on a record-only leg. The note kept who won, never
+            what it paid, so the number on the row would be a placeholder
+            set in the same tabular numerals as every real one. */}
+        {!leg.recordOnly && (
+          <span
+            className={cn(
+              'shrink-0 text-[11px] font-bold tabular-nums',
+              leg.result === 'win'
+                ? 'text-neon-blue'
+                : leg.result === 'loss'
+                  ? 'text-destructive'
+                  : 'text-foreground/70'
+            )}
+          >
+            {leg.odds > 0 ? `+${leg.odds}` : leg.odds}
+          </span>
+        )}
         {settled && <ResultMark result={leg.result} />}
         {editable && parlayId && (
           <>
@@ -268,9 +277,18 @@ function LegRow({
           </>
         )}
       </div>
-      <p className="text-foreground/90 mt-1 pl-7 text-xs leading-snug break-words">
-        {leg.description}
-      </p>
+      {leg.recordOnly ? (
+        /* The gap, said plainly. This week predates the app: the result
+           is real and the wording never made it across. Set apart from a
+           real pick so nobody reads it as one. */
+        <p className="text-muted-foreground/50 mt-1 pl-7 text-[11px] leading-snug italic">
+          Unknown leg &middot; predates the app
+        </p>
+      ) : (
+        <p className="text-foreground/90 mt-1 pl-7 text-xs leading-snug break-words">
+          {leg.description}
+        </p>
+      )}
     </div>
   )
 }

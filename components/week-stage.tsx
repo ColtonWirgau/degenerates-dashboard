@@ -7,7 +7,11 @@ import {
   useOnRecap,
   useViewedWeek,
 } from '@/components/chrome/league-chrome-context'
-import { setWeekActions, subscribeWeekDirty } from '@/components/chrome/canvas-store'
+import {
+  setStageGames,
+  setWeekActions,
+  subscribeWeekDirty,
+} from '@/components/chrome/canvas-store'
 import { WeekHeader, WeekTiming } from '@/components/week-header'
 import { WeekSlate } from '@/components/week-slate'
 import { WeekPolls } from '@/components/week-polls'
@@ -113,6 +117,13 @@ export function WeekStage({
 
   // The action pod lives in the shell and can't see what we just
   // fetched — hand it the week's verbs as they change.
+  // The week's schedule, for the leg composer's "which game" field. It
+  // lives in the shell and this is the only place that has already
+  // fetched the games.
+  useEffect(() => {
+    setStageGames(stage?.games ?? [])
+  }, [stage])
+
   useEffect(() => {
     if (isPreseason || !stage) {
       setWeekActions({
@@ -174,6 +185,7 @@ export function WeekStage({
             avatarUrl: m.avatarUrl,
             result: leg?.result ?? null,
             description: leg?.description ?? null,
+            recordOnly: leg?.recordOnly ?? false,
           }
         })}
       />

@@ -1,23 +1,49 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { AlertCircle, AlertTriangle } from 'lucide-react'
 import { submitLeg, type SubmitLegResult } from '@/app/actions/legs'
+import { LegGamePicker } from '@/components/leg-game-picker'
+import {
+  pendingSubmitGameId,
+  subscribeStageGames,
+  subscribeSubmit,
+} from '@/components/chrome/canvas-store'
+import type { SlateGame } from '@/lib/data/week-slate'
 import confetti from 'canvas-confetti'
 
 interface SubmitLegFormProps {
   weekId: string
   leagueId: string
-  existingLeg?: { description: string; odds: string }
+  existingLeg?: { description: string; odds: string; nflGameId?: string | null }
 }
 
 export function SubmitLegForm({ weekId, leagueId, existingLeg }: SubmitLegFormProps) {
   const [description, setDescription] = useState(existingLeg?.description || '')
   const [odds, setOdds] = useState(existingLeg?.odds || '')
+  // The week's schedule, published by the stage.
+  const [games, setGames] = useState<SlateGame[]>([])
+  useEffect(() => subscribeStageGames(setGames), [])
+  // Pre-answered when you arrived from a game card: you already pressed
+  // the game, so asking again is the app forgetting what you just did.
+  const [nflGameId, setNflGameId] = useState<string | null | undefined>(
+    () => existingLeg?.nflGameId ?? pendingSubmitGameId() ?? undefined
+  )
+  // ON ARM, not on mount. Every panel in the shell stays mounted, so this
+  // form's initial state was computed once at page load — long before
+  // anyone pressed a game. The composer has to hear the open itself.
+  useEffect(
+    () =>
+      subscribeSubmit(() => {
+        const asked = pendingSubmitGameId()
+        if (asked) setNflGameId(asked)
+      }),
+    []
+  )
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -42,6 +68,7 @@ export function SubmitLegForm({ weekId, leagueId, existingLeg }: SubmitLegFormPr
     const result = await submitLeg(weekId, leagueId, {
       description: descStr,
       odds: oddsStr,
+      nflGameId: nflGameId ?? null,
     })
 
     if (result.error) {
@@ -138,6 +165,11 @@ export function SubmitLegForm({ weekId, leagueId, existingLeg }: SubmitLegFormPr
           />
         </div>
       </div>
+
+      {/* WHICH GAME. Optional on purpose: a bet across two games has no
+          single answer, and forcing one would manufacture the same false
+          link the slate used to invent by hashing the leg id. */}
+      <LegGamePicker games={games} value={nflGameId} onChange={setNflGameId} />
 
       <Button
         type="submit"

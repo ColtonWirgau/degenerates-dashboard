@@ -431,6 +431,27 @@ export const parlayLegs = pgTable(
     nflGameId: text('nfl_game_id').references(() => nflGames.id, {
       onDelete: 'set null',
     }),
+    /**
+     * THE RESULT IS REAL; THE REST OF THIS ROW ISN'T.
+     *
+     * The league kept score in a shared Apple Note for two seasons
+     * before this app existed, and that note only ever holds the CURRENT
+     * week's table — every previous week's wording was overwritten. So
+     * when the history was imported, the wins and losses came across
+     * exactly (19 of 20 per-person records reconcile against the note)
+     * and the leg text did not. It was filled with placeholder samples.
+     *
+     * That left rows claiming somebody took Vikings -5 in seven separate
+     * weeks, at the same spread, including one on a bye. Indistinguishable
+     * on screen from a real bet.
+     *
+     * So the flag, and `description` is set to a plain "Unknown leg" —
+     * belt and braces. Any surface that just prints the description tells
+     * the truth without being taught to; the flag lets the ones that care
+     * style it as the gap it is, and keeps the fake odds out of the
+     * parlay's total.
+     */
+    recordOnly: boolean('record_only').notNull().default(false),
     result: legResultEnum('result'),
     validationStatus: validationStatusEnum('validation_status'),
     validationMessage: text('validation_message'),

@@ -18,6 +18,8 @@
  * The league sheet is the exception: its trigger is the masthead, which
  * belongs to no edge, so it stays a portaled sheet on its own channel.
  */
+import type { SlateGame } from '@/lib/data/week-slate'
+
 export type CanvasPanel =
   | 'season'
   | 'slate'
@@ -199,6 +201,29 @@ export function subscribeWeekActions(
   return () => weekActionListeners.delete(listener)
 }
 
+/* THE VIEWED WEEK'S GAMES, published by the stage.
+ *
+ * The leg composer lives in the shell and needs the schedule to ask
+ * which game a bet is on; the stage has already fetched exactly that for
+ * the week you're looking at. Same seam as the pod's actions above:
+ * fetch once, publish, rather than having the shell ask again. */
+let stageGames: SlateGame[] = []
+const stageGameListeners = new Set<(g: SlateGame[]) => void>()
+
+export function setStageGames(games: SlateGame[]) {
+  if (stageGames === games) return
+  stageGames = games
+  stageGameListeners.forEach((l) => l(stageGames))
+}
+
+export function subscribeStageGames(
+  listener: (g: SlateGame[]) => void
+): () => void {
+  stageGameListeners.add(listener)
+  listener(stageGames)
+  return () => stageGameListeners.delete(listener)
+}
+
 /* A week changed under us. The pod closes a week from the shell, but the
  * week's content is cached in the stage — this is how the shell tells it
  * to go and look again. */
@@ -289,11 +314,26 @@ export function subscribeCharterGroup(
  *  form instead of doing nothing. */
 const submitListeners = new Set<(version: number) => void>()
 let submitVersion = 0
+/**
+ * The game the composer should open already pointed at.
+ *
+ * Set when you came in from a game card, because at that moment you have
+ * already answered "which game" by pressing one — asking again is the
+ * app forgetting what you just did. Null when you came from the pod or
+ * the dock, where the question is still open.
+ */
+let submitGameId: string | null = null
 
-export function openSubmit() {
+export function openSubmit(nflGameId: string | null = null) {
+  submitGameId = nflGameId
   submitVersion++
   submitListeners.forEach((l) => l(submitVersion))
   if (panel !== 'submit') openPanel('submit')
+}
+
+/** Which game the composer was opened for, if any. Read on arm. */
+export function pendingSubmitGameId(): string | null {
+  return submitGameId
 }
 
 export function subscribeSubmit(listener: (version: number) => void): () => void {

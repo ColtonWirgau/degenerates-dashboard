@@ -14,6 +14,8 @@ export interface SubmitRevealLeg {
   id: string
   description: string
   odds: number
+  /** The game it's on, so CHANGE IT reopens still pointed at it. */
+  nflGameId?: string | null
   result: 'win' | 'loss' | 'push' | null
 }
 
@@ -63,9 +65,11 @@ export function SubmitReveal({
   // what it said. The text is captured HERE rather than read back off
   // the leg, because by the time the composer renders the leg has been
   // deleted and there is nothing left to read.
-  const [changing, setChanging] = useState<{ description: string; odds: string } | null>(
-    null
-  )
+  const [changing, setChanging] = useState<{
+    description: string
+    odds: string
+    nflGameId?: string | null
+  } | null>(null)
   const [dropping, drop] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
@@ -127,6 +131,9 @@ export function SubmitReveal({
                   setChanging({
                     description: myLeg.description,
                     odds: String(myLeg.odds),
+                    // Whatever it was already on. Losing this on an edit
+                    // would quietly un-link a leg that knew its game.
+                    nflGameId: myLeg.nflGameId ?? null,
                   })
                   markWeekDirty()
                   router.refresh()

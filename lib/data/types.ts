@@ -53,6 +53,17 @@ export interface ParlayLeg {
   legNumber: number;
   description: string;
   odds: number; // American odds, e.g. -110, +145
+  /**
+   * The RESULT is real and the rest of this leg isn't: it came from the
+   * two seasons the league scored in a shared note, which only ever kept
+   * the current week's table. The wins and losses imported exactly; the
+   * wording was already gone. Never show the description or the odds of
+   * one of these as a bet somebody placed.
+   */
+  recordOnly: boolean;
+  /** The game it's on, once anything knows. Null while unknown, and
+   *  permanently null for a bet spanning two games. */
+  nflGameId: string | null;
   result: LegResult;
   /** Null = draft (editable). Non-null = locked, immutable. */
   lockedAt: string | null;
@@ -146,6 +157,9 @@ export interface SubmitLegInput {
   userId: string;
   description: string;
   odds: number;
+  /** Which game the bet is on. Null when the bettor didn't say, or when
+   *  it genuinely isn't one game (a two-game total, a cross-game combo). */
+  nflGameId?: string | null;
   /** Optional validation outcome to persist alongside the leg. Set by the
    *  server action after running AI validation; the adapter just stores. */
   validationStatus?: 'approved' | 'conflicting';

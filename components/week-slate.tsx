@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/responsive-sheet'
 import { cn } from '@/lib/utils'
 import { useSlateScope } from '@/components/week-scope'
+import { openSubmit } from '@/components/chrome/canvas-store'
 import type { SlateGame, SlateTeam } from '@/lib/data/week-slate'
 import { useLiveScores } from '@/lib/hooks/use-live-scores'
 
@@ -459,6 +460,20 @@ function GameDetailSheet({
               {game.venue}
             </p>
           )}
+
+          {/* TAKE THIS GAME. The composer opens already pointed here, so
+              the leg it saves carries a real game id instead of leaving
+              the app to guess one later. */}
+          <button
+            type="button"
+            onClick={() => {
+              onClose()
+              openSubmit(game.id)
+            }}
+            className="border-neon-blue/30 bg-neon-blue/[0.06] text-neon-blue hover:bg-neon-blue/[0.12] w-full rounded-lg border px-3 py-2.5 text-[11px] font-bold tracking-[0.2em] uppercase transition-colors"
+          >
+            Put a leg on this game
+          </button>
 
           {/* Game state — all of it real: status and final scores from
               the nightly schedule sync, quarter and clock from the live

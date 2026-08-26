@@ -254,7 +254,18 @@ function PersonSeason({
               </div>
 
               <div className="flex min-w-0 flex-1 items-center gap-2 py-1.5 pr-2.5 pl-2">
-                {leg ? (
+                {leg?.recordOnly ? (
+                  /* Weeks the league scored in its shared note, before
+                     the app. The result crossed over; the wording and the
+                     price didn't, so the row shows the gap rather than a
+                     placeholder dressed as a pick. */
+                  <>
+                    <span className="text-muted-foreground/50 min-w-0 flex-1 truncate text-[11px] italic">
+                      Unknown leg &middot; predates the app
+                    </span>
+                    <ResultMark result={leg.result} />
+                  </>
+                ) : leg ? (
                   <>
                     <span className="text-foreground/85 min-w-0 flex-1 truncate text-xs">
                       {leg.description}

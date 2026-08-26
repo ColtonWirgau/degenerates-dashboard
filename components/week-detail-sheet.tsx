@@ -61,6 +61,9 @@ export type LegRoster = {
   avatarUrl: string | null
   description: string
   odds: number
+  /** Result is real, description and odds are placeholders — a leg
+   *  imported from the two seasons scored in the league's shared note. */
+  recordOnly?: boolean
   result: 'win' | 'loss' | 'push' | null
 }
 

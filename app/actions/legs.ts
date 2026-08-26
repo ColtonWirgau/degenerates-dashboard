@@ -45,7 +45,7 @@ function validateOdds(odds: string): { oddsNum: number; error: string | null } {
 export async function submitLeg(
   weekId: string,
   leagueId: string,
-  leg: { description: string; odds: string }
+  leg: { description: string; odds: string; nflGameId?: string | null }
 ): Promise<SubmitLegResult> {
   const me = await getCurrentUser()
   if (!me) return { success: false, error: 'Unauthorized' }
@@ -117,6 +117,7 @@ export async function submitLeg(
     userId: me.id,
     description: leg.description,
     odds: oddsNum,
+    nflGameId: leg.nflGameId ?? null,
     validationStatus,
     validationMessage,
   })
@@ -236,7 +237,7 @@ export async function submitLegForUser(
   weekId: string,
   leagueId: string,
   userId: string,
-  leg: { description: string; odds: string }
+  leg: { description: string; odds: string; nflGameId?: string | null }
 ): Promise<SubmitLegResult> {
   const me = await getCurrentUser()
   if (!me) return { success: false, error: 'Unauthorized' }
@@ -303,6 +304,7 @@ export async function submitLegForUser(
     userId,
     description: leg.description,
     odds: oddsNum,
+    nflGameId: leg.nflGameId ?? null,
     validationStatus,
     validationMessage,
   })
@@ -381,7 +383,7 @@ export async function setLegForMember(
   weekId: string,
   leagueId: string,
   userId: string,
-  leg: { description: string; odds: string }
+  leg: { description: string; odds: string; nflGameId?: string | null }
 ): Promise<SubmitLegResult> {
   const me = await getCurrentUser()
   if (!me) return { success: false, error: 'Unauthorized' }

@@ -85,6 +85,7 @@ export async function getWeekStage(
     email: l.user.email,
     avatarUrl: l.user.avatarUrl,
     description: l.description,
+    recordOnly: l.recordOnly,
     odds: l.odds,
     result: l.result,
   }))
