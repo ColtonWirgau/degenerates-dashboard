@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Flame, Globe, Target } from 'lucide-react'
+import { Globe, Target } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /**
@@ -12,27 +12,28 @@ import { cn } from '@/lib/utils'
  * the chrome's canvas-store.
  *
  * Narrowest first, so the switch reads left-to-right as a zoom out:
- * ACTION (games we've got money on) → SLATE (what this league may bet) →
- * ALL (everything the NFL is playing this week). "Action" is the
- * bettor's word for money already down, which beats "with bets".
+ * SLATE (what this league may bet) → ALL (everything the NFL is playing
+ * this week).
+ *
+ * There was a third, ACTION, for "games we've got money on" — but the
+ * app cannot know that. A leg is free text with no foreign key to a
+ * game, so the filter behind it was a hash of the leg id scattering
+ * real bets across the schedule at random.
  */
-export const SCOPES = ['action', 'slate', 'all'] as const
+export const SCOPES = ['slate', 'all'] as const
 export type SlateScope = (typeof SCOPES)[number]
 
 export const SCOPE_LABEL: Record<SlateScope, string> = {
-  action: 'Action',
   slate: 'Betting slate',
   all: 'All games',
 }
 
-const SCOPE_ICON: Record<SlateScope, typeof Flame> = {
-  action: Flame,
+const SCOPE_ICON: Record<SlateScope, typeof Target> = {
   slate: Target,
   all: Globe,
 }
 
 const SCOPE_HINT: Record<SlateScope, string> = {
-  action: 'Showing only games the league has money on',
   slate: "Showing the league's betting slate",
   all: 'Showing every game this week',
 }
@@ -40,13 +41,9 @@ const SCOPE_HINT: Record<SlateScope, string> = {
 let scope: SlateScope = 'slate'
 const listeners = new Set<(s: SlateScope) => void>()
 
-/**
- * Reset to the week's natural scope when you move between weeks. A week
- * still open is a shopping trip — you want to see what's available. Once
- * it locks, the only games that matter are the ones we're riding on.
- */
-export function resetSlateScope(postLock: boolean, actionCount: number) {
-  setSlateScope(postLock && actionCount > 0 ? 'action' : 'slate')
+/** Every week opens on the league's own slate. */
+export function resetSlateScope() {
+  setSlateScope('slate')
 }
 
 export function setSlateScope(next: SlateScope) {

@@ -1,15 +1,13 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Clock, ExternalLink, Flame, Minus, Skull, Trophy } from 'lucide-react'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Flame } from 'lucide-react'
 import {
   ResponsiveSheet,
   SheetPage,
 } from '@/components/ui/responsive-sheet'
 import { cn } from '@/lib/utils'
 import { useSlateScope } from '@/components/week-scope'
-import type { LegRoster } from '@/components/week-detail-sheet'
 import type { SlateGame, SlateTeam } from '@/lib/data/week-slate'
 import { useLiveScores } from '@/lib/hooks/use-live-scores'
 
@@ -20,8 +18,6 @@ interface WeekSlateProps {
   games?: SlateGame[] | null
   /** nfl_weeks id — enables live score polling while the slate runs. */
   nflWeekId?: string | null
-  legs?: LegRoster[]
-  currentUserId?: string
 }
 
 // ─── Team display helpers (real nfl_teams rows via the slate payload) ──────
@@ -174,106 +170,28 @@ export function SlateCountdown({
   )
 }
 
-const getInitials = (name: string | null, email: string) => {
-  if (name) {
-    const parts = name.split(' ').filter(Boolean)
-    if (parts.length >= 2) return `${parts[0]![0]}${parts[1]![0]}`.toUpperCase()
-    return name.slice(0, 2).toUpperCase()
-  }
-  return email.slice(0, 2).toUpperCase()
-}
-
-const fmtOdds = (n: number) => (n > 0 ? `+${n}` : `${n}`)
-
-// ─── Status tones (shared by collapsed cards + sheet bet rows) ─────────────
-
-type LegStatus = 'pending' | 'win' | 'loss' | 'push'
-
-const statusOf = (l: LegRoster): LegStatus =>
-  l.result === 'win'
-    ? 'win'
-    : l.result === 'loss'
-      ? 'loss'
-      : l.result === 'push'
-        ? 'push'
-        : 'pending'
-
-const STATUS_RING: Record<LegStatus, string> = {
-  pending: 'ring-white/30',
-  win: 'ring-neon-blue',
-  loss: 'ring-destructive',
-  push: 'ring-gray-400',
-}
-
-const STATUS_LABEL: Record<LegStatus, string> = {
-  pending: 'Pending',
-  win: 'Hit',
-  loss: 'Missed',
-  push: 'Push',
-}
-
-const STATUS_TEXT: Record<LegStatus, string> = {
-  pending: 'text-muted-foreground',
-  win: 'text-neon-blue',
-  loss: 'text-destructive',
-  push: 'text-foreground/70',
-}
-
-const STATUS_ICON: Record<LegStatus, typeof Clock> = {
-  pending: Clock,
-  win: Trophy,
-  loss: Skull,
-  push: Minus,
-}
-
-// ─── Leg → game association (illustrative) ─────────────────────────────────
-// Legs are free text with no game FK, so which game a bet "belongs to" is a
-// deterministic hash scatter for now. Real association needs a
-// parlay_legs.nfl_game_id column (or AI matching) — deferred.
-
-const hashStr = (s: string) => {
-  let h = 0
-  for (let i = 0; i < s.length; i++) {
-    h = (h << 5) - h + s.charCodeAt(i)
-    h |= 0
-  }
-  return Math.abs(h)
-}
-
-function distributeLegsAcrossGames(
-  legs: LegRoster[],
-  gameCount: number
-): Map<number, LegRoster[]> {
-  const out = new Map<number, LegRoster[]>()
-  if (gameCount === 0) return out
-  for (const leg of legs) {
-    const idx = hashStr(leg.id) % gameCount
-    const arr = out.get(idx) ?? []
-    arr.push(leg)
-    out.set(idx, arr)
-  }
-  return out
-}
-
 // ─── Public component ──────────────────────────────────────────────────────
 
 /**
- * In-season schedule strip — compact grid of matchup cards grouped by
- * day. Tap any card to open a `GameDetailSheet` with the full game
- * info: bets list, lines/odds placeholder, and room to grow into live
- * score / drives / player stats once the NFL feed is wired up.
+ * In-season schedule strip — matchup rows grouped by day. Tap one to
+ * open its sheet: kickoff, network, venue, and the live score or the
+ * final, all of it off the schedule sync.
  *
- * Why a sheet (not inline accordion): each game has unbounded future
- * detail (live score, scoring plays, player props, betting odds tables,
- * member bet history). A sheet has full screen on mobile + a large
- * modal on desktop, which keeps the page surface tight.
+ * WHAT IT DOESN'T SAY IS WHOSE BET IS ON WHICH GAME, because the app
+ * doesn't know. A leg is free text ("Lions Alt Spread -3.5") with no
+ * foreign key to a game, and this file used to paper over that by
+ * HASHING THE LEG ID and scattering real people's real bets across the
+ * schedule — so a row would show your face, ringed in win-or-loss
+ * colour, on a game you never touched. It also printed a full
+ * sportsbook grid (spread, total, moneyline, juice) generated from a
+ * hash of the two team abbreviations.
+ *
+ * Both are gone. Whose bet is whose lives in THE LAY, where it's true.
  */
 export function WeekSlate({
   firstKickoff,
   games: gamesProp,
   nflWeekId = null,
-  legs = [],
-  currentUserId,
 }: WeekSlateProps) {
   // Live scores are merged over the server-rendered schedule. The hook is
   // idle outside the slate window, so this costs nothing most of the week.
@@ -295,11 +213,6 @@ export function WeekSlate({
         : g
     })
   }, [gamesProp, liveById])
-  const legsByGameIdx = useMemo(
-    () => distributeLegsAcrossGames(legs, games.length),
-    [legs, games.length]
-  )
-
   // How wide a net to cast. The switch itself lives up in the week
   // header (see week-scope.tsx) — the slate just does what it's told.
   const scope = useSlateScope()
@@ -308,19 +221,13 @@ export function WeekSlate({
     () =>
       games
         .map((g, idx) => ({ g, idx }))
-        .filter(({ g, idx }) => {
-          if (scope === 'all') return true
-          if (scope === 'slate') return g.inSlate
-          return (legsByGameIdx.get(idx)?.length ?? 0) > 0
-        }),
-    [games, scope, legsByGameIdx]
+        .filter(({ g }) => scope === 'all' || g.inSlate),
+    [games, scope]
   )
 
   // Open game in the sheet — tracks by matchup index.
   const [openGameIdx, setOpenGameIdx] = useState<number | null>(null)
   const openGame = openGameIdx != null ? games[openGameIdx] : null
-  const openGameLegs =
-    openGameIdx != null ? legsByGameIdx.get(openGameIdx) ?? [] : []
 
   // No heading: the week header above already names the week and carries
   // the scope switch. All that's left is the games and, while they're
@@ -350,8 +257,6 @@ export function WeekSlate({
                   <GameCard
                     key={idx}
                     game={g}
-                    legs={legsByGameIdx.get(idx) ?? []}
-                    currentUserId={currentUserId}
                     onClick={() => setOpenGameIdx(idx)}
                   />
                 ))}
@@ -364,9 +269,7 @@ export function WeekSlate({
             <p className="text-xs text-muted-foreground italic">
               {games.length === 0
                 ? 'Schedule not loaded for this week yet.'
-                : scope === 'action'
-                  ? "Nothing riding yet — nobody's picked a game."
-                  : 'No games in this scope. Widen it to see more.'}
+                : 'No games in this scope. Widen it to see more.'}
             </p>
           </div>
         )}
@@ -377,8 +280,6 @@ export function WeekSlate({
           open={openGameIdx != null}
           onClose={() => setOpenGameIdx(null)}
           game={openGame}
-          legs={openGameLegs}
-          currentUserId={currentUserId}
         />
       )}
     </div>
@@ -389,24 +290,12 @@ export function WeekSlate({
 
 function GameCard({
   game,
-  legs,
-  currentUserId,
   onClick,
 }: {
   game: SlateGame
-  legs: LegRoster[]
-  currentUserId?: string
   onClick: () => void
 }) {
   const time = fmtKickoffTime(game.kickoff)
-  // Pin viewer first so their avatar is always visible.
-  const sortedLegs = currentUserId
-    ? [...legs].sort((a, b) => {
-        if (a.userId === currentUserId && b.userId !== currentUserId) return -1
-        if (b.userId === currentUserId && a.userId !== currentUserId) return 1
-        return 0
-      })
-    : legs
 
   // Edge-to-edge colored header — diagonal seam between the away
   // team's color (left) and home team's color (right). Logos sit
@@ -502,41 +391,6 @@ function GameCard({
           )
         )}
 
-        {/* Who's got money on it. */}
-        <div className="flex h-5 shrink-0 items-center">
-          {sortedLegs.length > 0 ? (
-            <div className="flex -space-x-1.5">
-              {sortedLegs.slice(0, 4).map((l) => {
-                const status = statusOf(l)
-                const isMine = l.userId === currentUserId
-                return (
-                  <Avatar
-                    key={l.id}
-                    className={cn('h-5 w-5', 'ring-2', STATUS_RING[status])}
-                    title={
-                      (isMine ? 'You' : l.fullName ?? l.email) +
-                      ` — ${STATUS_LABEL[status]}`
-                    }
-                  >
-                    <AvatarImage src={l.avatarUrl ?? undefined} alt={l.fullName ?? l.email} />
-                    <AvatarFallback className="bg-primary text-primary-foreground text-[8px] font-bold">
-                      {getInitials(l.fullName, l.email)}
-                    </AvatarFallback>
-                  </Avatar>
-                )
-              })}
-              {sortedLegs.length > 4 && (
-                <div className="h-5 w-5 rounded-full bg-white/10 ring-2 ring-black/60 inline-flex items-center justify-center text-[7px] font-bold text-muted-foreground tabular-nums">
-                  +{sortedLegs.length - 4}
-                </div>
-              )}
-            </div>
-          ) : (
-            <span className="text-[9px] tracking-widest uppercase text-muted-foreground/40">
-              No bets
-            </span>
-          )}
-        </div>
       </div>
     </button>
   )
@@ -548,23 +402,12 @@ function GameDetailSheet({
   open,
   onClose,
   game,
-  legs,
-  currentUserId,
 }: {
   open: boolean
   onClose: () => void
   game: SlateGame
-  legs: LegRoster[]
-  currentUserId?: string
 }) {
   const time = fmtKickoffTime(game.kickoff)
-  const sortedLegs = currentUserId
-    ? [...legs].sort((a, b) => {
-        if (a.userId === currentUserId && b.userId !== currentUserId) return -1
-        if (b.userId === currentUserId && a.userId !== currentUserId) return 1
-        return 0
-      })
-    : legs
 
   return (
     <ResponsiveSheet
@@ -617,42 +460,9 @@ function GameDetailSheet({
             </p>
           )}
 
-          {/* Bets on this game */}
-          {sortedLegs.length > 0 ? (
-            <div className="space-y-2">
-              <p className="text-[10px] font-bold tracking-[0.25em] uppercase text-muted-foreground">
-                Bets on this game
-              </p>
-              <ul className="space-y-1.5">
-                {sortedLegs.map((l) => (
-                  <BetRow key={l.id} leg={l} currentUserId={currentUserId} />
-                ))}
-              </ul>
-            </div>
-          ) : (
-            <div className="rounded-md border border-dashed border-white/10 bg-white/[0.02] px-3 py-2.5 text-center">
-              <p className="text-xs text-muted-foreground italic">
-                No league bets on this game yet.
-              </p>
-            </div>
-          )}
-
-          {/* Lines & odds — mocked card grid. */}
-          <div className="space-y-2">
-            <p className="text-[10px] font-bold tracking-[0.25em] uppercase text-muted-foreground">
-              Lines &amp; odds
-            </p>
-            <LinesOddsMock game={game} />
-            <p className="inline-flex items-center gap-1.5 text-[10px] text-muted-foreground/70">
-              <ExternalLink className="h-3 w-3" />
-              Illustrative lines — real odds light up when the odds feed
-              is wired.
-            </p>
-          </div>
-
-          {/* Game state — real status + final scores from the nightly
-              schedule sync; in-progress detail (quarter/clock) stays
-              illustrative until a live feed is wired. */}
+          {/* Game state — all of it real: status and final scores from
+              the nightly schedule sync, quarter and clock from the live
+              feed while it's running. */}
           <div className="space-y-2">
             <p className="text-[10px] font-bold tracking-[0.25em] uppercase text-muted-foreground">
               Game state
@@ -665,124 +475,10 @@ function GameDetailSheet({
   )
 }
 
-// ─── Bet row (sheet) ───────────────────────────────────────────────────────
+// ─── Game state (pre / live / final) ───────────────────────────────────────
 
-function BetRow({
-  leg,
-  currentUserId,
-}: {
-  leg: LegRoster
-  currentUserId?: string
-}) {
-  const status = statusOf(leg)
-  const isMine = leg.userId === currentUserId
-  const StatusIcon = STATUS_ICON[status]
-  const displayName = isMine ? 'You' : leg.fullName ?? leg.email.split('@')[0]
-  return (
-    <li className="flex items-start gap-2.5 rounded-md border border-white/5 bg-white/[0.02] px-2.5 py-2">
-      <Avatar
-        className={cn('h-7 w-7 shrink-0 mt-0.5', 'ring-2', STATUS_RING[status])}
-      >
-        <AvatarImage src={leg.avatarUrl ?? undefined} alt={displayName} />
-        <AvatarFallback className="bg-primary text-primary-foreground text-[10px] font-bold">
-          {getInitials(leg.fullName, leg.email)}
-        </AvatarFallback>
-      </Avatar>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p
-            className={cn(
-              'text-[10px] font-bold tracking-widest uppercase truncate min-w-0 flex-1',
-              isMine ? 'text-neon-blue' : 'text-muted-foreground'
-            )}
-          >
-            {displayName}
-          </p>
-          <span
-            className={cn(
-              'inline-flex items-center gap-1 text-[9px] font-bold tracking-wider uppercase shrink-0',
-              STATUS_TEXT[status]
-            )}
-          >
-            <StatusIcon className="h-2.5 w-2.5" strokeWidth={3} />
-            {STATUS_LABEL[status]}
-          </span>
-        </div>
-        <p className="text-sm font-medium text-foreground/90 break-words line-clamp-2 mt-0.5">
-          {leg.description || 'No description'}
-        </p>
-      </div>
-      <span
-        className={cn(
-          'shrink-0 text-sm font-bold tabular-nums leading-none mt-1',
-          leg.odds > 0 ? 'text-foreground/90' : 'text-muted-foreground'
-        )}
-      >
-        {fmtOdds(leg.odds)}
-      </span>
-    </li>
-  )
-}
-
-// ─── Lines & odds mock ─────────────────────────────────────────────────────
-
-function LinesOddsMock({ game }: { game: SlateGame }) {
-  // Deterministic illustrative values per matchup so cards stay visually
-  // consistent across re-renders. Swapped for a real odds feed later.
-  const h = hashStrSlate(game.away.abbr + game.home.abbr)
-  const spread = (1.5 + ((h % 14) * 0.5)).toFixed(1)
-  const total = (38.5 + ((h % 12) * 0.5)).toFixed(1)
-  const favML = -(120 + (h % 200))
-  const dogML = 100 + ((h >> 4) % 250)
-  return (
-    <div className="grid grid-cols-3 gap-1.5">
-      <LineCell label="Spread" line={`${game.away.abbr} -${spread}`} odds="-110" />
-      <LineCell label="Total" line={`Over ${total}`} odds="-110" />
-      <LineCell label="Moneyline" line={game.away.abbr} odds={fmtOdds(favML)} />
-      <LineCell label="Spread" line={`${game.home.abbr} +${spread}`} odds="-110" />
-      <LineCell label="Total" line={`Under ${total}`} odds="-110" />
-      <LineCell label="Moneyline" line={game.home.abbr} odds={fmtOdds(dogML)} />
-    </div>
-  )
-}
-
-function LineCell({
-  label,
-  line,
-  odds,
-}: {
-  label: string
-  line: string
-  odds: string
-}) {
-  return (
-    <div className="rounded-md border border-white/10 bg-white/[0.02] px-2 py-1.5 text-center">
-      <p className="text-[8px] font-bold tracking-widest uppercase text-muted-foreground/70 mb-1">
-        {label}
-      </p>
-      <p className="text-[11px] font-semibold text-foreground/90 truncate leading-tight">
-        {line}
-      </p>
-      <p className="text-[10px] tabular-nums text-muted-foreground mt-0.5">
-        {odds}
-      </p>
-    </div>
-  )
-}
-
-// ─── Game state mock (pre / live / final) ──────────────────────────────────
-
-function hashStrSlate(s: string) {
-  let h = 0
-  for (let i = 0; i < s.length; i++) {
-    h = (h << 5) - h + s.charCodeAt(i)
-    h |= 0
-  }
-  return Math.abs(h)
-}
-
-// Real status + scores where the schedule sync has them; the in-progress
-// quarter/clock detail is illustrative until a live feed is wired.
+// All real: status and scores from the schedule sync, quarter and clock
+// from the live feed.
 function GameStateBlock({ game }: { game: SlateGame }) {
   if (game.status === 'final') {
     return (

@@ -30,7 +30,7 @@ export interface WeekStagePayload {
   lockAt: string | null
   kickoff: string | null
   /** How many games each slate scope would show. Null when there's no slate. */
-  scopeCounts: { action: number; slate: number; all: number } | null
+  scopeCounts: { slate: number; all: number } | null
   games: SlateGame[] | null
   legs: LegRoster[]
   /** Whether the parlay is still taking legs (nobody's sealed it yet). */
@@ -125,7 +125,6 @@ export async function getWeekStage(
       kickoff: parlay.week.startDate,
       scopeCounts: slate
         ? {
-            action: legs.length,
             slate: slate.games.filter((g) => g.inSlate).length,
             all: slate.games.length,
           }

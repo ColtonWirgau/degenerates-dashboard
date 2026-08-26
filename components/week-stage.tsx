@@ -182,8 +182,6 @@ export function WeekStage({
         firstKickoff={stage.kickoff}
         games={stage.games}
         nflWeekId={stage.nflWeekId}
-        legs={stage.legs}
-        currentUserId={chrome?.me.id}
       />
 
       {/* The week's housekeeping, at the foot of everything it applies

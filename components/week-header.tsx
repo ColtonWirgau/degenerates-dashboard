@@ -43,13 +43,10 @@ export function WeekHeader({
   legs: WeekHeroLeg[]
   currentUserId: string | undefined
 }) {
-  const postLock = state !== 'open'
-  const actionCount = scopeCounts?.action ?? 0
-
-  // The week decides how wide the slate opens; changing weeks re-decides.
+  // Every week opens on the league's own slate; changing weeks resets it.
   useEffect(() => {
-    resetSlateScope(postLock, actionCount)
-  }, [weekNumber, postLock, actionCount])
+    resetSlateScope()
+  }, [weekNumber])
 
   return (
     <>
