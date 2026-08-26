@@ -31,6 +31,7 @@ import {
   type EntryGroup,
 } from '@/lib/charter-groups'
 import type { SeasonState } from '@/lib/data/types'
+import { isMockData } from '@/lib/data/data-source'
 
 export type { PollMember }
 
@@ -113,7 +114,7 @@ export function OffseasonPollsHub({
   // server data. Optimistic local state stays in place between the push
   // and the next render so there's no visual flicker.
   useEffect(() => {
-    if (process.env.NEXT_PUBLIC_DATA_SOURCE !== 'neon') return
+    if (isMockData()) return
     let client: ReturnType<typeof getAblyClient> | null = null
     try {
       client = getAblyClient()

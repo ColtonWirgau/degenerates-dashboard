@@ -3,6 +3,7 @@ import { SCENARIOS, DEFAULT_SCENARIO_ID } from '@/lib/data/scenarios'
 import { SCENARIO_COOKIE } from '@/lib/data/active-scenario'
 import { MOCK_USER_COOKIE, getMockUserOptions } from '@/lib/data/auth-bridge'
 import { DEV_PHASE_COOKIE } from '@/lib/data/dev-now'
+import { isMockData } from '@/lib/data/data-source'
 
 export type DevSeasonPhase =
   | 'auto'
@@ -33,7 +34,7 @@ export interface DevPhaseData {
  */
 export async function getDevPhaseData(): Promise<DevPhaseData | null> {
   if (process.env.NODE_ENV !== 'development') return null
-  if ((process.env.NEXT_PUBLIC_DATA_SOURCE ?? 'mock') !== 'neon') return null
+  if (isMockData()) return null
   const c = await cookies()
   const active = (c.get(DEV_PHASE_COOKIE)?.value ?? 'auto') as DevSeasonPhase
   return { phases: DEV_SEASON_PHASES, active }
@@ -52,7 +53,7 @@ export interface DevToolbarData {
  * can hide the toolbar surface entirely outside dev/mock.
  */
 export async function getDevToolbarData(): Promise<DevToolbarData | null> {
-  if ((process.env.NEXT_PUBLIC_DATA_SOURCE ?? 'mock') !== 'mock') return null
+  if (!isMockData()) return null
 
   const c = await cookies()
   const activeScenarioId = c.get(SCENARIO_COOKIE)?.value ?? DEFAULT_SCENARIO_ID

@@ -12,6 +12,7 @@ import { WeekStage } from '@/components/week-stage'
 import { DraftHero } from '@/components/charter/draft-hero'
 import { groupFor } from '@/lib/charter-groups'
 import { OffseasonPollsHub } from '@/components/offseason-polls-hub'
+import { dataSource } from '@/lib/data/data-source'
 
 /**
  * THE LEAGUE — one page, and that's the whole app.
@@ -116,13 +117,13 @@ async function PreseasonStage({ payload: p }: { payload: Payload }) {
   // WHO'S KEEPING WHOM. The board is a record; the deadline only matters
   // where declaring happens, which is the keeper sheet off the pod.
   const keepers = await adapter.getKeepers(p.league.id, p.season)
-  const dataSource = process.env.NEXT_PUBLIC_DATA_SOURCE ?? 'mock'
+  const source = dataSource()
   const preseasonWeek = (
     await getLeagueWeeksCached(p.league.id, p.season)
   ).weeks.find((w) => w.kind === 'preseason')
 
   const polls =
-    dataSource === 'neon' && preseasonWeek
+    source === 'neon' && preseasonWeek
       ? await adapter.getPolls(p.league.id, {
           statuses: ['open', 'closed'],
           nflWeekId: preseasonWeek.nflWeekId,

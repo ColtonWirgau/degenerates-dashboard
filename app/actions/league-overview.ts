@@ -8,6 +8,7 @@ import { generateMockPolls } from '@/lib/data/mock-polls'
 import type { LeaguePoll } from '@/lib/data/mock-polls'
 import { generateMockCharter } from '@/lib/data/mock-charter'
 import type { CharterEntry } from '@/lib/data/mock-charter'
+import { dataSource } from '@/lib/data/data-source'
 
 // Single composite read used by the league page. Pulls everything the page
 // needs from the adapter so the page itself can stay thin (no data plumbing,
@@ -213,10 +214,10 @@ export async function getLeagueOverview(leagueId: string) {
   // path). In mock mode use the deterministic generators we've been
   // iterating against. Schema-shape is identical either way so consumers
   // don't notice.
-  const dataSource = process.env.NEXT_PUBLIC_DATA_SOURCE ?? 'mock'
+  const source = dataSource()
   let polls: LeaguePoll[]
   let charter: CharterEntry[]
-  if (dataSource === 'neon') {
+  if (source === 'neon') {
     polls = await adapter.getPolls(league.id, { statuses: ['open', 'closed'] })
     charter = await adapter.getCharter(league.id, season)
     // First-time load for this league/season → bootstrap the standard

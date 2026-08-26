@@ -35,6 +35,7 @@ import { getAblyClient } from '@/lib/ably/client'
 import { channelName } from '@/lib/ably/channels'
 import type { LeaguePoll } from '@/lib/data/mock-polls'
 import { cn } from '@/lib/utils'
+import { isMockData } from '@/lib/data/data-source'
 
 const TOPIC_LABEL: Record<LeaguePoll['topic'], string> = {
   punishment: 'Punishment',
@@ -71,7 +72,7 @@ export function WeekPolls({
   // Someone else voted, or asked something. The vote overlay survives the
   // refresh, so the tally moves without the viewer's own pick flickering.
   useEffect(() => {
-    if (process.env.NEXT_PUBLIC_DATA_SOURCE !== 'neon') return
+    if (isMockData()) return
     let client: ReturnType<typeof getAblyClient> | null = null
     try {
       client = getAblyClient()

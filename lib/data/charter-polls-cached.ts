@@ -14,11 +14,12 @@
 import { cache } from 'react'
 import { getDataAdapter } from '@/lib/data/adapter'
 import type { LeaguePoll } from '@/lib/data/mock-polls'
+import { isMockData } from '@/lib/data/data-source'
 
 export const getCharterPollsCached = cache(
   async (leagueId: string, preseasonWeekId: string): Promise<LeaguePoll[]> => {
     if (!preseasonWeekId) return []
-    if ((process.env.NEXT_PUBLIC_DATA_SOURCE ?? 'mock') !== 'neon') return []
+    if (isMockData()) return []
     const adapter = await getDataAdapter()
     return adapter.getPolls(leagueId, {
       statuses: ['open', 'closed'],

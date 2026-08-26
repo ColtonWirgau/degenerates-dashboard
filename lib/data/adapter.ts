@@ -17,6 +17,7 @@ import type {
   Role,
   SeasonState,
 } from './types';
+import { dataSource } from './data-source';
 import type { CharterEntry, CharterApprovalRule, CharterCategory } from './mock-charter';
 import type {
   LeaguePoll,
@@ -233,20 +234,33 @@ export interface CreateCharterEntryInput {
 }
 
 // ─── Adapter selection ──────────────────────────────────────────────────────
-// `NEXT_PUBLIC_DATA_SOURCE=mock|neon` picks the impl. Default: 'mock'
-// (kept as a permanent dev/demo tool); production runs 'neon'.
+// `NEXT_PUBLIC_DATA_SOURCE=mock|neon` picks the impl.
+//
+// THE REAL ONE IS THE DEFAULT, and that is not a style preference. This
+// used to fall back to 'mock', so a single missing environment variable
+// on the host meant the deployed app served a FABRICATED league to real
+// people — invented members, invented legs pulled out of leg-library,
+// invented standings — with nothing on screen to say so. The failure
+// mode of a typo'd env var should be an error, not a convincing lie.
+//
+// Mock stays available as a dev/demo tool, but you now have to ask for
+// it by name, and it says so out loud when it wakes up.
 
 let _instance: DataAdapter | null = null;
 
 export async function getDataAdapter(): Promise<DataAdapter> {
   if (_instance) return _instance;
-  const source = process.env.NEXT_PUBLIC_DATA_SOURCE ?? 'mock';
-  if (source === 'neon') {
-    const mod = await import('./neon-adapter');
-    _instance = mod.neonAdapter;
-  } else {
+  const source = dataSource();
+  if (source === 'mock') {
+    console.warn(
+      '[data] NEXT_PUBLIC_DATA_SOURCE=mock — serving FABRICATED league data. ' +
+        'Nothing on this screen is real.'
+    );
     const mod = await import('./mock-adapter');
     _instance = mod.mockAdapter;
+  } else {
+    const mod = await import('./neon-adapter');
+    _instance = mod.neonAdapter;
   }
   return _instance;
 }

@@ -9,6 +9,7 @@ import type { LegRoster } from '@/components/week-detail-sheet'
 import type { LeaguePoll } from '@/lib/data/mock-polls'
 import type { ParlayState } from '@/lib/data/types'
 import type { SlateGame } from '@/lib/data/week-slate'
+import { dataSource } from '@/lib/data/data-source'
 
 /**
  * ONE WEEK'S CONTENT, fetched on demand.
@@ -67,7 +68,7 @@ export async function getWeekStage(
     return { error: 'Access denied - not a member of this league', payload: null }
   }
 
-  const dataSource = process.env.NEXT_PUBLIC_DATA_SOURCE ?? 'mock'
+  const source = dataSource()
 
   // Opening a week is what creates its parlay — lazily, so a week nobody
   // has looked at costs nothing and a new league is never a dead end.
@@ -75,7 +76,7 @@ export async function getWeekStage(
   if (!parlay) return { error: 'Week not found', payload: null }
 
   const members = await adapter.getLeagueMembers(leagueId)
-  const slate = dataSource === 'neon' ? await getWeekSlate(leagueId, nflWeekId) : null
+  const slate = source === 'neon' ? await getWeekSlate(leagueId, nflWeekId) : null
 
   const legs: LegRoster[] = parlay.legs.map((l) => ({
     id: l.id,
@@ -106,7 +107,7 @@ export async function getWeekStage(
   // record, and hiding it the moment it's decided is how a league forgets
   // what it agreed.
   const polls =
-    dataSource === 'neon'
+    source === 'neon'
       ? await adapter.getPolls(leagueId, {
           statuses: ['open', 'closed'],
           nflWeekId,

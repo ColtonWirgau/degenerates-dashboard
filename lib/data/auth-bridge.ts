@@ -6,6 +6,7 @@
 
 import { cookies } from 'next/headers';
 import { auth } from '@/auth';
+import { dataSource } from './data-source';
 import rawProfiles from './fixtures/user_profiles.json';
 import rawMembers from './fixtures/league_members.json';
 
@@ -43,7 +44,7 @@ const profileToCurrent = (p: RawProfile): CurrentUser => ({
 /** Returns the active user, or null if nobody is logged in (and we can't
  *  infer one from the dev toolbar). */
 export async function getCurrentUser(): Promise<CurrentUser | null> {
-  const source = process.env.NEXT_PUBLIC_DATA_SOURCE ?? 'mock';
+  const source = dataSource();
 
   if (source === 'mock') {
     const c = await cookies();
