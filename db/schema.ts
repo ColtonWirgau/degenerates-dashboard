@@ -414,6 +414,23 @@ export const parlayLegs = pgTable(
     legNumber: integer('leg_number').notNull().default(0),
     description: text('description').notNull(),
     odds: integer('odds').notNull(), // American odds: -110, +145
+    /**
+     * WHICH GAME THIS BET IS ON.
+     *
+     * A leg is free text — "Lions Alt Spread -3.5", "Puka 90+ rec yards"
+     * — and until now that was all it was. The slate faked the link by
+     * hashing the leg id and scattering people's bets across the
+     * schedule at random, because there was nothing real to read.
+     *
+     * NULLABLE on purpose, and it always will be. Some legs genuinely
+     * aren't one game: "DK/ASB combined rec yards 150+" is a bet across
+     * two of them. A null here means "we don't know / it isn't one
+     * game", which is the honest answer and the one the UI has to be
+     * able to render.
+     */
+    nflGameId: text('nfl_game_id').references(() => nflGames.id, {
+      onDelete: 'set null',
+    }),
     result: legResultEnum('result'),
     validationStatus: validationStatusEnum('validation_status'),
     validationMessage: text('validation_message'),
