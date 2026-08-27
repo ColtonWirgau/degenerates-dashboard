@@ -30,7 +30,7 @@ import {
   type PollMember,
   type SessionVote,
 } from '@/components/polls/types'
-import { decidedBy } from '@/lib/poll-outcome'
+import { decidedBy, tallyPoll } from '@/lib/poll-outcome'
 
 // Compact inline poll voter for use inside an EntryDock. Supports single-
 // choice polls fully; ranked polls land a "Open in voter" CTA pointing at
@@ -175,6 +175,98 @@ export function RankedChoiceVote({
         onTap={cycleRank}
       />
       {effective.length > 0 && <ClearVoteButton onClear={() => onVote({})} />}
+      <RankedStandings poll={poll} maxRanks={maxRanks} />
+    </div>
+  )
+}
+
+/**
+ * WHAT'S ACTUALLY WINNING.
+ *
+ * A single-choice poll has shown a live bar and a percentage since it was
+ * written. The ranked one showed a row of chips and nothing else — so the
+ * league asked each other in a group chat who was ahead, and concluded
+ * the commissioner had to go and look it up. Eight of twelve had voted at
+ * the time, and the answer existed; the page just never said it.
+ *
+ * Scored exactly the way the outcome is scored when the vote closes and
+ * the result goes into the rule book — a first choice out of three worth
+ * three, a second two, a third one — so the order people watch is the
+ * order that eventually settles. Two tallies would drift, and the one
+ * nobody could see would be the one that counted.
+ *
+ * The top `maxRanks` are marked, because "choose your top 3" settles as a
+ * top three: those rows ARE the current answer, not merely the leaders.
+ */
+function RankedStandings({ poll, maxRanks }: { poll: LeaguePoll; maxRanks: number }) {
+  const { counts, voters } = tallyPoll(poll)
+  const ranked = [...counts.entries()]
+    .filter(([, points]) => points > 0)
+    .sort((a, b) => b[1] - a[1])
+  if (ranked.length === 0) return null
+
+  const top = ranked[0]![1]
+  // WHERE THE LINE FALLS, by score rather than by row. Two options tied
+  // at the cut are both in contention, and marking one in and the other
+  // out on nothing but array order would be the page inventing a result
+  // — the same sin as claiming a ranked poll is decided early. Right now
+  // Walmarts and the Milk Mile are level on 9 for the third spot.
+  const cutoff = ranked[Math.min(maxRanks, ranked.length) - 1]![1]
+  const tiedAtCut = ranked.filter(([, p]) => p === cutoff).length > 1
+  return (
+    <div className="space-y-1 border-t border-dashed border-white/10 pt-2">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-muted-foreground text-[10px] font-bold tracking-[0.28em] uppercase">
+          Running order
+        </p>
+        <p className="text-muted-foreground/60 text-[10px] tabular-nums">
+          {tiedAtCut && <span className="text-muted-foreground/50">tied · </span>}
+          {voters} {voters === 1 ? 'vote' : 'votes'} in
+        </p>
+      </div>
+      {ranked.map(([id, points], i) => {
+        const label = poll.options.find((o) => o.id === id)?.label ?? '—'
+        const leading = points >= cutoff
+        return (
+          <div key={id} className="flex items-center gap-2">
+            <span
+              className={cn(
+                'font-display w-3 shrink-0 text-[10px] leading-none tabular-nums',
+                leading ? 'text-neon-blue' : 'text-muted-foreground/40'
+              )}
+            >
+              {i + 1}
+            </span>
+            <span
+              className={cn(
+                'min-w-0 flex-1 truncate text-[11px] leading-tight',
+                leading ? 'text-foreground/90 font-semibold' : 'text-muted-foreground/70'
+              )}
+            >
+              {label}
+            </span>
+            {/* The bar is relative to the leader, so the gap between
+                first and fourth is a length rather than a subtraction. */}
+            <span className="hidden h-1 w-16 shrink-0 overflow-hidden rounded-full bg-white/[0.06] sm:block">
+              <span
+                className={cn(
+                  'block h-full rounded-full',
+                  leading ? 'bg-neon-blue/70' : 'bg-white/20'
+                )}
+                style={{ width: `${Math.round((points / top) * 100)}%` }}
+              />
+            </span>
+            <span
+              className={cn(
+                'w-6 shrink-0 text-right text-[10px] tabular-nums',
+                leading ? 'text-neon-blue/80' : 'text-muted-foreground/50'
+              )}
+            >
+              {points}
+            </span>
+          </div>
+        )
+      })}
     </div>
   )
 }
