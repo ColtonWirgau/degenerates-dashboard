@@ -1,7 +1,7 @@
 /**
  * Put the premiere reel in Vercel Blob and print its URL.
  *
- *   node scripts/upload-gameday.mjs                     # .video-work/gameday-2026.mp4
+ *   node scripts/upload-gameday.mjs                     # media-source/gameday-2026.mp4
  *   node scripts/upload-gameday.mjs path/to/other.mp4
  *
  * WHY NOT `public/`. Vercel deploys from git, so anything under public/
@@ -26,7 +26,7 @@ import { config } from 'dotenv'
 
 config({ path: '.env.local', quiet: true })
 
-const source = process.argv[2] ?? '.video-work/gameday-2026.mp4'
+const source = process.argv[2] ?? 'media-source/gameday-2026.mp4'
 
 if (!process.env.BLOB_READ_WRITE_TOKEN) {
   console.error('BLOB_READ_WRITE_TOKEN is not set.\n')
