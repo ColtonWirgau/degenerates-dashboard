@@ -75,3 +75,8 @@ CLAUDE.md
 # Real-data snapshot for Neon migration (PII — never commit)
 lib/data/fixtures/real-snapshot/
 db/backups/
+
+# Source video — the masters and the web encode for the gameday reel.
+# Deployed copies live in Vercel Blob (scripts/upload-gameday.mjs), never
+# in git: the encode alone is 93MB against a 22MB .git.
+/media-source/
